@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NL2SQL Pipeline: Production Architecture (v2, DBMS-mediated)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;color:#1a1a1a;background:#fff;font:15px/1.55 Inter,"Helvetica Neue",Helvetica,Arial,sans-serif}
+main{max-width:1180px;margin:0 auto;padding:34px 20px 70px}
+h1,h2{font-family:"Playfair Display","Fraunces",Georgia,serif}
+h1{font-size:28px;margin:0 0 6px}
+h2{font-size:20px;margin:40px 0 10px;padding-bottom:6px;border-bottom:1px solid #ddd}
+p{margin:8px 0}
+.meta{color:#666;font-size:13px}
+.loop{background:#f6f7f8;border:1px solid #ddd;border-radius:8px;padding:10px 14px;font-size:14px}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:10px 0}
+th,td{border:1px solid #ddd;padding:7px 10px;text-align:left;vertical-align:top}
+th{background:#f6f7f8}
+td.n{text-align:center;color:#888;width:32px}
+figure{margin:14px 0}
+figure svg{display:block;width:100%;height:auto;border:1px solid #ddd;border-radius:10px;background:#fff}
+figcaption{color:#666;font-size:12.5px;text-align:center;margin-top:7px}
+code{font:13px ui-monospace,Menlo,Consolas,monospace;background:#f6f7f8;padding:1px 5px;border-radius:4px}
+ul,ol{margin:8px 0;padding-left:22px}
+li{margin:5px 0}
+ol.refs{font-size:13.5px}
+ol.refs a{color:#0b5cad}
+a.r{color:#0b5cad;text-decoration:none}
+footer{margin-top:44px;padding-top:12px;border-top:1px solid #ddd;color:#666;font-size:12.5px}
+</style>
+</head>
+<body>
+<main>
+<h1>NL2SQL Pipeline: Production Architecture</h1>
+<p class="meta">Design draft for team review, v2 · diagram and legend inlined · headings Playfair/Fraunces, body Inter/Helvetica · stage numbers in the diagram match section 3</p>
+
+<h2>1. Overview</h2>
+<p>A human-supervised natural-language-to-SQL pipeline: users query and modify a database in plain English, and the agent never touches the database directly. Every generated statement is validated, parameterized, and converted to the target dialect, then submitted to the DBMS the user already runs: MySQL, Oracle, SQL Server, Microsoft Access, or similar. The DBMS executes the statement and applies the change. The pipeline's only data touchpoint is that DBMS, so the user's existing permissions, roles, and auditing stay in force.</p>
+<p class="loop">Core loop: query → cache check → generate SQL → validate → estimate cost/risk → route by risk tier → human approval (writes only) → submit to the user's DBMS → execute → return results. Every sub-project in section 4 strengthens exactly one stage of this loop.</p>
+
+<h2>2. Architecture</h2>
+<figure>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 2030" role="img" aria-labelledby="n2t">
+<title id="n2t">NL2SQL pipeline v2: the agent submits validated SQL to the user's DBMS (MySQL, Oracle, SQL Server, Access), which executes it against the database</title>
+<defs>
+<marker id="n2-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#444"/></marker>
+<marker id="n2-ahg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#777"/></marker>
+</defs>
+<style>
+.n2-box{fill:#fff;stroke:#333;stroke-width:1.5}
+.n2-blue{fill:#d6e8f5}.n2-pink{fill:#f9d5d3}.n2-green{fill:#c9e4de}
+.n2-yell{fill:#fdf6b2;stroke-dasharray:5 5}.n2-gray{fill:#e0e0e0;stroke-dasharray:2 2}
+.n2-edge{fill:none;stroke:#444;stroke-width:1.6;stroke-linejoin:round}
+.n2-dash{stroke:#777;stroke-dasharray:6 4}.n2-audit{stroke:#999;stroke-dasharray:2 3}
+.n2-txt{font-family:Inter,system-ui,'Segoe UI',Roboto,Arial,sans-serif;font-size:12px;text-anchor:middle;fill:#111}
+.n2-sub{font-family:Inter,system-ui,'Segoe UI',Roboto,Arial,sans-serif;font-size:10.5px;text-anchor:middle;fill:#444}
+.n2-lbl{font-family:Inter,system-ui,'Segoe UI',Roboto,Arial,sans-serif;font-size:10px;text-anchor:middle;fill:#555;paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round}
+.n2-ls{text-anchor:start}.n2-num{font-family:Inter,system-ui,sans-serif;font-size:9px;fill:#888}
+.n2-li{font-family:Inter,system-ui,'Segoe UI',Roboto,Arial,sans-serif;font-size:12px;text-anchor:start;fill:#333}
+.n2-lt{font-family:Inter,system-ui,'Segoe UI',Roboto,Arial,sans-serif;font-size:13px;font-weight:600;fill:#333}
+</style>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M515,76 L515,112"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M515,162 L515,196"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M400,227 L310,227"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M210,204 L210,62 L442,62"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M515,258 L515,292"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M400,338 L68,338 L68,1776 L400,1776"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M515,384 L515,418"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M515,480 L515,514"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M515,564 L515,598"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M515,660 L515,694"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M515,744 L515,778"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M400,828 L315,828"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M210,783 L210,532 L400,532"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M210,873 L210,914"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M515,878 L515,912"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M400,943 L315,943"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M515,974 L515,1008"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M400,1054 L210,1054 L210,1094"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M515,1100 L515,1134"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M515,1196 L515,1230"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M400,1276 L360,1276 L360,949 A6,6 0 0 1 360,937 L360,834 A6,6 0 0 1 360,822 L360,546 L400,546"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M515,1322 L515,1356"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M515,1418 L515,1452"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M515,1514 L515,1548"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M515,1610 L515,1642"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M515,1706 L515,1740"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M630,1765 L1140,1765 L1140,53 L590,53"/>
+<path class="n2-edge" d="M95,943 L74,943 A6,6 0 0 0 62,943 L40,943 L40,62 L210,62"/>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M210,1168 L210,1754 L400,1754"/>
+<path class="n2-edge n2-dash" marker-end="url(#n2-ahg)" d="M800,730 L630,828"/>
+<path class="n2-edge n2-dash" marker-end="url(#n2-ahg)" d="M800,1165 L630,1165"/>
+<path class="n2-edge n2-dash" marker-end="url(#n2-ahg)" d="M630,1575 L740,1575 L740,1434"/>
+<path class="n2-edge n2-dash" marker-end="url(#n2-ahg)" d="M1030,1397 L1120,1397 L1120,470 L630,470"/>
+<path class="n2-edge n2-audit" d="M630,138 L1060,138"/>
+<path class="n2-edge n2-audit" d="M584,848 L1060,848"/>
+<path class="n2-edge n2-audit" d="M630,935 L1060,935"/>
+<path class="n2-edge n2-audit" d="M630,1276 L1060,1276"/>
+<path class="n2-edge n2-audit" d="M630,1676 L1060,1676"/>
+<path class="n2-edge n2-audit" d="M1060,138 L1060,1676"/>
+<path class="n2-edge n2-audit" marker-end="url(#n2-ahg)" d="M1060,402 L1030,402"/>
+<rect class="n2-box" x="440" y="30" width="150" height="46" rx="23"/>
+<rect class="n2-box" x="400" y="112" width="230" height="50" rx="8"/>
+<polygon class="n2-box n2-pink" points="458,196 572,196 630,227 572,258 458,258 400,227"/>
+<polygon class="n2-box n2-blue" points="515,292 630,338 515,384 400,338"/>
+<rect class="n2-box n2-blue" x="400" y="418" width="230" height="62" rx="8"/>
+<rect class="n2-box" x="400" y="514" width="230" height="50" rx="8"/>
+<rect class="n2-box n2-pink" x="400" y="598" width="230" height="62" rx="8"/>
+<rect class="n2-box n2-pink" x="400" y="694" width="230" height="50" rx="8"/>
+<polygon class="n2-box" points="515,778 630,828 515,878 400,828"/>
+<polygon class="n2-box n2-pink" points="458,912 572,912 630,943 572,974 458,974 400,943"/>
+<polygon class="n2-box" points="515,1008 630,1054 515,1100 400,1054"/>
+<rect class="n2-box n2-green" x="400" y="1134" width="230" height="62" rx="8"/>
+<polygon class="n2-box n2-green" points="515,1230 630,1276 515,1322 400,1276"/>
+<rect class="n2-box n2-green" x="400" y="1356" width="230" height="62" rx="8"/>
+<rect class="n2-box n2-green" x="400" y="1452" width="230" height="62" rx="8"/>
+<rect class="n2-box n2-green" x="400" y="1548" width="230" height="62" rx="8"/>
+<path class="n2-box" d="M400,1652 v44 a115,10 0 0 0 230,0 v-44"/><ellipse class="n2-box" cx="515" cy="1652" rx="115" ry="10"/>
+<rect class="n2-box" x="400" y="1740" width="230" height="50" rx="8"/>
+<rect class="n2-box" x="110" y="204" width="200" height="50" rx="8"/>
+<polygon class="n2-box" points="210,783 315,828 210,873 105,828"/>
+<rect class="n2-box" x="105" y="914" width="210" height="58" rx="8"/>
+<path class="n2-box n2-pink" d="M100,1104 v50 a110,10 0 0 0 220,0 v-50"/><ellipse class="n2-box n2-pink" cx="210" cy="1104" rx="110" ry="10"/>
+<path class="n2-box n2-gray" d="M800,376 v43 a115,10 0 0 0 230,0 v-43"/><ellipse class="n2-box n2-gray" cx="915" cy="376" rx="115" ry="10"/>
+<rect class="n2-box n2-yell" x="800" y="705" width="230" height="50" rx="8"/>
+<rect class="n2-box n2-yell" x="800" y="1134" width="230" height="62" rx="8"/>
+<rect class="n2-box n2-yell" x="800" y="1360" width="230" height="74" rx="8"/>
+<text class="n2-txt" x="515" y="57">User</text>
+<text class="n2-txt" x="515" y="141">Natural language query</text>
+<text class="n2-txt" x="515" y="222">Per-user rate /<tspan x="515" dy="16">budget limiter</tspan></text>
+<text class="n2-txt" x="515" y="342">Semantic cache hit?</text>
+<text class="n2-txt" x="515" y="443">Schema linking /<tspan x="515" dy="16">RAG context retrieval</tspan></text>
+<text class="n2-txt" x="515" y="543">Deep learning model</text>
+<text class="n2-txt" x="515" y="623">Parameterized query builder<tspan x="515" dy="16">injection sanitizer</tspan></text>
+<text class="n2-txt" x="515" y="723">Deterministic dialect converter</text>
+<text class="n2-txt" x="515" y="816">Static validator<tspan x="515" dy="16">syntax · schema ·</tspan><tspan x="515" dy="16">anti-pattern</tspan></text>
+<text class="n2-txt" x="515" y="938">Dry-run / EXPLAIN<tspan x="515" dy="16">cost + scan estimate</tspan></text>
+<text class="n2-txt" x="515" y="1049">Read-only or<tspan x="515" dy="16">mutating / DDL?</tspan></text>
+<text class="n2-txt" x="515" y="1159">ER diagram /<tspan x="515" dy="16">impact visualizer</tspan></text>
+<text class="n2-txt" x="515" y="1280">Human approves?</text>
+<text class="n2-txt" x="515" y="1381">Transaction wrapper<tspan x="515" dy="16">+ checkpoint</tspan></text>
+<text class="n2-txt" x="515" y="1477">Schema version control /<tspan x="515" dy="16">migration log</tspan></text>
+<text class="n2-txt" x="515" y="1574">User's DBMS</text>
+<text class="n2-sub" x="515" y="1592">MySQL · Oracle · SQL Server · Access</text>
+<text class="n2-txt" x="515" y="1672">Database</text>
+<text class="n2-sub" x="515" y="1690">managed by the DBMS</text>
+<text class="n2-txt" x="515" y="1769">Formatted response</text>
+<text class="n2-txt" x="210" y="233">Throttle / retry-after</text>
+<text class="n2-txt" x="210" y="832">Retries &lt; max N?</text>
+<text class="n2-txt" x="210" y="937">Escalate to human /<tspan x="210" dy="16">return explained error</tspan></text>
+<text class="n2-txt" x="210" y="1126">Read-only sandbox replica</text>
+<text class="n2-sub" x="210" y="1144">on the user's DBMS</text>
+<text class="n2-txt" x="915" y="402">Audit log /<tspan x="915" dy="16">observability store</tspan></text>
+<text class="n2-txt" x="915" y="734">Fuzz testing harness</text>
+<text class="n2-txt" x="915" y="1159">Schema anti-pattern<tspan x="915" dy="16">detector</tspan></text>
+<text class="n2-txt" x="915" y="1392">Index / covering-index<tspan x="915" dy="16">advisor</tspan></text>
+<text class="n2-num" x="466" y="212">1</text><text class="n2-num" x="523" y="307">2</text><text class="n2-num" x="408" y="432">3</text>
+<text class="n2-num" x="408" y="528">4</text><text class="n2-num" x="408" y="612">5</text><text class="n2-num" x="408" y="708">6</text>
+<text class="n2-num" x="523" y="794">7</text><text class="n2-num" x="218" y="801">8</text><text class="n2-num" x="466" y="928">9</text>
+<text class="n2-num" x="523" y="1024">10</text><text class="n2-num" x="408" y="1148">11</text><text class="n2-num" x="523" y="1246">12</text>
+<text class="n2-num" x="408" y="1370">13</text><text class="n2-num" x="408" y="1466">14</text><text class="n2-num" x="408" y="1562">15</text>
+<text class="n2-num" x="812" y="391">16</text>
+<text class="n2-lbl" x="355" y="215">exceeded</text>
+<text class="n2-lbl n2-ls" x="523" y="278">within budget</text>
+<text class="n2-lbl" x="234" y="326">hit · high similarity</text>
+<text class="n2-lbl n2-ls" x="523" y="404">miss</text>
+<text class="n2-lbl" x="305" y="524">yes · retry w/ error context</text>
+<text class="n2-lbl" x="357" y="816">invalid</text>
+<text class="n2-lbl n2-ls" x="218" y="899">no · limit hit</text>
+<text class="n2-lbl n2-ls" x="523" y="898">valid</text>
+<text class="n2-lbl" x="357" y="959">over threshold</text>
+<text class="n2-lbl n2-ls" x="523" y="994">within budget</text>
+<text class="n2-lbl" x="305" y="1042">read-only</text>
+<text class="n2-lbl n2-ls" x="523" y="1121">mutating / DDL</text>
+<text class="n2-lbl" transform="rotate(-90 344 885)" x="344" y="885">no · with feedback</text>
+<text class="n2-lbl n2-ls" x="523" y="1343">yes</text>
+<text class="n2-lbl n2-ls" x="523" y="1534">submits SQL</text>
+<text class="n2-lbl n2-ls" x="523" y="1632">executes DML / DDL</text>
+<text class="n2-lbl n2-ls" x="523" y="1728">rows / status</text>
+<text class="n2-lbl" x="700" y="754">continuous offline<tspan x="700" dy="12">stress test</tspan></text>
+<text class="n2-lbl" x="715" y="1151">feeds review</text>
+<text class="n2-lbl" transform="rotate(-90 752 1504)" x="752" y="1504">workload telemetry</text>
+<text class="n2-lbl" x="700" y="456">tuning hints</text>
+<text class="n2-lbl" transform="rotate(-90 1074 1100)" x="1074" y="1100">audit side channel</text>
+<rect x="30" y="1830" width="1120" height="175" rx="10" fill="#fcfcfc" stroke="#999"/>
+<text class="n2-lt" x="52" y="1858">Legend</text>
+<rect class="n2-box n2-blue" x="52" y="1878" width="36" height="22"/><text class="n2-li" x="98" y="1894">Pre-flight: cache / context</text>
+<rect class="n2-box n2-pink" x="420" y="1878" width="36" height="22"/><text class="n2-li" x="466" y="1894">Security / cost gates in the live path</text>
+<rect class="n2-box n2-green" x="800" y="1878" width="36" height="22"/><text class="n2-li" x="846" y="1894">Human approval &amp; write-path execution</text>
+<rect class="n2-box n2-yell" x="52" y="1926" width="36" height="22"/><text class="n2-li" x="98" y="1942">Offline background support</text>
+<rect class="n2-box n2-gray" x="420" y="1926" width="36" height="22"/><text class="n2-li" x="466" y="1942">Cross-cutting audit log (side channel)</text>
+<path class="n2-edge" marker-end="url(#n2-ah)" d="M806,1931 L838,1931"/><text class="n2-li" x="846" y="1935">live request</text>
+<path class="n2-edge n2-dash" marker-end="url(#n2-ahg)" d="M952,1931 L984,1931"/><text class="n2-li" x="992" y="1935">background / audit</text>
+<rect class="n2-box" x="52" y="1966" width="20" height="14"/><text class="n2-li" x="80" y="1978">process</text>
+<polygon class="n2-box" points="290,1959 301,1973 290,1987 279,1973"/><text class="n2-li" x="309" y="1978">decision</text>
+<polygon class="n2-box" points="522,1973 528,1966 540,1966 546,1973 540,1980 528,1980"/><text class="n2-li" x="554" y="1978">gate / limiter</text>
+<ellipse class="n2-box" cx="766" cy="1967" rx="10" ry="4"/><path class="n2-box" d="M756,1967 v11 a10,4 0 0 0 20,0 v-11"/><text class="n2-li" x="782" y="1978">data store</text>
+<rect class="n2-box" x="966" y="1966" width="28" height="14" rx="7"/><text class="n2-li" x="1002" y="1978">user / endpoint</text>
+</svg>
+<figcaption>Legend embedded in the diagram. Solid arrows: live request. Dashed: background support and audit. The agent's only data touchpoint is the user's DBMS (stage 15): it submits validated SQL, the DBMS executes it against the database and returns rows or status. Reads run on a sandbox replica of the same DBMS; the audit log is a side channel every stage writes to.</figcaption>
+</figure>
+
+<h2>3. Stage-by-stage walkthrough</h2>
+<table>
+<tr><th>#</th><th>Stage</th><th>Purpose</th></tr>
+<tr><td class="n">1</td><td>Rate / budget limiter</td><td>Blocks runaway per-user request volume before any cost is incurred.</td></tr>
+<tr><td class="n">2</td><td>Semantic cache</td><td>Skips model, validation, and execution when a semantically equivalent question was already answered.</td></tr>
+<tr><td class="n">3</td><td>Schema linking / RAG retrieval</td><td>Hands the model only the relevant tables, not the full schema, so prompts stay bounded on large databases.</td></tr>
+<tr><td class="n">4</td><td>Deep learning model</td><td>Generates candidate SQL from the query, plus retry feedback when looping.</td></tr>
+<tr><td class="n">5</td><td>Injection sanitizer</td><td>Forces the SQL through a parameterized query builder; no raw string concatenation.</td></tr>
+<tr><td class="n">6</td><td>Dialect converter</td><td>Deterministically normalizes SQL to the dialect of the user's specific DBMS; MySQL, Oracle, SQL Server, and Access SQL differ.</td></tr>
+<tr><td class="n">7</td><td>Static validator</td><td>Checks syntax, schema validity, and known anti-patterns before anything is costed or executed.</td></tr>
+<tr><td class="n">8</td><td>Retry gate</td><td>Bounded loop: after N failed attempts, escalate instead of retrying forever.</td></tr>
+<tr><td class="n">9</td><td>Cost / risk gate</td><td>EXPLAIN-style dry run issued through the DBMS estimates cost and rows scanned; anything over threshold is rejected or escalated.</td></tr>
+<tr><td class="n">10</td><td>Risk tier router</td><td>Read-only queries auto-execute on a sandbox replica (same DBMS, read-only role); mutating / DDL statements go to human review.</td></tr>
+<tr><td class="n">11</td><td>ER diagram / impact visualizer</td><td>Shows the reviewer what the statement will touch before approval.</td></tr>
+<tr><td class="n">12</td><td>Human approval gate</td><td>Required for writes and schema changes only, not for every query.</td></tr>
+<tr><td class="n">13</td><td>Transaction wrapper + checkpoint</td><td>Wraps approved writes in a transaction with a rollback point.</td></tr>
+<tr><td class="n">14</td><td>Schema version control</td><td>Tracks every committed change like a migration log, for audit and rollback; migrations are applied through the DBMS.</td></tr>
+<tr><td class="n">15</td><td>User's DBMS</td><td>The pipeline's only touchpoint with stored data: it submits the parameterized, dialect-correct statement to the DBMS the user already runs, and the DBMS executes it and applies the change. The pipeline holds no direct data access; existing DBMS permissions and roles stay in force.</td></tr>
+<tr><td class="n">16</td><td>Audit log</td><td>Side channel every stage writes to: queries, decisions, outcomes. Not a stage requests pass through.</td></tr>
+</table>
+
+<h2>4. Sub-projects and mechanisms</h2>
+<table>
+<tr><th>Sub-project</th><th>Mechanism</th><th>Plugs in at</th></tr>
+<tr><td>SQL Injection Prevention Query Builder</td><td>All generated SQL goes through parameterized queries / prepared statements; raw literal interpolation is rejected.</td><td>Stage 5, immediately after generation</td></tr>
+<tr><td>Deterministic DBMS-Specific SQL Converter</td><td>Parses SQL to an AST with a dialect-aware parser, then applies fixed rule-based transforms (<code>LIMIT x,y</code> to <code>LIMIT y OFFSET x</code>); same input always yields the same output, per target dialect.</td><td>Stage 6; emits the dialect of the user's DBMS</td></tr>
+<tr><td>SQL Fuzz Testing Framework</td><td>Grammar- and mutation-based fuzzer generating valid, edge-case, and malformed queries against a sandboxed instance of the same DBMS to catch validator gaps.</td><td>Offline; hardens stage 7 continuously</td></tr>
+<tr><td>Schema Anti-Pattern Detector</td><td>Rule-based checks over DDL / <code>information_schema</code> metadata read via the DBMS, for EAV misuse, generic polymorphic columns, missing FKs.</td><td>Stage 11; feeds the visualizer on schema-altering statements</td></tr>
+<tr><td>ER Diagram Generator from SQL DDL</td><td>Parses <code>CREATE TABLE</code>, builds the table / FK graph, renders it.</td><td>Stage 11; what the reviewer sees before approving a write</td></tr>
+<tr><td>Schema Version Control ("Git for DB")</td><td>Diffs and versions schema changes, generates migration scripts applied through the user's DBMS, enables rollback.</td><td>Stage 14; wraps every committed change</td></tr>
+<tr><td>Covering Index / Index Recommendation</td><td>Parses the DBMS's query logs and execution plans; suggests composite indexes for index-only satisfaction.</td><td>Background; reads workload telemetry from the DBMS, feeds tuning hints to stage 3</td></tr>
+</table>
+<p><strong>Deliberately excluded</strong> (good tools, no per-query tie-in to this pipeline): automated schema-from-ER generation, multivalued-dependency visualizer, denormalization advisor, step-by-step normalization pipeline (schema-design phase); workload re-player, schema-drift detector, vector index extension, warehouse-free analytics dashboard (ops / infrastructure, orthogonal to NL2SQL).</p>
+
+<h2>5. Production practices baked in</h2>
+<ul>
+<li><strong>Submit through the user's DBMS, never around it.</strong> The agent's only data touchpoint is the DBMS the user already runs; it submits validated, parameterized SQL and the DBMS alone executes statements and changes data. No direct file or storage access, so existing permissions, roles, and auditing stay in force. <a class="r" href="#refs">[4][5]</a></li>
+<li><strong>Cache before you generate.</strong> Compare the query embedding against previously answered queries; on a high-confidence match, return the cached response and skip model, validation, and execution. <a class="r" href="#refs">[1][2]</a></li>
+<li><strong>Narrow the schema before generation.</strong> Classify intent and extract entities first, then map to the relevant tables only; scales past what fits in a prompt. <a class="r" href="#refs">[3]</a></li>
+<li><strong>Bound every retry loop.</strong> Invalid-then-retry needs a max count with an explicit escalation path; unbounded loops are production incidents. <a class="r" href="#refs">[4]</a></li>
+<li><strong>Estimate cost before you execute.</strong> EXPLAIN-style dry run through the DBMS plus per-user rate / budget limits; reject or escalate anything over a cost / scan threshold. <a class="r" href="#refs">[4]</a></li>
+<li><strong>Tier risk instead of gating uniformly.</strong> Reads run automatically, medium risk notifies, writes and DDL need sign-off; uniform gating over-blocks or under-protects. <a class="r" href="#refs">[5][6]</a></li>
+<li><strong>Wrap writes in a transaction with a checkpoint.</strong> A failed long-running process resumes from its last known-good state instead of restarting blind. <a class="r" href="#refs">[7]</a></li>
+<li><strong>Log everything as a side channel.</strong> Layered controls: policy checks, scoped roles, human approval on high-impact actions; every decision logged for accountability. <a class="r" href="#refs">[5]</a></li>
+<li><strong>Treat readiness as context and governance, not syntax.</strong> Business context, query governance, and iterative follow-up support decide success more than raw SQL-writing ability; hence the weight on stages 3, 10, and 16. <a class="r" href="#refs">[8]</a></li>
+</ul>
+
+<h2>6. Implementation phasing</h2>
+<ul>
+<li><strong>Day one</strong> (cheap to build, removes entire risk classes): per-user rate limiter, parameterized query builder / sanitizer, read-only sandbox replica (same DBMS, read-only role), bounded retry gate.</li>
+<li><strong>Fast-follow</strong> (needs real query volume to tune): semantic cache similarity threshold, cost / EXPLAIN gate calibration, index advisor.</li>
+<li><strong>Ongoing / offline:</strong> fuzz harness against the validator, anti-pattern detector as a scheduled review job.</li>
+</ul>
+
+<h2 id="refs">7. References</h2>
+<ol class="refs">
+<li><a href="https://dev.to/sreeni5018/semantic-caching-in-rag-systems-ai-agents-2gal">Semantic Caching in RAG Systems &amp; AI Agents</a>, DEV Community</li>
+<li><a href="https://medium.com/@mohantaastha/semantic-caching-for-llms-how-to-measure-latency-cost-and-quality-before-you-optimize-64ff73b0f370">Semantic Caching for LLMs: How to Measure Latency, Cost, and Quality</a>, Medium</li>
+<li><a href="https://medium.com/@vi.ha.engr/bridging-natural-language-and-databases-best-practices-for-llm-generated-sql-fcba0449d4e5">Bridging Natural Language and Databases: Best Practices for LLM-Generated SQL</a>, Medium</li>
+<li><a href="https://www.protecto.ai/blog/llm-generated-sql-risks/">Why You Shouldn't Use LLMs To Generate SQL (Security Risks)</a>, Protecto</li>
+<li><a href="https://khimananda.com/blog/guardrails-for-autonomous-ai-agents">Guardrails for Autonomous AI Agents: Production Safety 2026</a></li>
+<li><a href="https://devops.com/before-you-go-agentic-top-guardrails-to-safely-deploy-ai-agents-in-observability/">Before You Go Agentic: Top Guardrails to Safely Deploy AI Agents in Observability</a>, DevOps.com</li>
+<li><a href="https://fast.io/resources/ai-agent-rollback-strategy/">AI Agent Rollback Strategy: Best Practices 2026</a>, Fastio</li>
+<li><a href="https://www.blazesql.com/blog/natural-language-to-sql">Natural Language to SQL: The Complete 2026 Guide</a>, BlazeSQL</li>
+</ol>
+
+<footer>Single file: SVG diagram and legend inlined; headings Playfair Display (Fraunces fallback), body Inter (Helvetica fallback) via Google Fonts. Keep <code>diagrams/SVG_DIAGRAM.svg</code> alongside for Confluence, PDF export, and email use.</footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NL2SQL Pipeline — Production Architecture</title>
+<style>
+  :root {
+    --ink: #1f2430;
+    --ink-soft: #4b5262;
+    --paper: #fbfaf7;
+    --panel: #ffffff;
+    --line: #e3e0d8;
+    --accent: #2f5d62;
+    --blue: #cfe0ee;
+    --blue-line: #7fa8c9;
+    --pink: #f6d3d0;
+    --pink-line: #d98c85;
+    --green: #cfe6de;
+    --green-line: #6fa98f;
+    --yellow: #f7edb8;
+    --yellow-line: #cbb64a;
+    --gray: #e3e3e3;
+    --gray-line: #9a9a9a;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+    font-size: 16px;
+  }
+
+  .wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 56px 28px 100px;
+  }
+
+  header.doc-header {
+    margin-bottom: 48px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 28px;
+  }
+
+  .kicker {
+    font-size: 13px;
+    color: var(--ink-soft);
+    letter-spacing: 0.02em;
+    margin-bottom: 10px;
+  }
+
+  h1 {
+    font-size: 30px;
+    line-height: 1.25;
+    margin: 0 0 10px;
+    letter-spacing: -0.01em;
+  }
+
+  .subtitle {
+    color: var(--ink-soft);
+    font-size: 16px;
+    max-width: 62ch;
+  }
+
+  nav.toc {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin: 28px 0 48px;
+  }
+  nav.toc div.toc-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    margin-bottom: 8px;
+  }
+  nav.toc ol {
+    margin: 0;
+    padding-left: 20px;
+    columns: 2;
+    column-gap: 32px;
+  }
+  nav.toc li { margin-bottom: 5px; font-size: 14.5px; }
+  nav.toc a { color: var(--accent); text-decoration: none; }
+  nav.toc a:hover { text-decoration: underline; }
+
+  section { margin-bottom: 52px; }
+
+  h2 {
+    font-size: 21px;
+    margin: 0 0 18px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--ink);
+    display: inline-block;
+  }
+
+  h3 {
+    font-size: 16.5px;
+    margin: 26px 0 10px;
+  }
+
+  p { margin: 0 0 14px; max-width: 74ch; }
+
+  .diagram-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px;
+    overflow-x: auto;
+  }
+  .diagram-card svg { width: 100%; height: auto; display: block; }
+  .diagram-caption {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-top: 10px;
+    text-align: center;
+  }
+
+  /* Legend */
+  .legend-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 8px;
+  }
+  @media (max-width: 640px) { .legend-grid { grid-template-columns: 1fr; } }
+
+  .legend-block {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .legend-block h4 {
+    font-size: 13px;
+    text-transform: none;
+    color: var(--ink-soft);
+    margin: 0 0 12px;
+    font-weight: 600;
+  }
+  .legend-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 7px 0;
+    border-top: 1px solid var(--line);
+    font-size: 14px;
+  }
+  .legend-row:first-of-type { border-top: none; }
+  .swatch {
+    flex: 0 0 22px;
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    margin-top: 1px;
+  }
+  .sw-blue { background: var(--blue); border: 1.5px solid var(--blue-line); }
+  .sw-pink { background: var(--pink); border: 1.5px solid var(--pink-line); }
+  .sw-green { background: var(--green); border: 1.5px solid var(--green-line); }
+  .sw-yellow { background: var(--yellow); border: 1.5px dashed var(--yellow-line); }
+  .sw-gray { background: var(--gray); border: 1.5px dashed var(--gray-line); }
+
+  .shape-glyph {
+    flex: 0 0 26px;
+    text-align: center;
+    font-size: 17px;
+    color: var(--ink-soft);
+    margin-top: -1px;
+  }
+  .legend-row strong { display: block; font-weight: 600; }
+  .legend-row span.desc { color: var(--ink-soft); font-size: 13.5px; }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14.5px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  thead th {
+    text-align: left;
+    background: #f1efe8;
+    font-weight: 600;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  tbody td {
+    padding: 11px 14px;
+    border-top: 1px solid var(--line);
+    vertical-align: top;
+  }
+  tbody tr:nth-child(even) { background: #faf9f5; }
+  td.col-name, th.col-name { white-space: nowrap; font-weight: 600; }
+
+  .table-scroll { overflow-x: auto; margin-bottom: 6px; }
+
+  ul.plain { padding-left: 20px; margin: 0 0 14px; }
+  ul.plain li { margin-bottom: 8px; max-width: 74ch; }
+
+  .callout {
+    background: #f1efe8;
+    border-left: 3px solid var(--accent);
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+    font-size: 14.5px;
+    color: var(--ink-soft);
+    margin: 16px 0;
+  }
+
+  .phase-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  @media (max-width: 720px) { .phase-grid { grid-template-columns: 1fr; } }
+  .phase-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .phase-card h4 {
+    font-size: 13.5px;
+    margin: 0 0 10px;
+    color: var(--accent);
+  }
+  .phase-card ul { margin: 0; padding-left: 18px; font-size: 13.5px; }
+  .phase-card li { margin-bottom: 6px; }
+
+  ol.refs { padding-left: 20px; font-size: 13.5px; color: var(--ink-soft); }
+  ol.refs li { margin-bottom: 8px; word-break: break-word; }
+  ol.refs a { color: var(--accent); }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding-top: 20px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+
+  a { color: var(--accent); }
+
+  @media print {
+    body { background: #fff; }
+    nav.toc { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="doc-header">
+    <div class="kicker">Architecture reference · design draft for team review</div>
+    <h1>NL2SQL Pipeline — Production Architecture</h1>
+    <p class="subtitle">How a natural-language query gets turned into safe, validated, cost-checked SQL — and where a human stays in control of anything that writes to the database.</p>
+  </header>
+
+  <nav class="toc">
+    <div class="toc-title">On this page</div>
+    <ol>
+      <li><a href="#overview">1. Overview</a></li>
+      <li><a href="#diagram">2. Architecture diagram</a></li>
+      <li><a href="#legend">3. How to read the diagram</a></li>
+      <li><a href="#stages">4. Stage-by-stage walkthrough</a></li>
+      <li><a href="#subprojects">5. Included sub-projects</a></li>
+      <li><a href="#excluded">6. Deliberately excluded</a></li>
+      <li><a href="#practices">7. Production practices baked in</a></li>
+      <li><a href="#phasing">8. Implementation phasing</a></li>
+      <li><a href="#references">9. References</a></li>
+    </ol>
+  </nav>
+
+  <section id="overview">
+    <h2>1. Overview</h2>
+    <p>This document describes a human-supervised natural-language-to-SQL (NL2SQL) pipeline: a system that lets a person query and modify a database in plain English, while keeping an AI agent from ever writing to the database unsupervised.</p>
+    <p>The core loop is: <strong>query → cache check → generate SQL → validate → estimate cost/risk → route by risk tier → (human approval if needed) → execute → return results.</strong> Every safety mechanism and sub-project in this document exists to strengthen one specific stage of that loop — nothing is included just because it's a good idea in isolation.</p>
+  </section>
+
+  <section id="diagram">
+    <h2>2. Architecture diagram</h2>
+    <div class="diagram-card">
+%%SVG_DIAGRAM%%
+    </div>
+    <p class="diagram-caption">Full pipeline, including the offline background support loops and the audit-log side channel. See the legend below for what the colors, shapes, and lines mean.</p>
+  </section>
+
+  <section id="legend">
+    <h2>3. How to read the diagram</h2>
+    <div class="legend-grid">
+      <div class="legend-block">
+        <h4>What the color means</h4>
+        <div class="legend-row">
+          <span class="swatch sw-blue"></span>
+          <span><strong>Getting ready</strong><span class="desc">Checking the cache or pulling context, before real work starts</span></span>
+        </div>
+        <div class="legend-row">
+          <span class="swatch sw-pink"></span>
+          <span><strong>Safety check</strong><span class="desc">Something that can block, cost money, or needs to pass a test before continuing</span></span>
+        </div>
+        <div class="legend-row">
+          <span class="swatch sw-green"></span>
+          <span><strong>Needs a human, or writes to the database</strong><span class="desc">A person has to approve, or data is actually being changed</span></span>
+        </div>
+        <div class="legend-row">
+          <span class="swatch sw-yellow"></span>
+          <span><strong>Background helper</strong><span class="desc">Runs on its own, quietly improving the system — not part of a live request</span></span>
+        </div>
+        <div class="legend-row">
+          <span class="swatch sw-gray"></span>
+          <span><strong>Record-keeping</strong><span class="desc">Stores logs or data for later review, not an action step</span></span>
+        </div>
+      </div>
+
+      <div class="legend-block">
+        <h4>What the shape means</h4>
+        <div class="legend-row">
+          <span class="shape-glyph">⬭</span>
+          <span><strong>Oval</strong><span class="desc">Start or end point, like "User"</span></span>
+        </div>
+        <div class="legend-row">
+          <span class="shape-glyph">▭</span>
+          <span><strong>Rectangle</strong><span class="desc">A normal action or step</span></span>
+        </div>
+        <div class="legend-row">
+          <span class="shape-glyph">◇</span>
+          <span><strong>Diamond</strong><span class="desc">A decision — flow splits based on a yes/no or a condition</span></span>
+        </div>
+        <div class="legend-row">
+          <span class="shape-glyph">▱</span>
+          <span><strong>Slanted box</strong><span class="desc">Data being pulled together or transformed</span></span>
+        </div>
+        <div class="legend-row">
+          <span class="shape-glyph">🛢</span>
+          <span><strong>Cylinder</strong><span class="desc">A database or storage system</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend-block" style="margin-top:14px;">
+      <h4>What the line means</h4>
+      <div class="legend-row">
+        <span class="shape-glyph">→</span>
+        <span><strong>Solid arrow</strong><span class="desc">Normal step-by-step flow</span></span>
+      </div>
+      <div class="legend-row">
+        <span class="shape-glyph">⇢</span>
+        <span><strong>Dashed arrow</strong><span class="desc">Background connection — happens offline, not in the live request</span></span>
+      </div>
+      <div class="legend-row">
+        <span class="shape-glyph">⋯›</span>
+        <span><strong>Dotted arrow</strong><span class="desc">Logging — sends information to the audit trail</span></span>
+      </div>
+    </div>
+  </section>
+
+  <section id="stages">
+    <h2>4. Stage-by-stage walkthrough</h2>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th style="width:32px;">#</th><th class="col-name">Stage</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td class="col-name">Rate / budget limiter</td><td>Blocks runaway request volume per user before any cost is incurred.</td></tr>
+        <tr><td>2</td><td class="col-name">Semantic cache</td><td>Skips the entire model + validation + execution path when a semantically equivalent question was already answered.</td></tr>
+        <tr><td>3</td><td class="col-name">Schema linking / RAG retrieval</td><td>Narrows the schema handed to the model to only the relevant tables, instead of dumping the whole database schema into every prompt.</td></tr>
+        <tr><td>4</td><td class="col-name">Deep learning model</td><td>Generates a candidate SQL statement from the natural-language query (plus retry feedback, if looping).</td></tr>
+        <tr><td>5</td><td class="col-name">Injection sanitizer</td><td>Rewrites/validates the generated SQL through a parameterized query builder rather than raw string concatenation.</td></tr>
+        <tr><td>6</td><td class="col-name">Dialect converter</td><td>Normalizes the SQL to the target database engine's actual dialect.</td></tr>
+        <tr><td>7</td><td class="col-name">Static validator</td><td>Checks syntax, schema validity, and known anti-patterns before anything is costed or executed.</td></tr>
+        <tr><td>8</td><td class="col-name">Retry gate</td><td>Bounded retry loop — after N failed attempts, escalate instead of looping forever.</td></tr>
+        <tr><td>9</td><td class="col-name">Cost / risk gate</td><td>Runs an EXPLAIN-style dry run to estimate cost and rows scanned; rejects or escalates anything over threshold.</td></tr>
+        <tr><td>10</td><td class="col-name">Risk tier router</td><td>Splits read-only queries (auto-execute against a sandbox) from mutating/DDL statements (require human review).</td></tr>
+        <tr><td>11</td><td class="col-name">ER diagram / impact visualizer</td><td>Shows the human reviewer what the query will actually touch before they approve it.</td></tr>
+        <tr><td>12</td><td class="col-name">Human approval gate</td><td>Required only for writes/schema changes — not for every query.</td></tr>
+        <tr><td>13</td><td class="col-name">Transaction wrapper + checkpoint</td><td>Wraps approved writes in a transaction with a rollback point.</td></tr>
+        <tr><td>14</td><td class="col-name">Schema version control</td><td>Tracks every committed schema/data change like a migration log, for audit and rollback.</td></tr>
+        <tr><td>15</td><td class="col-name">Sending commands to DBMS</td><td>The approved, versioned change is issued to the connected database as an explicit command — not a direct, unmediated write.</td></tr>
+        <tr><td>16</td><td class="col-name">Formatted response + summary of changes</td><td>Returns query results, or — for writes — a plain-language summary of what changed, not just raw output.</td></tr>
+        <tr><td>17</td><td class="col-name">Audit log</td><td>Cross-cutting log of every query, decision, and outcome — not a stage a request "passes through," but a side channel every stage writes to.</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section id="subprojects">
+    <h2>5. Included sub-projects and their mechanisms</h2>
+    <p>Each of these was kept because it plugs directly into one of the stages above — not because it's a good idea in isolation.</p>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th class="col-name">Sub-project</th><th>Mechanism</th><th>Where it plugs in</th></tr></thead>
+      <tbody>
+        <tr><td class="col-name">SQL Injection Prevention Query Builder</td><td>Forces all generated SQL through parameterized queries / prepared statements instead of string concatenation; rejects raw literal interpolation.</td><td>Immediately after generation, before validation.</td></tr>
+        <tr><td class="col-name">Deterministic DBMS-Specific SQL Converter</td><td>Parses SQL into an AST with a dialect-aware parser, then applies fixed, rule-based transformations (e.g. <code>LIMIT x,y</code> → <code>LIMIT y OFFSET x</code>) so the same input always produces the same output.</td><td>Between the sanitizer and the validator.</td></tr>
+        <tr><td class="col-name">SQL Fuzz Testing Framework</td><td>Grammar-based / mutation-based fuzzer that generates large volumes of valid, edge-case, and malformed queries and runs them against a sandboxed instance to catch validator gaps.</td><td>Offline, continuously hardening the validator — not in the live request path.</td></tr>
+        <tr><td class="col-name">Schema Anti-Pattern Detector</td><td>Parses DDL / <code>information_schema</code> metadata and runs rule-based checks against known bad patterns (EAV misuse, generic polymorphic columns, missing FKs).</td><td>Runs when the approved statement is schema-altering, feeding the impact visualizer.</td></tr>
+        <tr><td class="col-name">ER Diagram Generator from SQL DDL</td><td>Parses <code>CREATE TABLE</code> statements, builds a table/FK graph, and renders it visually.</td><td>Powers the impact-visualizer step the human sees before approving a write.</td></tr>
+        <tr><td class="col-name">Schema Version Control ("Git for DB")</td><td>Diffs and versions schema changes like a VCS, generating migration scripts and enabling rollback.</td><td>Wraps every committed write / schema change.</td></tr>
+        <tr><td class="col-name">Covering Index / Index Recommendation</td><td>Parses query logs and execution plans to suggest composite indexes that let queries be satisfied index-only.</td><td>Background loop: reads workload telemetry, feeds tuning hints back into schema linking.</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section id="excluded">
+    <h2>6. Deliberately excluded (good tools, wrong pipeline)</h2>
+    <ul class="plain">
+      <li><strong>Automated Relational Schema from ER Diagram, Multivalued Dependency Visualizer, Denormalization Advisor, Step-by-step Normalization Pipeline</strong> — all schema-<em>design</em>-phase tools with no per-query runtime tie-in to this pipeline.</li>
+      <li><strong>Database Workload Re-player, Schema-Drift Detector, Vector Index Extension, Warehouse-Free Analytics Dashboard</strong> — valuable ops/infrastructure tools, but orthogonal to an NL2SQL agent specifically.</li>
+    </ul>
+  </section>
+
+  <section id="practices">
+    <h2>7. Production practices baked into this design</h2>
+    <ul class="plain">
+      <li><strong>Cache before you generate.</strong> A semantic cache in front of the pipeline compares the incoming query's embedding against previously answered queries and returns the cached response on a high-confidence match, skipping the full model/validation/execution path entirely.</li>
+      <li><strong>Narrow the schema before generation.</strong> One documented pattern classifies query intent and extracts entities first, then maps those to only the relevant tables before the model ever sees the schema — this scales to databases far too large to fit in a prompt.</li>
+      <li><strong>Bound every retry loop.</strong> An unbounded "invalid → retry" loop is a production incident waiting to happen; retries need a max count with an explicit escalation path.</li>
+      <li><strong>Estimate cost before you execute.</strong> Running an EXPLAIN-style simulation of the generated query and rejecting or escalating anything over a cost/scan threshold prevents the runaway full-table-scan query, and pairing it with per-user rate/budget limits and full audit logging gives both a cost control and an audit trail.</li>
+      <li><strong>Tier risk instead of gating everything the same way.</strong> Low-risk actions (reads) can run automatically; medium-risk actions get a notification; only high-blast-radius actions (writes, schema changes) require a human sign-off.</li>
+      <li><strong>Wrap writes in a transaction with a checkpoint.</strong> New agent behavior is typically proven first in a shadow/dry-run mode, and checkpointing lets a long-running process resume from its last known-good state rather than restart blindly after a failure.</li>
+      <li><strong>Log everything, as a cross-cutting concern.</strong> Guardrails work best as layered controls — policy checks, scoped roles, and human approval reserved for high-impact actions — with every decision logged for accountability.</li>
+      <li><strong>Production readiness is a context/governance problem more than a syntax problem.</strong> NL2SQL systems succeed or fail less on the model's raw SQL-writing ability and more on business context, query governance, and support for iterative follow-up.</li>
+    </ul>
+  </section>
+
+  <section id="phasing">
+    <h2>8. Implementation phasing</h2>
+    <div class="phase-grid">
+      <div class="phase-card">
+        <h4>Day one</h4>
+        <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 10px;">Cheap to build, removes entire risk classes</p>
+        <ul>
+          <li>Per-user rate limiter</li>
+          <li>Parameterized query builder / injection sanitizer</li>
+          <li>Read-only sandbox replica for the read path</li>
+          <li>Bounded retry gate</li>
+        </ul>
+      </div>
+      <div class="phase-card">
+        <h4>Fast-follow</h4>
+        <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 10px;">Needs real query volume to tune thresholds</p>
+        <ul>
+          <li>Semantic cache (similarity threshold tuning)</li>
+          <li>Cost / EXPLAIN gate (threshold calibration)</li>
+          <li>Index / covering-index advisor</li>
+        </ul>
+      </div>
+      <div class="phase-card">
+        <h4>Ongoing / offline</h4>
+        <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 10px;">Continuous background hardening</p>
+        <ul>
+          <li>Fuzz testing harness against the validator</li>
+          <li>Schema anti-pattern detector as a scheduled review job</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="references">
+    <h2>9. References</h2>
+    <ol class="refs">
+      <li>Semantic Caching in RAG Systems &amp; AI Agents — DEV Community. <a href="https://dev.to/sreeni5018/semantic-caching-in-rag-systems-ai-agents-2gal">dev.to/sreeni5018/semantic-caching-in-rag-systems-ai-agents-2gal</a></li>
+      <li>Semantic Caching for LLMs: How to Measure Latency, Cost, and Quality — Medium. <a href="https://medium.com/@mohantaastha/semantic-caching-for-llms-how-to-measure-latency-cost-and-quality-before-you-optimize-64ff73b0f370">medium.com/@mohantaastha/semantic-caching-for-llms</a></li>
+      <li>Bridging Natural Language and Databases: Best Practices for LLM-Generated SQL — Medium. <a href="https://medium.com/@vi.ha.engr/bridging-natural-language-and-databases-best-practices-for-llm-generated-sql-fcba0449d4e5">medium.com/@vi.ha.engr/bridging-natural-language-and-databases</a></li>
+      <li>Why You Shouldn't Use LLMs To Generate SQL (Security Risks) — Protecto. <a href="https://www.protecto.ai/blog/llm-generated-sql-risks/">protecto.ai/blog/llm-generated-sql-risks</a></li>
+      <li>Guardrails for Autonomous AI Agents: Production Safety 2026. <a href="https://khimananda.com/blog/guardrails-for-autonomous-ai-agents">khimananda.com/blog/guardrails-for-autonomous-ai-agents</a></li>
+      <li>Before You Go Agentic: Top Guardrails to Safely Deploy AI Agents in Observability — DevOps.com. <a href="https://devops.com/before-you-go-agentic-top-guardrails-to-safely-deploy-ai-agents-in-observability/">devops.com/.../top-guardrails-to-safely-deploy-ai-agents</a></li>
+      <li>AI Agent Rollback Strategy: Best Practices 2026 — Fastio. <a href="https://fast.io/resources/ai-agent-rollback-strategy/">fast.io/resources/ai-agent-rollback-strategy</a></li>
+      <li>Natural Language to SQL: The Complete 2026 Guide — BlazeSQL. <a href="https://www.blazesql.com/blog/natural-language-to-sql">blazesql.com/blog/natural-language-to-sql</a></li>
+    </ol>
+  </section>
+
+  <footer>
+    Design draft for team review · diagram auto-generated with Graphviz · this file is self-contained and can be opened directly in any browser or shared as-is.
+  </footer>
+
+</div>
+</body>
+</html>

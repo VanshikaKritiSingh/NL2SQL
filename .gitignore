@@ -1,0 +1,6 @@
+# Ignore temporary relocations from cleanup
+C:\Users\Anunay\Downloads\temp/
+
+# Ignore untracked binaries not in this repo
+*.exe
+*.dll
