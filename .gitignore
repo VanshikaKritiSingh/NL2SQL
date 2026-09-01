@@ -1,6 +1,9 @@
 # Ignore temporary relocations from cleanup
 C:\Users\Anunay\Downloads\temp/
 
+# Ignore teammate personal agent memory files (private, per harness, not shared)
+persona-*.md
+
 # Ignore untracked binaries not in this repo
 *.exe
 *.dll

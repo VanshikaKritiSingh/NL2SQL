@@ -1,28 +1,19 @@
----
-name: anti-slop-craft
-description: Detect and eliminate "AI slop" — the generic, templated tells that mark writing, code, and visual design as obviously machine-generated — and run a Devil's Advocate self-review pass before delivering any deliverable. Use this whenever producing final-facing content (documents, reports, articles, UI copy) or visual design (websites, HTML documentation, decks), whenever the user asks for something to "not sound/look AI-generated," "feel authentic," "feel human," or explicitly mentions slop, cliché, or generic output, and always before delivering a polished HTML documentation file, where it additionally governs color and typography.
----
+# DESIGN.md — visual + text craft for the agent
 
-# Anti-Slop Craft & Devil's Advocate Review
-
-## Mission
-
-"Slop" is the set of patterns a reader or viewer has seen enough times to recognize as machine output on sight — not because it's wrong, but because it's *generic*: the safest possible choice, repeated identically regardless of what the actual brief was. This skill has two jobs: (1) hunt down and remove slop patterns in text and design, and (2) run every deliverable through an internal adversary — a Devil's Advocate self-review — before it ever reaches the user, because the fastest way to catch slop is to argue with your own draft.
-
-Run this as a pass, not a vibe: draft first, then apply Part 1 and/or Part 2 depending on the deliverable, then always close with Part 4 before presenting anything.
+One file, both design and text anti-slop. Governs every visual deliverable (`SVG_DIAGRAM.svg`, inline SVG in `nl2sql.html`, future rendered HTML) and every prose deliverable (`.md`, devlog, `*.md` doc, copy in HTML). Source merged from `rules/anti-slop-craft-SKILL.md` and `rules/devlog-rules.md`. Referenced from `AGENT.md`, `SKILL.md`, `TEAM.md`. Ponytail skip: no per-asset overrides, no theme registry, no "design system" folder.
 
 ---
 
-## Part 1 — Text Anti-Slop Pass
+## Part 1 — Text anti-slop pass
 
 Hunt these three tell categories. Finding one is a signal to rewrite the sentence, not just delete the word.
 
-**Lexical tells** — words that are individually fine but flag the whole sentence as machine output when they appear at all: *delve into, moreover, furthermore, in today's fast-paced world, it's important to note, unlock the power of, robust, seamless, holistic, leverage (as a verb), navigate the landscape of, at the end of the day.* If a sentence needs one of these to make its transition work, the transition itself is weak — fix the logic, not the connective tissue.
+**Lexical tells** — words fine alone but flag the sentence as machine output when they appear at all: *delve into, moreover, furthermore, in today's fast-paced world, it's important to note, unlock the power of, robust, seamless, holistic, leverage (as a verb), navigate the landscape of, at the end of the day*. If a sentence needs one of these to make its transition work, the transition itself is weak — fix the logic, not the connective tissue.
 
 **Structural tells:**
 - The rule-of-three reflex — reaching for exactly three examples/adjectives/clauses by default, whether or not three is the right number for this content.
 - The fake conclusion — a closing paragraph that restates the piece instead of adding a final point ("In conclusion, X is a powerful tool that offers many benefits").
-- The hedge-closer — ending an argument or critique with "ultimately, it depends" or "both sides have merit" when the piece actually built toward a real position. This quietly cancels everything useful that came before it; see Part 4's veto rule.
+- The hedge-closer — ending an argument or critique with "ultimately, it depends" or "both sides have merit" when the piece actually built toward a real position. This quietly cancels everything useful that came before; see Part 4 veto rule.
 - Uniform paragraph rhythm — every paragraph the same length, every section the same shape. Real writing has variance because ideas don't come in identical units.
 
 **Substance tells** — these are worse than style tells because they erode trust, not just polish:
@@ -30,15 +21,15 @@ Hunt these three tell categories. Finding one is a signal to rewrite the sentenc
 - Sentences that parse correctly but assert nothing ("taking a holistic approach ensures every touchpoint reinforces the brand"). Read every sentence and ask what it would mean for it to be false — if nothing, cut it.
 - Symmetric even-handedness applied to questions that don't deserve it, papering over a real asymmetry in the evidence for the sake of sounding balanced.
 
-**Fix pattern:** paraphrase in the writer's actual voice, vary sentence and paragraph length on purpose, delete any sentence that survives a "what would it mean for this to be false" test with "nothing," and make sure the piece is allowed to end on a real point instead of a restatement.
+**Fix pattern:** paraphrase in the writer's actual voice, vary sentence and paragraph length on purpose, delete any sentence that survives a "what would it mean for this to be false" test with "nothing", and make sure the piece is allowed to end on a real point instead of a restatement.
 
 ---
 
-## Part 2 — Design Anti-Slop Pass
+## Part 2 — Design anti-slop pass
 
-Cookie-cutter layouts, generic gradients, and repeated visual patterns are the design equivalent of "delve into." Watch specifically for the current default clichés — these show up regardless of subject matter, which is exactly how you know they're defaults and not choices:
+Cookie-cutter layouts, generic gradients, and repeated visual patterns are the design equivalent of "delve into." Watch for these current default clichés — they show up regardless of subject matter, which is exactly how you know they're defaults and not choices:
 
-1. **The warm-cream-and-terracotta default** — a cream background near `#F4F1EA` with a terracotta accent near `#D97757`. This is currently the single most common AI-design tell there is (it's close to a well-known AI assistant's own interaction accent, so it reads as a giveaway rather than a brand choice). Warm palettes are welcome — Part 3 asks for one — but never land on this exact pairing by default; earn a warm palette with a deliberate, different pair of hues.
+1. **The warm-cream-and-terracotta default** — a cream background near `#F4F1EA` with a terracotta accent near `#D97757`. This is currently the single most common AI-design tell (close to a well-known AI assistant's own interaction accent, so it reads as a giveaway rather than a brand choice). Warm palettes are welcome — Part 3 asks for one — but never land on this exact pairing by default; earn a warm palette with a deliberate, different pair of hues.
 2. **The SaaS-card kit** — every block of content chopped into identically rounded cards, one border-radius applied everywhere regardless of hierarchy, the same soft grey drop-shadow (`rgba(0,0,0,.1)`) under each one.
 3. **Template chrome** — a tracked-out ALL-CAPS eyebrow label above every heading; meta strings joined with middle dots; a spaced em-dash label format ("WORD — fragment"); a monospace face used only for small numeric labels because it "looks technical"; a "→" arrow appended to every link or button.
 4. **Sequence markers on non-sequences** — numbered 01 / 02 / 03 badges on content that isn't actually an ordered process.
@@ -49,7 +40,7 @@ Cookie-cutter layouts, generic gradients, and repeated visual patterns are the d
 
 ---
 
-## Part 3 — HTML Documentation Design Spec
+## Part 3 — HTML documentation design spec
 
 When the deliverable is an HTML file built for documentation (a report, spec, style guide, or reference doc rendered as a webpage), apply this concrete system on top of Part 2's guardrails.
 
@@ -75,7 +66,7 @@ Instead of adding a traffic-light system (green/red/yellow) for statuses, encode
 
 ---
 
-## Part 4 — Devil's Advocate Self-Review
+## Part 4 — Devil's Advocate self-review
 
 Before presenting *any* output this skill touched — text or design — run one adversarial pass on your own draft. This is the same discipline as a human editor reading their own piece cold before sending it.
 
@@ -87,7 +78,7 @@ Before presenting *any* output this skill touched — text or design — run one
 
 ---
 
-## Essential Tools Reference
+## Essential tools reference
 
 Use these to verify rather than assume the pass worked — a second, independent check catches what self-review alone misses:
 
@@ -97,10 +88,65 @@ Use these to verify rather than assume the pass worked — a second, independent
 
 ---
 
-## Condensed Workflow
+## Condensed workflow
 
 1. Draft the deliverable normally.
 2. Text present? → Part 1 pass.
 3. Design/HTML present? → Part 2 pass, then Part 3 spec if it's HTML documentation specifically.
 4. Always → Part 4 Devil's Advocate self-review, fatal-flaw veto included.
 5. Deliver, with the one honest remaining weakness named.
+
+---
+
+## Devlog rules (merged from `rules/devlog-rules.md`)
+
+### When the agent logs
+The user triggers a checkpoint. Three trigger phrases the agent recognises (case-insensitive):
+- "checkpoint" / "log it" / "save the devlog"
+- "what did we learn" / "wrap up"
+- "done for today" / "logging out"
+
+The agent does **not** auto-prompt on session close. The user decides when to checkpoint. This is a team of three students — open-ended by design, the user picks the moment.
+
+### Reflection prompt
+When triggered, the agent asks, in this exact order, before writing anything:
+1. "What did you do since the last checkpoint?" — open; let the user name the work, not the agent.
+2. "What did you learn that you didn't know at the last checkpoint?" — the learning, not the work.
+3. "Anything you'd arrange differently next time?" — the adjustment, not a confession.
+4. "Whose work touched this — Vanshika, Anunay, Sarthak, or a mix?" — the team view, mandatory.
+
+If the user gives a partial answer, the agent logs the partial answer and marks the missing field as `(not captured)` rather than fabricating it. Anti-slop rule: never invent a learning to fill the field.
+
+### Entry shape (mandatory)
+Devlog lives in `devlogs.md` (single file, append-only, no per-member files). Every entry is one bullet block with this exact layout:
+```
+## YYYY-MM-DD — <short title, no slop>
+**Vanshika** — <one line, what she did or decided>
+**Anunay** — <one line>
+**Sarthak** — <one line>
+**Learnings** — <one line per teammate who has one; skip the line if not captured>
+**Blockers** — <one line, or "none">
+**Pipeline stage(s) touched** — <number(s) from AGENT.md, or "none">
+**Arrange differently next time** — <one line, or "no change">
+```
+- One line per teammate, always. If a teammate didn't work that day, write `Vanshika — off`, etc. Never collapse two teammates into one line.
+- No rule-of-three inside any line. If you need three examples, write three separate devlog entries instead.
+- No "delve into," "robust," "seamless," "leverage," "it's important to note." If a line needs one of these, the line is wrong — rewrite.
+- No fake conclusion. The last line of the entry is `Arrange differently next time`, not a summary.
+- Date in ISO format. Title in sentence case, no emoji, no all-caps, no em-dash label format.
+
+### Three-member view rule
+Each entry must show all three views even if one teammate did nothing that day. This is the team-of-three contract — the devlog is the only place every member's day is visible at once. If a teammate is not reachable, the agent writes `not reachable today` and asks the user on the next checkpoint whether to backfill.
+
+### Cleanup pass (anti-slop Part 4)
+Before saving the entry, the agent runs Devil's Advocate on its own draft:
+1. Did any line use a banned word? Cut it.
+2. Did any line survive a "what would it mean for this to be false" test with "nothing"? Cut it.
+3. Does the entry end on a real adjustment, or on a restatement? If restatement, cut the restatement.
+4. State one honest remaining weakness to the user before saving ("the blocker line is vague, you'll want to tighten it later" reads better than silence).
+
+Ponytail skip: no separate per-member files, no metadata YAML per entry, no index file. One file, one shape, one cleanup pass.
+
+---
+
+*Source: `rules/anti-slop-craft-SKILL.md` (Parts 1, 2, 3, 4 + tools + condensed workflow) and `rules/devlog-rules.md` (when, prompt, shape, three-member rule, cleanup) merged into DESIGN.md. `the-architect-agent.md` is excluded from agent governance per user correction; preserved as archive only. Rules directory removed after this consolidation.*

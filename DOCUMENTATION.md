@@ -2,7 +2,7 @@
 
 Hybrid: machine-readable first (a structured block agents and tools can parse), human-readable second (prose for evaluators, onboarding, and team review). Documentation is a field of digital labour — the human's job is to review, correct, modify, not to re-derive from prose.
 
-The anti-slop rules in `rules/anti-slop-craft-SKILL.md` apply to the prose sections. No slop in this file.
+The anti-slop rules in `DESIGN.md` apply to the prose sections. No slop in this file.
 
 ---
 
@@ -50,12 +50,12 @@ assets:
     status: uninspected
 architecture_docs:
   - NL2SQL-Pipeline-Architecture.md
-  - NL2SQL-Pipeline-Architecture (1).md  # duplicate (3s gap), kept for review
+  - NL2SQL-Pipeline-Architecture (1).md  # archive (duplicate; source in temp/)
 context_index: context.md
 agent_profile: AGENT.md
 skill_profile: SKILL.md
-devlog_rules: rules/devlog-rules.md
-anti_slop_rules: rules/anti-slop-craft-SKILL.md
+devlog_rules: DESIGN.md §Devlog rules
+anti_slop_rules: DESIGN.md §Part 1 + §Part 2 + §Part 4
 out_of_pipeline_scope:
   - schema-design-phase tools
   - ops tools
@@ -82,8 +82,8 @@ Three third-year B.Tech CSE students working on a PBL deliverable. Roles above. 
 5. `template.html` — the renderer template for future docs; defines the legend semantics used everywhere.
 6. `NL2SQL-Pipeline-Architecture.md` (and its `(1).md` near-duplicate) — the prose architecture spec with the mermaid flowchart.
 7. `Projects.pdf` — uninspected; likely the PDF counterpart to the architecture doc.
-8. `AGENT.md` / `SKILL.md` — what the agent does here and what skills it uses.
-9. `rules/` — anti-slop craft + devlog rules. The agent reads these before producing anything.
+8. `AGENT.md` / `SKILL.md` / `TEAM.md` — what the agent does here, what skills it uses, and team structure.
+9. `DESIGN.md` — anti-slop craft (text + design + HTML spec + Devil's Advocate) + devlog rules. The agent reads this before producing anything.
 10. `devlogs.md` — the team's running log, one file, one shape, three-member view per entry.
 
 ### What is and is not in scope
