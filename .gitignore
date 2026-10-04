@@ -7,3 +7,20 @@
 Thumbs.db
 .vscode/
 .idea/
+
+# Node / Frontend / Desktop build artifacts
+node_modules/
+.npm-cache/
+dist/
+dist-electron/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+.pip-cache/
