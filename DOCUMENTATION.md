@@ -1,12 +1,10 @@
-# DOCUMENTATION.md — project handbook
+# DOCUMENTATION.md — Project Handbook
 
-Hybrid: machine-readable first (a structured block agents and tools can parse), human-readable second (prose for evaluators, onboarding, and team review). Documentation is a field of digital labour — the human's job is to review, correct, modify, not to re-derive from prose.
-
-The anti-slop rules in `DESIGN.md` apply to the prose sections. No slop in this file.
+Hybrid: machine-readable first (a structured block for tools and scripts to parse), human-readable second (prose for evaluators, onboarding, and team review).
 
 ---
 
-## Machine-readable block (do not edit casually)
+## Machine-readable block
 
 ```yaml
 project: NL2SQL Pipeline
@@ -45,17 +43,10 @@ assets:
   - path: html/template.html
     kind: html-template
     placeholder: "%%SVG_DIAGRAM%%"
-  - path: Projects.pdf
-    kind: pdf
-    status: uninspected
 architecture_docs:
   - NL2SQL-Pipeline-Architecture.md
-  - NL2SQL-Pipeline-Architecture (1).md  # archive (duplicate; source in temp/)
+  - DECIDED_MODULES.md
 context_index: context.md
-agent_profile: AGENT.md
-skill_profile: SKILL.md
-devlog_rules: DESIGN.md §Devlog rules
-anti_slop_rules: DESIGN.md §Part 1 + §Part 2 + §Part 4
 out_of_pipeline_scope:
   - schema-design-phase tools
   - ops tools
@@ -63,7 +54,7 @@ out_of_pipeline_scope:
 
 ---
 
-## Human-readable walkthrough
+## Human-readable Walkthrough
 
 ### What this project is
 
@@ -71,25 +62,22 @@ A pipeline that takes a natural-language question, produces a parameterized SQL 
 
 ### Who built it
 
-Three third-year B.Tech CSE students working on a PBL deliverable. Roles above. The split is by craft, not by seniority — Vanshika owns visual + QA, Anunay owns model + system, Sarthak owns algo + software. The agent (`AGENT.md`) maps each pipeline stage to whichever teammate's craft it touches.
+Three third-year B.Tech CSE students working on a PBL deliverable:
+- **Vanshika Kriti Singh** — creative, documentation, graphic design, QA testing.
+- **Anunay Sharma** — backbone, AI, LLM, ML, tech support, system design.
+- **Sarthak Singh** — software, algorithmic design, validation.
 
 ### How to read this repo
 
-1. `context.md` — start here. Index of every file, exact positions of the SVG and the rendered PNG, color/shape legend semantics.
-2. `nl2sql.html` — the pipeline as a self-contained webpage (light theme, inline SVG, embedded legend).
-3. `SVG_DIAGRAM.svg` — the master diagram (dark theme, Miro-exported, 1600×3560). Use this in tools that can't render Mermaid (Confluence, PDF, email).
-4. `pipeline_v2_check.png` — rendered check of the SVG. Same dark theme, 1400×2045. Filename confirms it was a pre-embed verification.
-5. `template.html` — the renderer template for future docs; defines the legend semantics used everywhere.
-6. `NL2SQL-Pipeline-Architecture.md` (and its `(1).md` near-duplicate) — the prose architecture spec with the mermaid flowchart.
-7. `Projects.pdf` — uninspected; likely the PDF counterpart to the architecture doc.
-8. `AGENT.md` / `SKILL.md` / `TEAM.md` — what the agent does here, what skills it uses, and team structure.
-9. `DESIGN.md` — anti-slop craft (text + design + HTML spec + Devil's Advocate) + devlog rules. The agent reads this before producing anything.
-10. `devlogs.md` — the team's running log, one file, one shape, three-member view per entry.
+1. `context.md` — Workspace index of assets, exact positions, and color/shape legend semantics.
+2. `NL2SQL-Pipeline-Architecture.md` — Core architecture specification, 16 stages walkthrough, production practices, and references.
+3. `DECIDED_MODULES.md` — Technical module specifications for model foundation, schema linking, and dialect conversion.
+4. `nl2sql.html` — The pipeline as a self-contained webpage (light theme, inline SVG, embedded legend).
+5. `SVG_DIAGRAM.svg` — The master diagram (dark theme, Miro-exported, 1600×3560). Use this in tools that cannot render Mermaid (Confluence, PDF, email).
+6. `diagrams/pipeline_v2_check.png` — Rendered check of the SVG (dark theme, 1400×2045).
+7. `html/template.html` — The renderer template for future docs; defines the legend semantics used across HTML versions.
 
 ### What is and is not in scope
 
-In scope: stages 1–16 + the four side-channels. Out of scope (deliberately excluded in the architecture doc): schema-design-phase tools, ops tools. If a proposed feature fits "design a new table" or "run the production deploy," it does not belong in this project.
-
-### One honest remaining weakness
-
-`Projects.pdf` has not been inspected. If it carries material not duplicated in the `.md` files, the index in `context.md` is incomplete. The fix is a 5-minute read pass, not a redesign — and it should happen before the next evaluator review.
+- **In scope:** Stages 1–16 (Rate limiting, Semantic cache, Schema linking/RAG, Model generation, Query parameterization, Dialect conversion, Static validation, Retry gate, Cost estimation, Risk tiering, Impact visualizer, Human approval, Transaction wrapper, Schema version control, DBMS execution, Response formatting) + the four side-channels (Audit log, Index advisor, Fuzz harness, Anti-pattern detector).
+- **Out of scope:** Schema-design-phase tools (automated relational design, denormalization advisor) and generic infrastructure/ops tools (workload replayer, warehouse dashboards).
