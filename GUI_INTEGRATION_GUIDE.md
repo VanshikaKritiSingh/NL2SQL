@@ -1,7 +1,7 @@
-# GUI Integration Guide — Module 1 & Module 14
+# GUI Integration Guide: Module 1 & Module 14
 
 **Owner:** Vanshika Kriti Singh (GUI Team Lead)  
-**Status:** Implemented (V1 Complete)  
+**Status:** [Status: Implemented - V1 Complete]  
 **Deliverable:** `D:\NL2SQL\GUI\` (Desktop & Web Studio + FastAPI bridge stubs)
 
 ---
@@ -11,48 +11,47 @@
 This document defines the **typed contracts** and **open integration strings** for the NL2SQL GUI. 
 
 The GUI covers two critical human touchpoints in the pipeline:
-- **Module 1 (M1):** Natural Language Query Intake — where the user types questions, chooses their DBMS dialect, views the generated SQL, and inspects results.
-- **Module 14 (M14):** ER Diagram Visualizer & Human Approval Gate — activates automatically when a mutating/DDL query requires human review before touching the database.
+- **Module 1 (M1):** Natural Language Query Intake: where the user types questions, chooses their DBMS dialect, views the generated SQL, and inspects results.
+- **Module 14 (M14):** ER Diagram Visualizer & Human Approval Gate: activates automatically when a mutating/DDL query requires human review before touching the database.
 
-All other modules (M2–M13, M15–M16) are currently served by **mock stubs** in `backend/routers/` and `backend/mock_data/`. When you are ready to plug in your real implementations, you only need to update the stub functions in the backend without touching the frontend.
+All other modules (M2-M13, M15-M16) are currently served by **mock stubs** in `backend/routers/` and `backend/mock_data/`. When you are ready to plug in your real implementations, you only need to update the stub functions in the backend without touching the frontend.
 
 ---
 
 ## 2. Architecture & Data Flow
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Desktop & Web UI (D:\NL2SQL\GUI\)                          │
-│  - Electron Native Desktop Shell / Vite React Web App       │
-│  - M1: Query intake, history sidebar, Monaco SQL inspector  │
-│  - M14: xyflow ER diagram, Monaco diff, telemetry panel     │
-└──────────────┬──────────────────────────────▲───────────────┘
-               │ REST (submit/approve)         │ WebSocket
-               ▼                              │ (stage stream)
-┌─────────────────────────────────────────────┴───────────────┐
-│  FastAPI Backend Bridge (D:\NL2SQL\GUI\server\)             │
-│                                                             │
-│  [M1 Router]  ───► [Pipeline Stub] ───► [M14 Approval Router]│
-│       │                    │                    │           │
-│       ▼                    ▼                    ▼           │
-│  M2, M3, M4          M5, M6, M7, M8,       M10 (EXPLAIN)    │
-│  (Rate, Audit,       M9, M11, M12, M13     M11 (Security)   │
-│   Cache)             (ML + Sec + Dev)      M15 (Dolt Diff)  │
-│   [STUBS]               [STUBS]               [STUBS]       │
-└─────────────────────────────────────────────────────────────┘
-```
-└─────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------+
+|  Desktop & Web UI (D:\NL2SQL\GUI\)                          |
+|  - Electron Native Desktop Shell / Vite React Web App       |
+|  - M1: Query intake, history sidebar, Monaco SQL inspector  |
+|  - M14: xyflow ER diagram, Monaco diff, telemetry panel     |
++-----------------------------+-------------------------------+
+                              | REST (submit/approve)
+                              | WebSocket (stage stream)
+                              v
++-------------------------------------------------------------+
+|  FastAPI Backend Bridge (D:\NL2SQL\GUI\server\)             |
+|                                                             |
+|  [M1 Router]  ---> [Pipeline Stub] ---> [M14 Approval Router]|
+|       |                    |                    |           |
+|       v                    v                    v           |
+|  M2, M3, M4          M5, M6, M7, M8,       M10 (EXPLAIN)    |
+|  (Rate, Audit,       M9, M11, M12, M13     M11 (Security)   |
+|   Cache)             (ML + Sec + Dev)      M15 (Dolt Diff)  |
+|   [STUBS]               [STUBS]               [STUBS]       |
++-------------------------------------------------------------+
 ```
 
 ---
 
 ## 3. Integration Points by Teammate / Module
 
-### 🤖 ML Team (Anunay — M4, M5, M6)
+### ML Team (Anunay: M4, M5, M6)
 
 #### Module 4: Semantic Cache
 - **Where to plug in:** `GUI/server/services/pipeline_stub.py` (Stage 4) or `GUI/server/routers/query.py`
-- **Expected behavior:** On cache hit, return `{ "cache_hit": true, "generated_sql": "...", "result_data": {...} }`. The UI will display a green `⚡ Cache Hit` badge and skip subsequent stages.
+- **Expected behavior:** On cache hit, return `{ "cache_hit": true, "generated_sql": "...", "result_data": {...} }`. The UI will display a `[Cache Hit]` badge and skip subsequent stages.
 - **Payload model:**
   ```python
   class QueryResponse(BaseModel):
@@ -84,7 +83,7 @@ All other modules (M2–M13, M15–M16) are currently served by **mock stubs** i
 
 ---
 
-### 🛡️ Security Team (M2, M3, M7, M11, M13)
+### Security Team (M2, M3, M7, M11, M13)
 
 #### Module 2: Per-User Rate Limiter
 - **Where to plug in:** `GUI/server/routers/query.py` (before processing)
@@ -103,7 +102,7 @@ All other modules (M2–M13, M15–M16) are currently served by **mock stubs** i
 - **Output:** Replaces `generated_sql` with parameterized form + params dict.
 
 #### Module 11: Deadlock, Concurrency & Security Checker
-- **Where to plug in:** `GUI/server/routers/analysis.py` → `GET /api/security-check/{query_id}`
+- **Where to plug in:** `GUI/server/routers/analysis.py` -> `GET /api/security-check/{query_id}`
 - **Payload model expected by M14 Telemetry Panel:**
   ```python
   class SecurityCheck(BaseModel):
@@ -119,7 +118,7 @@ All other modules (M2–M13, M15–M16) are currently served by **mock stubs** i
 
 ---
 
-### 💻 Software Development Team (Sarthak — M8, M9, M10, M12, M15, M16)
+### Software Development Team (Sarthak: M8, M9, M10, M12, M15, M16)
 
 #### Module 8: Multi-Dialect Converter & Normalizer
 - **Where to plug in:** `GUI/server/services/pipeline_stub.py` (Stage 8)
@@ -132,7 +131,7 @@ All other modules (M2–M13, M15–M16) are currently served by **mock stubs** i
 - **If invalid:** Emit error event and route to retry gate (Stage 8 in pipeline).
 
 #### Module 10: EXPLAIN-Style Cost Estimator
-- **Where to plug in:** `GUI/server/routers/analysis.py` → `GET /api/explain/{query_id}`
+- **Where to plug in:** `GUI/server/routers/analysis.py` -> `GET /api/explain/{query_id}`
 - **Payload model expected by M14 Telemetry Panel:**
   ```python
   class CostEstimate(BaseModel):
@@ -145,12 +144,12 @@ All other modules (M2–M13, M15–M16) are currently served by **mock stubs** i
 #### Module 12: Dual-Path Execution Router
 - **Where to plug in:** `GUI/server/routers/query.py`
 - **Routing logic:**
-  - Read-only (SELECT) → route to M13 (Sandbox) → return `QueryResponse(status="completed")`
-  - Mutating (INSERT/UPDATE/DELETE/ALTER/DROP) → route to M14 → return `QueryResponse(status="approval_required", approval_payload=...)`
+  - Read-only (SELECT) -> route to M13 (Sandbox) -> return `QueryResponse(status="completed")`
+  - Mutating (INSERT/UPDATE/DELETE/ALTER/DROP) -> route to M14 -> return `QueryResponse(status="approval_required", approval_payload=...)`
 
 #### Module 15: Transaction Wrapper & CAS Checkpoint (Dolt)
 - **Where to plug in:** 
-  1. `GUI/server/routers/analysis.py` → `GET /api/diff/{query_id}` to provide DDL/DML diffs for M14 preview
+  1. `GUI/server/routers/analysis.py` -> `GET /api/diff/{query_id}` to provide DDL/DML diffs for M14 preview
   2. `GUI/server/routers/approval.py` on approval to execute inside Dolt commit
 - **Diff payload model expected by M14 Diff Panel:**
   ```python
@@ -212,20 +211,20 @@ The mock backend includes 3 pre-built scenarios to demonstrate the full pipeline
 
 1. **Read-only query (Auto-executes):**
    - Type: `"Show me all orders from last month"`
-   - Result: Pipeline runs stages 1–13, returns a 5-row table in the Result Panel, Monaco shows formatted SELECT SQL.
+   - Result: Pipeline runs stages 1-13, returns a 5-row table in the Result Panel, Monaco shows formatted SELECT SQL.
 
 2. **Mutating UPDATE query (Triggers M14 Approval Gate):**
    - Type: `"Increase all product prices by 10%"`
    - Result: Pipeline halts at Stage 14, UI transitions to Approval Gate:
-     - React Flow ER diagram shows `products` table highlighted with **red border** (direct impact)
+     - React Flow ER diagram shows `products` table highlighted with border (direct impact)
      - Monaco SQL panel shows `UPDATE products SET price = price * 1.10`
-     - Tabular DML diff shows before ($49.99) → after ($54.99) prices
+     - Tabular DML diff shows before ($49.99) -> after ($54.99) prices
      - Pre-flight telemetry shows EXPLAIN cost ($42.50) + Security flags
      - Approve / Reject buttons with feedback input
 
 3. **DDL Schema Change query (Triggers M14 Approval Gate with Monaco DDL Diff):**
    - Type: `"Add a discount_code column to orders table"`
    - Result: UI transitions to Approval Gate:
-     - React Flow ER diagram shows `orders` table highlighted in red with `[ALTER]` badge
+     - React Flow ER diagram shows `orders` table highlighted with `[ALTER]` badge
      - Monaco side-by-side DDL Diff shows original `CREATE TABLE` vs modified `CREATE TABLE`
      - Pre-flight telemetry shows lock level = `table` and risk tier = `HIGH`

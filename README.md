@@ -1,100 +1,188 @@
-# NL2SQL Pipeline — Desktop & Web GUI (Module 1 & Module 14)
+<div align="center">
 
-**PBL Project Deliverable:** B.Tech CSE (3rd Year)  
-**Lead Developer (GUI):** Vanshika Kriti Singh  
-**Teammates:** Anunay Sharma (ML / DL), Sarthak Singh (Software Dev & Security)
+# NL2SQL Production Pipeline
 
----
+**Universal Natural Language to Multi-Paradigm Database Compiler**
 
-## 🌟 Executive Summary
-
-This repository contains the complete **User Interface & Observability Shell** for the **NL2SQL Production Pipeline**, packaged as both a **standalone native desktop application** and a responsive web application. The GUI provides human-supervised control over AI-generated database queries and schema modifications, ensuring zero unsupervised writes to production databases.
-
-The GUI covers two core stages in the 16-stage pipeline:
-1. **Module 1 (M1) — Natural Language Query Intake:** Interactive workspace for natural language prompt submission, target DBMS dialect selection, live 16-stage pipeline progress tracking, Monaco-based SQL AST inspection, and query execution result rendering.
-2. **Module 14 (M14) — ER Diagram Visualizer & Human Approval Gate:** Safety guardrail activated when mutating (DML) or schema-altering (DDL) queries are submitted. Features interactive React Flow ER graph with red/yellow table highlight borders, Monaco side-by-side DDL diffs, tabular DML data diffs, M10 EXPLAIN cost estimates, and M11 deadlock/concurrency flags.
+`[Project Status: Phase 1 & 2 Complete]` &nbsp;|&nbsp; `[Build: Passing]` &nbsp;|&nbsp; `[Version: 0.2.0]`
 
 ---
 
-## 🖥️ Standalone Desktop Application Quick Start
+**Engineering Team**
 
-The entire GUI is consolidated inside the `GUI/` directory and can run out-of-the-box as a native desktop application with zero backend configuration needed (built-in simulation engine included).
+| Member | Department / Role | Focus Modules |
+| :--- | :--- | :--- |
+| **Anunay Sharma** | AI & Machine Learning | Schema Linker (M1), Paradigm Router (M3), Offline QLoRA (M0) |
+| **Sarthak Singh** | Software Dev & Security | Static Validator (M9), Cost Estimator (M10), Dialect Converter (M2) |
+| **Vanshika Kriti Singh** | GUI & Systems Observability | Desktop & Web Studio Shell (M1, M14), Approval Gate |
 
-### 1. Launch in Desktop Mode (Live Dev / Test)
-```powershell
-cd D:\NL2SQL\GUI
+</div>
+
+<br />
+
+---
+
+<div align="center">
+
+### System Architecture Overview
+
+</div>
+
+```
++----------------------------------------------------------------------------------------------------+
+|                                    16-STAGE PRODUCTION PIPELINE                                    |
++----------------------------------------------------------------------------------------------------+
+                                                  |
+                                                  v
++-----------------------+     +-----------------------+     +---------------------------------------+
+|  M1: Query Intake     | --> |  M3: Paradigm Router  | --> |  M1: Schema Linker & Context Grounding|
+|  (Natural Language)   |     |  (SQL / Graph / MQL)  |     |  (BM25 + Semantic RRF + Steiner Tree) |
++-----------------------+     +-----------------------+     +---------------------------------------+
+                                                                                |
+                                                                                v
++-----------------------+     +-----------------------+     +---------------------------------------+
+|  M2: Dialect Transpile| <-- |  M6: Foundation Model | <-- |  M5: Context & Prompt Builder         |
+|  (20+ SQL, Cypher, MQL|     |  (Qwen2.5 / DeepSeek) |     |  (Table DDL + Value Grounding)        |
++-----------------------+     +-----------------------+     +---------------------------------------+
+            |
+            v
++-----------------------+     +-----------------------+     +---------------------------------------+
+|  M9: Static Validator | --> |  M10: Cost Estimator  | --> |  M12: Dual-Path Execution Router      |
+|  (AST & Anti-Patterns)|     |  (EXPLAIN & Row Limits|     +---------------------------------------+
++-----------------------+     +-----------------------+              |                    |
+                                                                     | (Read-Only)        | (Mutating / DDL)
+                                                                     v                    v
+                                                        +-----------------------+  +----------------+
+                                                        |  M13: Sandbox Exec    |  |  M14: Approval |
+                                                        |  (Direct DB Dispatch) |  |  Gate & Visual |
+                                                        +-----------------------+  +----------------+
+```
+
+---
+
+<div align="center">
+
+### Repository Structure & Domain Separation
+
+</div>
+
+```
+NL2SQL/
+|-- core/                            # Core Runtime Engine (Zero Heavy ML Dependencies)
+|   |-- paradigm_suggestor.py        # [Status: Complete] CLEF intent drafter & auto-router
+|   |-- schema_linker.py             # [Status: Complete] Hybrid RRF table ranking & Steiner join builder
+|   |-- dialect_converter.py         # [Status: Complete] Deterministic AST transpiler (20+ SQL dialects)
+|   `-- __init__.py
+|
+|-- m09_validator/                   # [Status: Complete] Static AST Validator & Policy Guardrails
+|   |-- contracts.py                 # Immutable validation issue models & status contracts
+|   |-- engine.py                    # Multi-layer rule execution engine
+|   `-- rules/                       # Parse, policy, schema, and semantic rule sets
+|
+|-- m10_cost/                        # [Status: Complete] Query Cost & Blast-Radius Estimator
+|   |-- contracts.py                 # Cost report structures & threshold definitions
+|   |-- thresholds.py                # Configurable row scan and execution limits
+|   `-- adapters/postgres.py         # EXPLAIN plan parser & replica row estimator
+|
+|-- GUI/                             # [Status: Complete] Native Desktop & Web Interface Studio
+|   |-- src/                         # React 18, TypeScript, Monaco Editor, React Flow ER Diagrams
+|   |-- electron/                    # Electron container & native OS lifecycle bridge
+|   `-- server/                      # FastAPI bridge stubs for pipeline integration
+|
+|-- offline/                         # [Status: Complete] AI/ML Offline Suite (Isolated)
+|   |-- training/train_qlora.py      # 4-bit NF4 QLoRA fine-tuning script (< 7.5GB VRAM)
+|   |-- training/export_gguf.py      # LoRA merge, GGUF quantizer & Ollama Modelfile exporter
+|   |-- training/evaluate.py         # AST Exact Match & Execution Accuracy benchmark runner
+|   `-- training/requirements-train.txt # Isolated ML dependencies (PyTorch, PEFT, TRL, etc.)
+|
+`-- tests/                           # Unit and integration test suite (12/12 passing)
+```
+
+---
+
+<div align="center">
+
+### Module Implementation Matrix
+
+</div>
+
+| Module | Name | Scope / Responsibility | Owner | Work Status |
+| :--- | :--- | :--- | :--- | :--- |
+| **M0** | Model Suite | QLoRA fine-tuning & GGUF CPU export | Anunay | `[Status: Complete]` |
+| **M1** | Schema Linker | Hybrid RRF retrieval & Steiner join injection | Anunay | `[Status: Complete]` |
+| **M2** | Dialect Transpiler | SQL AST conversion (20+ dialects, Cypher, MQL) | Sarthak / Anunay | `[Status: Complete]` |
+| **M3** | Paradigm Router | Intent classification & auto-routing | Anunay | `[Status: Complete]` |
+| **M9** | Static Validator | AST verification & anti-pattern detection | Sarthak | `[Status: Complete]` |
+| **M10** | Cost Estimator | EXPLAIN plan cost & blast radius checks | Sarthak | `[Status: Complete]` |
+| **M14** | Approval Gate & GUI | Desktop & Web Studio with ER diff visualization | Vanshika | `[Status: Complete]` |
+
+---
+
+<div align="center">
+
+### Quick Start Guide
+
+</div>
+
+#### 1. Core Engine & Backend Dependencies
+For general development, API integration, and test execution (lightweight, standard Python):
+
+```bash
+# Clone the repository
+git clone https://github.com/VanshikaKritiSingh/NL2SQL.git
+cd NL2SQL
+
+# Install core runtime packages (No heavy GPU/Torch packages required)
+pip install -r requirements.txt
+
+# Run the test suite
+PYTHONPATH=. pytest tests/ -v
+```
+
+#### 2. Native Desktop Application & Web Studio
+The UI can run as a standalone desktop executable or browser application:
+
+```bash
+# Navigate to GUI directory
+cd GUI
+npm install
+
+# Option A: Run native desktop app in live dev mode
 npm run desktop:dev
-```
-*This starts the background Vite server and automatically opens the native NL2SQL Studio desktop window.*
 
-### 2. Run Direct Executable
-```powershell
-.\dist-electron\win-unpacked\"NL2SQL Studio.exe"
-# OR
-npm run desktop
-```
-
-### 3. Build Windows Executable Installer / Portable Binary
-```powershell
-npm run desktop:build
-```
-
----
-
-## 🌐 Web Mode (Browser)
-
-If you prefer to run inside a standard web browser:
-
-```powershell
-cd D:\NL2SQL\GUI
+# Option B: Run browser web app
 npm run dev
 ```
-Navigate to: **`http://localhost:5173`**
 
----
+#### 3. AI / ML Offline Suite (Optional)
+Heavy machine learning dependencies are strictly isolated inside `offline/training/`. Only team members performing local QLoRA fine-tuning or GGUF conversion need these packages:
 
-## 📋 Interactive Demo Scenarios (Built-in Standalone Engine)
-
-Try these pre-configured prompts in the UI to see the complete pipeline in action:
-
-| Query Type | Prompt Suggestion | Expected Pipeline Behavior |
-|---|---|---|
-| **Read-Only (SELECT)** | `"Show me all orders from last month..."` | Passes through stages 1–13. Returns 5-row table from M13 Sandbox. Monaco inspector shows formatted SQL with `DATE_SUB` and `JOIN`. |
-| **Mutating (DML UPDATE)** | `"Increase all product prices by 10%..."` | Dual-path router (M12) trips approval gate (M14). ER diagram highlights `products` table in **red** (`[UPDATE]`) and `order_items` in **yellow**. Data diff shows before ($49.99) vs after ($54.99). Cost & Security cards display telemetry. |
-| **Schema DDL (ALTER)** | `"Add a discount_code column to orders table"` | Approval gate (M14) activates with **CRITICAL** risk tier. Monaco side-by-side Diff editor displays schema before vs after. Exclusive schema lock warning displayed. |
-
----
-
-## 📁 Repository Structure
-
-```
-D:\NL2SQL\
-├── GUI\                            # Consolidated Desktop & Web deliverable
-│   ├── electron\                   # Native desktop container & lifecycle
-│   │   ├── main.cjs                # Electron window, IPC, security sandbox
-│   │   └── preload.cjs             # Safe context bridge
-│   ├── src\
-│   │   ├── api\                    # Fetch and WebSocket clients (with auto mock fallback)
-│   │   ├── mock\                   # Full client-side simulation engine
-│   │   ├── modules\
-│   │   │   ├── m1\                 # Module 1 UI: Query Intake, Monaco SQL, Progress, Results
-│   │   │   └── m14\                # Module 14 UI: React Flow ER Graph, Monaco Diff, Telemetry, Approvals
-│   │   ├── shared\                 # Reusable components (TopBar, DialectSelector, RiskBadge)
-│   │   ├── store\                  # Zustand stores (useAppStore, useQueryStore, usePipelineStore)
-│   │   └── types\                  # TypeScript contracts
-│   ├── server\                     # FastAPI backend bridge stubs (for Anunay & Sarthak)
-│   ├── package.json                # Desktop & web scripts, electron-builder config
-│   └── vite.config.ts              # Vite configuration (relative desktop paths)
-├── GUI_INTEGRATION_GUIDE.md        # Complete API and teammate integration contract
-├── README.md                       # Main project documentation
-└── skill.md                        # Team operational handbook & coding standards
+```bash
+pip install -r offline/training/requirements-train.txt
+python offline/training/train_qlora.py --help
 ```
 
 ---
 
-## 🔌 Teammate Integration Guide
+<div align="center">
 
-All API contracts, Pydantic schemas, and TypeScript interfaces are formally documented in [`GUI_INTEGRATION_GUIDE.md`](./GUI_INTEGRATION_GUIDE.md).
+### Verification & Testing
 
-- **Anunay (ML Team — M4, M5, M6):** Connect your model inference to `GUI/server/routers/query.py` and emit Steiner Minimal Tree schema linkage events to `GUI/server/services/pipeline_stub.py`.
-- **Sarthak (Software Dev & Security — M8, M9, M10, M11, M12, M15, M16):** Plug your `sqlglot` converter, EXPLAIN cost estimator, and Dolt CAS commit wrapper into `GUI/server/routers/analysis.py` and `GUI/server/routers/approval.py`.
+</div>
+
+```
+============================== 12 passed in 0.12s ==============================
+- CLEF Drafter Intent Routing (Graph, Document, KV, OLAP): PASSED
+- Paradigm Suggestor Auto Mode & Manual Guardrails: PASSED
+- Dialect Transpilation (PostgreSQL, MySQL, SQLite, Cypher, MQL): PASSED
+- Categorical Value Trie Grounding: PASSED
+- Steiner Tree FK Bridge Join Injection: PASSED
+```
+
+---
+
+<div align="center">
+
+*NL2SQL Project: Phase 1 & 2 Evaluation Milestone*
+
+</div>

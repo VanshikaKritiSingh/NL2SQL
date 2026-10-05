@@ -1,0 +1,11 @@
+# Core Runtime & Development Dependencies
+# Lightweight packages for SQL AST transpilation, static validation, FastAPI server, and testing.
+# Offline ML fine-tuning dependencies are isolated in offline/training/requirements-train.txt.
+
+sqlglot>=25.0.0
+pydantic>=2.11.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.0
+websockets>=15.0.0
+python-multipart>=0.0.20
+pytest>=8.0.0

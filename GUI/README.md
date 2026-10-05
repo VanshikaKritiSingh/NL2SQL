@@ -1,94 +1,146 @@
-# Unified GUI Module (Module 1 & Module 14) — Desktop & Web Studio
+<div align="center">
 
-This folder contains the complete, standalone desktop application and web implementation for the **NL2SQL Pipeline** project:
-- **Module 1:** Natural Language Query Intake, SQL Inspector (Monaco Editor), Live 16-Stage Pipeline Tracker, and Tabular Sandbox Results.
-- **Module 14:** Interactive ER Diagram Visualizer (React Flow with write-target impact highlighting), Side-by-Side DDL / Tabular DML Diffs, Pre-flight Telemetry (M10 EXPLAIN cost & M11 Deadlock/Security flags), and Human Approval Gate.
+# NL2SQL Desktop & Web Studio Shell
+
+**Modules 1 & 14: User Interface, Monaco SQL Inspector, and Human Approval Gate**
+
+`[Work Status: Implemented & Verified]` &nbsp;|&nbsp; `[Framework: React 18 + Electron + FastAPI]`
 
 ---
 
-## 🖥️ How to Run as a Standalone Desktop Application
+</div>
 
-### Option 1: Live Desktop Mode (Recommended for testing & development)
-Starts Vite and automatically launches the native desktop window with live hot-reloading:
+<br />
 
-```powershell
-cd D:\NL2SQL\GUI
+---
+
+<div align="center">
+
+### Module Interface Architecture
+
+</div>
+
+```
++-----------------------------------------------------------------------------------------+
+|                                    GUI STUDIO SHELL                                     |
++-----------------------------------------------------------------------------------------+
+|                                                                                         |
+|   +---------------------------------------+   +-------------------------------------+   |
+|   |  Module 1: Natural Language Intake    |   |  Module 14: Approval & Guardrails   |   |
+|   |---------------------------------------|   |-------------------------------------|   |
+|   |  * Prompt submission & history        |   |  * React Flow ER diagram viewer     |   |
+|   |  * 16-Stage live pipeline tracking    |   |  * Monaco side-by-side DDL diffs    |   |
+|   |  * Monaco SQL AST syntax inspector    |   |  * Tabular DML before/after diffs   |   |
+|   |  * Sandbox query result table         |   |  * M10 EXPLAIN & M11 safety telemetry| |
+|   +---------------------------------------+   +-------------------------------------+   |
+|                                       \           /                                     |
+|                                        v         v                                      |
+|   +---------------------------------------------------------------------------------+   |
+|   |                          Dual-Mode Client-Side Engine                           |   |
+|   |  * Standalone Simulated Mode: Zero-backend instant demo & local mock state      |   |
+|   |  * Live Bridge Mode: WebSocket & REST integration with FastAPI backend (port 8000)| |
+|   +---------------------------------------------------------------------------------+   |
+|                                                                                         |
++-----------------------------------------------------------------------------------------+
+```
+
+---
+
+<div align="center">
+
+### Execution Modes & Launch Commands
+
+</div>
+
+```
+                        [Launch Target Selection]
+                                    |
+          +-------------------------+-------------------------+
+          |                                                   |
+          v                                                   v
+   [Native Desktop App]                              [Web Browser Client]
+          |                                                   |
+  npm run desktop:dev                                     npm run dev
+          |                                                   |
+(Electron container with HMR)                         (Vite server at port 5173)
+```
+
+#### 1. Native Desktop Application
+Runs in an isolated Electron container with desktop window controls:
+
+```bash
+# Navigate to GUI directory
+cd GUI
+
+# Run live development desktop mode (Vite + Electron)
+npm run desktop:dev
+
+# Run pre-packaged desktop executable
+npm run desktop
+
+# Build standalone Windows installer/executable
+npm run desktop:build
+```
+
+#### 2. Web Browser Application
+Runs in any modern web browser:
+
+```bash
+cd GUI
+npm run dev
+```
+Access URL: `http://localhost:5173`
+
+---
+
+<div align="center">
+
+### Directory Layout
+
+</div>
+
+```
+GUI/
+|-- electron/               # Native desktop lifecycle (main.cjs, preload.cjs)
+|-- src/
+|   |-- api/                # API client layer with automatic mock fallback
+|   |-- hooks/              # WebSocket listeners and React state hooks
+|   |-- mock/               # Zero-dependency client simulation engine
+|   |-- modules/
+|   |   |-- m1/             # Query intake, Monaco editor, progress tracker
+|   |   `-- m14/            # React Flow ER graph, Monaco diffs, telemetry
+|   |-- shared/             # TopBar, DialectSelector, RiskBadge, StatusBar
+|   |-- store/              # Zustand state stores (app, query, pipeline)
+|   `-- types/              # TypeScript schemas for requests and payloads
+|-- server/                 # FastAPI Python backend bridge stubs
+|-- package.json            # Desktop & web script definitions
+`-- vite.config.ts          # Bundler configuration with relative asset paths
+```
+
+---
+
+<div align="center">
+
+### Backend Bridge Integration
+
+</div>
+
+To connect the GUI shell to the live Python pipeline:
+
+```bash
+# 1. Start FastAPI pipeline bridge (from repository root)
+cd GUI/server
+python main.py
+
+# 2. Launch GUI Studio
+cd ..
 npm run desktop:dev
 ```
 
-### Option 2: Run Packaged Desktop Executable Directly
-Launch the pre-built native Windows application executable:
-
-```powershell
-# Directly double-click or run from PowerShell:
-.\dist-electron\win-unpacked\"NL2SQL Studio.exe"
-```
-Or use the npm script:
-```powershell
-npm run desktop
-```
-
-### Option 3: Build Standalone Windows Executable (.exe)
-To package an updated Windows binary:
-```powershell
-npm run desktop:build
-```
-*(Produces a standalone `NL2SQL Studio.exe` inside `dist-electron\win-unpacked\`)*
-
 ---
 
-## 🌐 Running in the Web Browser
+<div align="center">
 
-If you prefer to run it inside Google Chrome / Edge / Firefox:
+*NL2SQL GUI Module: Technical Documentation & Implementation Reference*
 
-```powershell
-cd D:\NL2SQL\GUI
-npm run dev
-```
-Navigate to: **`http://localhost:5173`**
-
----
-
-## 📁 Directory Structure
-
-```
-D:\NL2SQL\GUI\
-├── electron\            # Native desktop container & lifecycle (main.cjs, preload.cjs)
-├── src\
-│   ├── api\             # Centralized API fetch layer with auto-fallback to mock services
-│   ├── hooks\           # WebSocket client and React hooks
-│   ├── mock\            # In-memory mock data and pipeline progress simulation (Zero external dependencies)
-│   ├── modules\
-│   │   ├── m1\          # Module 1 UI components (Input, History, Inspector, Progress, Results)
-│   │   └── m14\         # Module 14 UI components (ER Diagram, Monaco Diff, Telemetry, Approvals)
-│   ├── shared\          # Reusable UI widgets (TopBar, DialectSelector, RiskBadge, StatusBar)
-│   ├── store\           # Zustand state management (App, Query, Pipeline state)
-│   ├── types\           # TypeScript contracts and models
-│   ├── App.tsx          # Root container shell with view toggling
-│   ├── main.tsx         # React root bootstrap
-│   └── index.css        # Tailwind CSS and theme styles
-├── server\              # FastAPI Python backend bridge stubs (for teammate integration)
-├── package.json         # Desktop scripts, Electron config, dependencies
-├── vite.config.ts       # Vite bundler configuration (with relative paths for desktop)
-└── README.md
-```
-
----
-
-## 🔌 Teammate Integration (FastAPI Bridge)
-When Anunay (ML) or Sarthak (Dev/Sec) connect real pipeline endpoints:
-
-1. **Start the backend bridge:**
-   ```powershell
-   cd D:\NL2SQL\GUI\server
-   python main.py
-   ```
-   *(Runs on `http://127.0.0.1:8000` with docs at `http://127.0.0.1:8000/docs`)*
-
-2. **Launch the Desktop App or Web App:**
-   ```powershell
-   cd D:\NL2SQL\GUI
-   npm run desktop:dev    # for desktop
-   # OR
-   npm run dev            # for web
-   ```
+</div>
