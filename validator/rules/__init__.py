@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
-from .contracts import (
+from ..contracts import (
     Layer,
     Severity,
 )

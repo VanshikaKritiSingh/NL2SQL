@@ -1,0 +1,2 @@
+# Exported models & GGUF directory
+# Model weights are excluded from git via .gitignore.

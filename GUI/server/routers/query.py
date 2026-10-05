@@ -7,7 +7,7 @@ from models.query import QueryRequest, QueryResponse, HistoryItem
 from mock_data.queries import classify_and_generate_mock
 from services.pipeline_stub import simulate_pipeline_run
 
-router = APIRouter(prefix="/query", tags=["Query Intake (M1)"])
+router = APIRouter(prefix="/query", tags=["Query Intake"])
 
 # In-memory history store: user_id -> List[HistoryItem]
 query_history: Dict[str, List[HistoryItem]] = {}
@@ -16,7 +16,7 @@ stored_responses: Dict[str, QueryResponse] = {}
 
 @router.post("", response_model=QueryResponse)
 async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks):
-    """Module 1 entry point: Receives natural language query, triggers pipeline."""
+    """Query Intake entry point: Receives natural language query, triggers pipeline."""
     
     # 1. Generate appropriate mock response (SELECT, UPDATE, or DDL)
     response = classify_and_generate_mock(request.query_text, request.target_dialect.value)

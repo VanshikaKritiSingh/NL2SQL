@@ -24,3 +24,33 @@ venv/
 .venv/
 env/
 .pip-cache/
+.pytest_cache/
+
+# ML / AI Large Files & Model Checkpoints (Keeps GitHub Repo Volume Minimal)
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.gguf
+*.onnx
+offline/checkpoints/*
+!offline/checkpoints/.gitkeep
+offline/models/*
+!offline/models/.gitkeep
+models/
+checkpoints/
+
+# Generated Local Datasets & Raw Cache (Not pushed to GitHub)
+offline/datasets/*.json
+offline/datasets/*.jsonl
+offline/datasets/*.parquet
+offline/datasets/raw/
+data/
+datasets/
+!offline/datasets/.gitkeep
+
+# ML Logs & Telemetry
+wandb/
+runs/
+lightning_logs/
+.cache/

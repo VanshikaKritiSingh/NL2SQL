@@ -5,12 +5,12 @@ from services.pipeline_stub import broadcast_event, STAGE_NAMES
 from models.pipeline import PipelineStageEvent
 import asyncio
 
-router = APIRouter(prefix="/approval", tags=["Human Approval Gate (M14)"])
+router = APIRouter(prefix="/approval", tags=["Human Approval Gate"])
 
 
 @router.post("/{query_id}", response_model=ApprovalResponse)
 async def handle_approval(query_id: str, request: ApprovalRequest):
-    """Module 14 decision endpoint: Human approves or rejects a mutating/DDL query."""
+    """Approval Gate decision endpoint: Human approves or rejects a mutating/DDL query."""
     
     if request.decision == "approve":
         # Simulate completing Stage 14, then running Stage 15 (Dolt Tx) and Stage 16 (Dispatcher)

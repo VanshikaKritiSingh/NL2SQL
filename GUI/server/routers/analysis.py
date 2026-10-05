@@ -4,19 +4,19 @@ from models.approval import CostEstimate, SecurityCheck, DiffData
 from mock_data.telemetry import get_mock_update_telemetry
 from mock_data.diffs import get_mock_dml_diff
 
-router = APIRouter(tags=["Pre-flight Analysis (M10, M11, M15)"])
+router = APIRouter(tags=["Pre-flight Analysis"])
 
 
 @router.get("/explain/{query_id}", response_model=CostEstimate)
 async def get_explain_estimate(query_id: str):
-    """Module 10 integration: EXPLAIN cost estimate."""
+    """Cost Estimator integration: EXPLAIN cost estimate."""
     cost, _ = get_mock_update_telemetry()
     return cost
 
 
 @router.get("/security-check/{query_id}", response_model=SecurityCheck)
 async def get_security_check(query_id: str):
-    """Module 11 integration: Deadlock & concurrency flags."""
+    """Security check integration: Deadlock & concurrency flags."""
     _, security = get_mock_update_telemetry()
     return security
 

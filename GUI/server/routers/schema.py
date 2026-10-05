@@ -8,5 +8,5 @@ router = APIRouter(prefix="/schema", tags=["Schema Explorer"])
 
 @router.get("/{dialect}", response_model=SchemaInfo)
 async def get_schema(dialect: str = "mysql"):
-    """Returns database schema graph for the ER Diagram visualizer (M14)."""
+    """Returns database schema graph for the ER Diagram visualizer."""
     return get_mock_ecommerce_schema(dialect)

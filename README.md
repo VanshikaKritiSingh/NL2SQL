@@ -10,11 +10,11 @@
 
 **Engineering Team**
 
-| Member | Department / Role | Focus Modules |
+| Member | Department / Role | Focus Area |
 | :--- | :--- | :--- |
-| **Anunay Sharma** | AI & Machine Learning | Schema Linker (M1), Paradigm Router (M3), Offline QLoRA (M0) |
-| **Sarthak Singh** | Software Dev & Security | Static Validator (M9), Cost Estimator (M10), Dialect Converter (M2) |
-| **Vanshika Kriti Singh** | GUI & Systems Observability | Desktop & Web Studio Shell (M1, M14), Approval Gate |
+| **Anunay Sharma** | AI & Machine Learning | Schema Linker, Paradigm Router, Universal Transpiler, Offline QLoRA |
+| **Sarthak Singh** | Software Dev & Security | Static AST Validator, Query Cost Estimator |
+| **Vanshika Kriti Singh** | GUI & Systems Observability | Desktop & Web Studio Shell, Human Approval Gate |
 
 </div>
 
@@ -35,26 +35,26 @@
                                                   |
                                                   v
 +-----------------------+     +-----------------------+     +---------------------------------------+
-|  M1: Query Intake     | --> |  M3: Paradigm Router  | --> |  M1: Schema Linker & Context Grounding|
+|  Query Intake         | --> |  Paradigm Router      | --> |  Schema Linker & Context Grounding    |
 |  (Natural Language)   |     |  (SQL / Graph / MQL)  |     |  (BM25 + Semantic RRF + Steiner Tree) |
 +-----------------------+     +-----------------------+     +---------------------------------------+
                                                                                 |
                                                                                 v
 +-----------------------+     +-----------------------+     +---------------------------------------+
-|  M2: Dialect Transpile| <-- |  M6: Foundation Model | <-- |  M5: Context & Prompt Builder         |
+|  Dialect Transpiler   | <-- |  Foundation Model     | <-- |  Context & Prompt Builder             |
 |  (20+ SQL, Cypher, MQL|     |  (Qwen2.5 / DeepSeek) |     |  (Table DDL + Value Grounding)        |
 +-----------------------+     +-----------------------+     +---------------------------------------+
             |
             v
 +-----------------------+     +-----------------------+     +---------------------------------------+
-|  M9: Static Validator | --> |  M10: Cost Estimator  | --> |  M12: Dual-Path Execution Router      |
+|  Static Validator     | --> |  Cost Estimator       | --> |  Dual-Path Execution Router           |
 |  (AST & Anti-Patterns)|     |  (EXPLAIN & Row Limits|     +---------------------------------------+
 +-----------------------+     +-----------------------+              |                    |
                                                                      | (Read-Only)        | (Mutating / DDL)
                                                                      v                    v
                                                         +-----------------------+  +----------------+
-                                                        |  M13: Sandbox Exec    |  |  M14: Approval |
-                                                        |  (Direct DB Dispatch) |  |  Gate & Visual |
+                                                        |  Sandbox Replica      |  |  Approval Gate |
+                                                        |  (Direct DB Dispatch) |  |  & Visual Diff |
                                                         +-----------------------+  +----------------+
 ```
 
@@ -68,53 +68,57 @@
 
 ```
 NL2SQL/
-|-- core/                            # Core Runtime Engine (Zero Heavy ML Dependencies)
-|   |-- paradigm_suggestor.py        # [Status: Complete] CLEF intent drafter & auto-router
-|   |-- schema_linker.py             # [Status: Complete] Hybrid RRF table ranking & Steiner join builder
-|   |-- dialect_converter.py         # [Status: Complete] Deterministic AST transpiler (20+ SQL dialects)
+|-- core/                            # Core Runtime Engine (AI/ML Backbone)
+|   |-- paradigm_suggestor.py        # CLEF intent drafter & speculative auto-router
+|   |-- schema_linker.py             # Hybrid RRF table ranking & Steiner join builder
+|   |-- dialect_converter.py         # Deterministic AST transpiler (20+ SQL dialects, Cypher, MQL)
+|   |-- orchestrator.py              # Unified pipeline orchestrator
+|   |-- README.md                    # Dedicated AI/ML handbook
 |   `-- __init__.py
 |
-|-- m09_validator/                   # [Status: Complete] Static AST Validator & Policy Guardrails
+|-- validator/                       # Static AST Validator & Policy Guardrails (Software & Security)
 |   |-- contracts.py                 # Immutable validation issue models & status contracts
 |   |-- engine.py                    # Multi-layer rule execution engine
+|   |-- interfaces.py                # Schema provider and audit logger interfaces
 |   `-- rules/                       # Parse, policy, schema, and semantic rule sets
 |
-|-- m10_cost/                        # [Status: Complete] Query Cost & Blast-Radius Estimator
+|-- cost_estimator/                  # Query Cost & Blast-Radius Estimator (Software & Security)
 |   |-- contracts.py                 # Cost report structures & threshold definitions
 |   |-- thresholds.py                # Configurable row scan and execution limits
 |   `-- adapters/postgres.py         # EXPLAIN plan parser & replica row estimator
 |
-|-- GUI/                             # [Status: Complete] Native Desktop & Web Interface Studio
+|-- GUI/                             # Native Desktop & Web Interface Studio (Frontend & Systems)
 |   |-- src/                         # React 18, TypeScript, Monaco Editor, React Flow ER Diagrams
 |   |-- electron/                    # Electron container & native OS lifecycle bridge
 |   `-- server/                      # FastAPI bridge stubs for pipeline integration
 |
-|-- offline/                         # [Status: Complete] AI/ML Offline Suite (Isolated)
+|-- offline/                         # AI/ML Offline Suite (Isolated)
 |   |-- training/train_qlora.py      # 4-bit NF4 QLoRA fine-tuning script (< 7.5GB VRAM)
 |   |-- training/export_gguf.py      # LoRA merge, GGUF quantizer & Ollama Modelfile exporter
 |   |-- training/evaluate.py         # AST Exact Match & Execution Accuracy benchmark runner
 |   `-- training/requirements-train.txt # Isolated ML dependencies (PyTorch, PEFT, TRL, etc.)
 |
-`-- tests/                           # Unit and integration test suite (12/12 passing)
+`-- tests/                           # Unit and integration test suite (13/13 passing)
 ```
 
 ---
 
 <div align="center">
 
-### Module Implementation Matrix
+### Subsystem Implementation Matrix
 
 </div>
 
-| Module | Name | Scope / Responsibility | Owner | Work Status |
-| :--- | :--- | :--- | :--- | :--- |
-| **M0** | Model Suite | QLoRA fine-tuning & GGUF CPU export | Anunay | `[Status: Complete]` |
-| **M1** | Schema Linker | Hybrid RRF retrieval & Steiner join injection | Anunay | `[Status: Complete]` |
-| **M2** | Dialect Transpiler | SQL AST conversion (20+ dialects, Cypher, MQL) | Sarthak / Anunay | `[Status: Complete]` |
-| **M3** | Paradigm Router | Intent classification & auto-routing | Anunay | `[Status: Complete]` |
-| **M9** | Static Validator | AST verification & anti-pattern detection | Sarthak | `[Status: Complete]` |
-| **M10** | Cost Estimator | EXPLAIN plan cost & blast radius checks | Sarthak | `[Status: Complete]` |
-| **M14** | Approval Gate & GUI | Desktop & Web Studio with ER diff visualization | Vanshika | `[Status: Complete]` |
+| Subsystem | Scope / Responsibility | Owner | Work Status |
+| :--- | :--- | :--- | :--- |
+| **Model Foundation & Training** | QLoRA fine-tuning & GGUF CPU export | Anunay Sharma | `[Status: Complete]` |
+| **Schema Linker** | Hybrid RRF retrieval & Steiner join injection | Anunay Sharma | `[Status: Complete]` |
+| **Dialect Transpiler** | SQL AST conversion (20+ dialects, Cypher, MQL) | Anunay Sharma | `[Status: Complete]` |
+| **Paradigm Router** | Intent classification & auto-routing | Anunay Sharma | `[Status: Complete]` |
+| **Pipeline Orchestrator** | End-to-end execution loop & dual-path router | Anunay Sharma | `[Status: Complete]` |
+| **Static Validator** | AST verification & anti-pattern detection | Sarthak Singh | `[Status: Complete]` |
+| **Cost Estimator** | EXPLAIN plan cost & blast radius checks | Sarthak Singh | `[Status: Complete]` |
+| **Approval Gate & Studio** | Desktop & Web Studio with ER diff visualization | Vanshika Kriti Singh | `[Status: Complete]` |
 
 ---
 
@@ -132,8 +136,10 @@ For general development, API integration, and test execution (lightweight, stand
 git clone https://github.com/VanshikaKritiSingh/NL2SQL.git
 cd NL2SQL
 
-# Install core runtime packages (No heavy GPU/Torch packages required)
-pip install -r requirements.txt
+# Create virtual environment and install core runtime packages
+python3 -m venv .venv
+source .venv/bin/activate
+pip install sqlglot networkx pytest
 
 # Run the test suite
 PYTHONPATH=. pytest tests/ -v
@@ -171,12 +177,13 @@ python offline/training/train_qlora.py --help
 </div>
 
 ```
-============================== 12 passed in 0.12s ==============================
+============================== 13 passed in 0.14s ==============================
 - CLEF Drafter Intent Routing (Graph, Document, KV, OLAP): PASSED
 - Paradigm Suggestor Auto Mode & Manual Guardrails: PASSED
 - Dialect Transpilation (PostgreSQL, MySQL, SQLite, Cypher, MQL): PASSED
 - Categorical Value Trie Grounding: PASSED
 - Steiner Tree FK Bridge Join Injection: PASSED
+- End-to-End Orchestrator Dual-Path Routing: PASSED
 ```
 
 ---

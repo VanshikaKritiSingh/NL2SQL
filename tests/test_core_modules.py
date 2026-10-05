@@ -215,3 +215,50 @@ def test_schema_linker_steiner_bridge(mock_ecommerce_schema):
     assert "germany" in ctx.grounded_values or "macbook pro" in ctx.grounded_values
     assert "CREATE TABLE users" in ctx.prompt_ddl
     assert "CREATE TABLE products" in ctx.prompt_ddl
+
+
+# ==============================================================================
+# 4. Tests for Unified Pipeline Orchestrator
+# ==============================================================================
+
+from core.orchestrator import EndToEndNL2SQLOrchestrator
+from validator.contracts import StatementType
+
+
+def test_end_to_end_orchestrator(mock_ecommerce_schema):
+    orchestrator = EndToEndNL2SQLOrchestrator(schema_tables=mock_ecommerce_schema)
+
+    # 1. Read-Only Query (Auto-routed to Sandbox Replica)
+    plan_read = orchestrator.process_query(
+        query="List all users with active status",
+        target_engine="postgres",
+        auto_mode=True,
+    )
+    assert plan_read.is_valid is True
+    assert plan_read.statement_type == StatementType.READ
+    assert plan_read.execution_route == "SANDBOX_REPLICA"
+    assert plan_read.requires_human_approval is False
+    assert plan_read.transpilation_result.is_native_sql is True
+
+    # 2. Mutating Query (Routed to Approval Gate)
+    plan_write = orchestrator.process_query(
+        query="Delete inactive user accounts",
+        target_engine="mysql",
+        auto_mode=False,
+        mock_llm_generator=lambda q, ctx: "DELETE FROM users WHERE status = 'inactive';",
+    )
+    assert plan_write.is_valid is True
+    assert plan_write.statement_type == StatementType.WRITE
+    assert plan_write.execution_route == "APPROVAL_GATE"
+    assert plan_write.requires_human_approval is True
+    assert plan_write.transpilation_result.target_dialect == "mysql"
+
+    # 3. Denied Policy Query (Blocked by M9 Validator)
+    plan_blocked = orchestrator.process_query(
+        query="Drop database production",
+        target_engine="postgres",
+        mock_llm_generator=lambda q, ctx: "DROP DATABASE production;",
+    )
+    assert plan_blocked.is_valid is False
+    assert plan_blocked.execution_route == "BLOCKED"
+    assert len(plan_blocked.validation_issues) > 0

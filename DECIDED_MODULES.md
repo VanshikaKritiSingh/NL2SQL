@@ -1,4 +1,4 @@
-# DECIDED_MODULES.md: NL2SQL Project Module Registry
+# DECIDED_MODULES.md: NL2SQL Project Architecture Registry
 
 Status: Implemented & Verified (Collaborative Design)
 Owner: Anunay Sharma & Team
@@ -6,7 +6,7 @@ Last Updated: Phase 1 & 2 Implementation (Core & Offline Suites Complete)
 
 ---
 
-## 1. Module 0: Model Foundation & Offline Training/Eval Suite (`offline/training/`)
+## 1. Model Foundation & Offline Training Suite (`offline/training/`)
 - **Status:** Implemented & Verified.
 - **Components:**
   - `offline/training/train_qlora.py`: 4-bit NF4 QLoRA fine-tuning script with gradient checkpointing and cosine decay. Fits < 7.5GB VRAM on consumer GPUs (RTX 4060 8GB / RTX 3060 12GB).
@@ -22,7 +22,7 @@ Last Updated: Phase 1 & 2 Implementation (Core & Offline Suites Complete)
 
 ---
 
-## 2. Module 1: Schema Linker / Context Retrieval (`core/schema_linker.py`)
+## 2. Schema Linker & Context Retrieval (`core/schema_linker.py`)
 - **Status:** Implemented & Verified (Stage 4: Anunay).
 - **Pipeline Role:** Sub-selects relevant tables, columns, foreign keys, and categorical values without dumping full catalogs.
 - **Retrieval Architecture:**
@@ -34,13 +34,13 @@ Last Updated: Phase 1 & 2 Implementation (Core & Offline Suites Complete)
 
 ---
 
-## 3. Module 2: Deterministic Dialect Converter (`core/dialect_converter.py`)
+## 3. Deterministic Dialect Transpiler (`core/dialect_converter.py`)
 - **Status:** Implemented & Verified (Stage 7: Systems/Transpiler).
 - **Pipeline Role:** Converts generic ANSI/Postgres SQL AST into target engine dialect deterministically without LLM calls.
 - **Engine:** `sqlglot` AST transpiler + Custom Non-Relational AST Visitors (`OpenCypherVisitor`, `MongoMQLVisitor`).
 - **Supported Targets:**
   - **Relational & OLAP SQL (20+ Dialects):** PostgreSQL, MySQL, SQLite, DuckDB, ClickHouse, Snowflake, BigQuery, Oracle, T-SQL / SQL Server, Redshift, StarRocks, Trino, Presto, Spark, Databricks.
-  - **Graph Paradigm (openCypher):** Neo4j, AWS Neptune (openCypher endpoint), Kuzu.
+  - **Graph Paradigm (openCypher):** Neo4j, AWS Neptune (openCypher endpoint), Kùzu.
   - **Document NoSQL Paradigm (MQL):** MongoDB, Amazon DocumentDB (Aggregation Pipelines: `$match`, `$group`, `$sort`, `$limit`, `$project`).
 - **Capabilities:**
   - Sub-5ms execution time, zero token spend.
@@ -50,7 +50,7 @@ Last Updated: Phase 1 & 2 Implementation (Core & Offline Suites Complete)
 
 ---
 
-## 4. Module 3: Paradigm Suggestor & Intent Router (`core/paradigm_suggestor.py`)
+## 4. Paradigm Suggestor & Intent Router (`core/paradigm_suggestor.py`)
 - **Status:** Implemented & Verified (Stage 0: Auto Mode & Guardrails).
 - **Pipeline Role:** Speculatively classifies user intent into database paradigms (Relational SQL, Graph openCypher, Document NoSQL, Key-Value, Column-Family OLAP, Time-Series) and routes Auto Mode.
 - **Architecture:**
@@ -58,3 +58,12 @@ Last Updated: Phase 1 & 2 Implementation (Core & Offline Suites Complete)
   - **Confidence-Scheduled Speculative Verification:** High confidence drafts (>0.85) route immediately; ambiguous queries trigger lightweight LLM verification.
   - **Auto Mode Routing:** Recommends optimal storage engines with educational trade-off explanations.
   - **Manual Divergence Guardrail:** When a user manually selects an engine that differs from the optimal paradigm (e.g. asking for multi-hop graph traversals on PostgreSQL), generates a structured `Paradigm Divergence Warning` while strictly executing the user's explicit choice.
+
+---
+
+## 5. Pipeline Orchestrator (`core/orchestrator.py`)
+- **Status:** Implemented & Verified (Stage 12: Dual-Path Router).
+- **Pipeline Role:** End-to-end execution loop coordinating AI/ML parsing, static validation, cost checks, and execution gating.
+- **Dual-Path Routing:**
+  - **Read-Only queries (`SELECT`):** Dispatched automatically to `SANDBOX_REPLICA`.
+  - **Mutating & DDL queries (`INSERT`, `UPDATE`, `DELETE`, `ALTER`, `DROP`):** Directed to `APPROVAL_GATE` for human sign-off with visual schema diffs.
