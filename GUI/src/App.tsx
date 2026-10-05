@@ -2,8 +2,8 @@
 import React, { useEffect } from 'react';
 import { TopBar } from './shared/TopBar';
 import { StatusBar } from './shared/StatusBar';
-import { QueryIntakePage } from './modules/m1/QueryIntakePage';
-import { ApprovalGatePage } from './modules/m14/ApprovalGatePage';
+import { QueryIntakePage } from './modules/query_intake/QueryIntakePage';
+import { ApprovalGatePage } from './modules/approval_gate/ApprovalGatePage';
 import { useAppStore } from './store/useAppStore';
 import { useQueryStore } from './store/useQueryStore';
 import { useWebSocket } from './hooks/useWebSocket';

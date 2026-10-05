@@ -1,9 +1,24 @@
-"""Cost Estimator (pure contract + structure for validator reuse).
+"""cost_estimator — Query Cost Estimation and Blast-Radius Evaluation Subsystem.
 
-Uses validator contracts: Issue / ValidationResult / RetryFeedback.
-Pulls from validator/contracts.py.
+Provides:
+1. `HeuristicCostEngine`: AST-based analytical cost & row scan estimator.
+2. `PostgresAdapter`: Live PostgreSQL EXPLAIN JSON parser.
+3. `Thresholds`: Configurable decision thresholds.
+4. `CostReport`: Normalized cost and risk assessment report.
 """
-from __future__ import annotations
-import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-from validator.contracts import ValidationResult, RetryFeedback, Issue
+
+from .contracts import CostReport, PlanAdapter, PlanRunner, SchemaProvider
+from .thresholds import Thresholds, ThresholdsError, load_thresholds, DEFAULT_THRESHOLDS
+from .engine import HeuristicCostEngine
+
+__all__ = [
+    "CostReport",
+    "PlanAdapter",
+    "PlanRunner",
+    "SchemaProvider",
+    "Thresholds",
+    "ThresholdsError",
+    "load_thresholds",
+    "DEFAULT_THRESHOLDS",
+    "HeuristicCostEngine",
+]
