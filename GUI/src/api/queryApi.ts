@@ -40,3 +40,23 @@ export async function getHistory(userId: string): Promise<HistoryItem[]> {
     return getMockHistory(userId);
   }
 }
+
+export async function deleteHistoryItemApi(userId: string, queryId: string): Promise<void> {
+  try {
+    await apiFetch(`/query/history/${encodeURIComponent(userId)}/${encodeURIComponent(queryId)}`, {
+      method: 'DELETE',
+    });
+  } catch (error) {
+    // Fallback: handled client-side in Zustand store
+  }
+}
+
+export async function clearHistoryApi(userId: string): Promise<void> {
+  try {
+    await apiFetch(`/query/history/${encodeURIComponent(userId)}`, {
+      method: 'DELETE',
+    });
+  } catch (error) {
+    // Fallback: handled client-side in Zustand store
+  }
+}

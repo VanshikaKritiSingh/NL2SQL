@@ -1,8 +1,26 @@
-# GUI Integration Guide: Module 1 & Module 14
+<div align="center">
 
-**Owner:** Vanshika Kriti Singh (GUI Team Lead)  
-**Status:** [Status: Implemented - V1 Complete]  
-**Deliverable:** `D:\NL2SQL\GUI\` (Desktop & Web Studio + FastAPI bridge stubs)
+# NL2SQL GUI Integration Guide
+
+### Module 1 (Query Intake) & Module 14 (Human Approval Gate) Typed Contract Bridges
+
+[![Guide Status](https://img.shields.io/badge/Status-Complete-brightgreen?style=flat-square)](https://github.com/VanshikaKritiSingh/NL2SQL)
+[![FastAPI](https://img.shields.io/badge/Backend-FastAPI%20%7C%20WebSocket-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/Frontend-React%2018%20%7C%20Electron-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
+[![Interactive Spec](https://img.shields.io/badge/Architecture-Interactive%20HTML%20Spec-blueviolet?style=flat-square&logo=html5&logoColor=white)](html/nl2sql.html)
+[![Vector Blueprint](https://img.shields.io/badge/Vector%20Blueprint-SVG%20High--Res-ff69b4?style=flat-square&logo=inkscape&logoColor=white)](diagrams/SVG_DIAGRAM.svg)
+
+<br />
+
+**Owner:** Vanshika Kriti Singh (GUI Team Lead) &nbsp;|&nbsp; **Deliverable:** `GUI/` (Desktop & Web Studio)
+
+<br />
+
+[Root Overview](README.md) &bull; [Visual Blueprint](diagrams/SVG_DIAGRAM.svg) &bull; [Interactive Spec](html/nl2sql.html) &bull; [Desktop & Web Studio](GUI/README.md) &bull; [Core AI/ML Engine](core/README.md) &bull; [Scripts](scripts/README.md)
+
+</div>
+
+<br />
 
 ---
 
@@ -22,7 +40,7 @@ All other modules (M2-M13, M15-M16) are currently served by **mock stubs** in `b
 
 ```
 +-------------------------------------------------------------+
-|  Desktop & Web UI (D:\NL2SQL\GUI\)                          |
+|  Desktop & Web UI (GUI/)                                    |
 |  - Electron Native Desktop Shell / Vite React Web App       |
 |  - M1: Query intake, history sidebar, Monaco SQL inspector  |
 |  - M14: xyflow ER diagram, Monaco diff, telemetry panel     |
@@ -31,7 +49,7 @@ All other modules (M2-M13, M15-M16) are currently served by **mock stubs** in `b
                               | WebSocket (stage stream)
                               v
 +-------------------------------------------------------------+
-|  FastAPI Backend Bridge (D:\NL2SQL\GUI\server\)             |
+|  FastAPI Backend Bridge (GUI/server/)                       |
 |                                                             |
 |  [M1 Router]  ---> [Pipeline Stub] ---> [M14 Approval Router]|
 |       |                    |                    |           |
@@ -228,3 +246,22 @@ The mock backend includes 3 pre-built scenarios to demonstrate the full pipeline
      - React Flow ER diagram shows `orders` table highlighted with `[ALTER]` badge
      - Monaco side-by-side DDL Diff shows original `CREATE TABLE` vs modified `CREATE TABLE`
      - Pre-flight telemetry shows lock level = `table` and risk tier = `HIGH`
+
+---
+
+## Related Subsystem Documentation & Specifications
+
+- **Root Pipeline Overview:** [`README.md`](README.md)
+- **Interactive Architecture Specification:** [`html/nl2sql.html`](html/nl2sql.html)
+- **High-Resolution Master Blueprint:** [`diagrams/SVG_DIAGRAM.svg`](diagrams/SVG_DIAGRAM.svg)
+- **Desktop & Web Studio Handbook:** [`GUI/README.md`](GUI/README.md)
+- **Core AI/ML Engine & Transpiler Handbook:** [`core/README.md`](core/README.md)
+- **Cross-Platform Scripts & Launchers:** [`scripts/README.md`](scripts/README.md)
+
+---
+
+<div align="center">
+
+*NL2SQL GUI Integration Guide: Typed Contract Specifications*
+
+</div>

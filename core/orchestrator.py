@@ -252,12 +252,34 @@ class EndToEndNL2SQLOrchestrator:
         query_id = f"nl2sql-{int(time.time()*1000)}"
 
         # 1. Stage 0 & 3: Paradigm Classification & Routing (AI/ML)
+        is_auto = (target_engine == "auto" or auto_mode or not target_engine)
         suggestion = self.paradigm_suggestor.classify_and_route(
             query=query,
-            user_selected_engine=target_engine,
-            auto_mode=auto_mode,
+            user_selected_engine=None if target_engine == "auto" else target_engine,
+            auto_mode=is_auto,
         )
-        resolved_engine = target_engine or "postgres"
+        if target_engine == "auto" or not target_engine:
+            rec = suggestion.recommended_engines[0].lower() if suggestion.recommended_engines else "postgres"
+            if "neo4j" in rec or "opencypher" in rec or "graph" in rec:
+                resolved_engine = "opencypher"
+            elif "mongo" in rec or "document" in rec:
+                resolved_engine = "mongodb"
+            elif "duck" in rec:
+                resolved_engine = "duckdb"
+            elif "click" in rec:
+                resolved_engine = "clickhouse"
+            elif "mysql" in rec:
+                resolved_engine = "mysql"
+            elif "sqlite" in rec:
+                resolved_engine = "sqlite"
+            elif "oracle" in rec:
+                resolved_engine = "oracle"
+            elif "sqlserver" in rec or "sql server" in rec:
+                resolved_engine = "sqlserver"
+            else:
+                resolved_engine = "postgres"
+        else:
+            resolved_engine = target_engine
 
         # 2. Stage 4: Schema Linking & Context Pruning (AI/ML)
         if self.schema_linker:

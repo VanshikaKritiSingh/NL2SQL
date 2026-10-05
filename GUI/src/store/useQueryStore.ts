@@ -18,6 +18,8 @@ interface QueryState {
   setApprovalPayload: (payload: ApprovalPayload | null) => void;
   setHistory: (items: HistoryItem[]) => void;
   addToHistory: (item: HistoryItem) => void;
+  deleteHistoryItem: (queryId: string) => void;
+  clearHistory: () => void;
   toggleHistorySidebar: () => void;
   clearResults: () => void;
 }
@@ -43,6 +45,13 @@ export const useQueryStore = create<QueryState>((set) => ({
   setHistory: (items) => set({ history: items }),
   addToHistory: (item) =>
     set((state) => ({ history: [item, ...state.history.filter((h) => h.query_id !== item.query_id)] })),
+  deleteHistoryItem: (queryId) =>
+    set((state) => ({
+      history: state.history.filter((h) => h.query_id !== queryId),
+      lastResponse: state.lastResponse?.query_id === queryId ? null : state.lastResponse,
+      currentQueryId: state.currentQueryId === queryId ? null : state.currentQueryId,
+    })),
+  clearHistory: () => set({ history: [], lastResponse: null, currentQueryId: null }),
   toggleHistorySidebar: () =>
     set((state) => ({ historySidebarOpen: !state.historySidebarOpen })),
   clearResults: () =>

@@ -37,8 +37,9 @@ offline/checkpoints/*
 !offline/checkpoints/.gitkeep
 offline/models/*
 !offline/models/.gitkeep
-models/
-checkpoints/
+!offline/models/README.md
+/models/
+/checkpoints/
 
 # Generated Local Datasets & Raw Cache (Not pushed to GitHub)
 offline/datasets/*.json

@@ -6,13 +6,19 @@
 
 [![Package Status](https://img.shields.io/badge/Status-Complete-brightgreen?style=flat-square)](https://github.com/VanshikaKritiSingh/NL2SQL)
 [![Tests](https://img.shields.io/badge/Tests-17%2F17%20Passing-success?style=flat-square&logo=pytest&logoColor=white)](https://github.com/VanshikaKritiSingh/NL2SQL)
+[![Interactive Spec](https://img.shields.io/badge/Architecture-Interactive%20HTML%20Spec-blueviolet?style=flat-square&logo=html5&logoColor=white)](../html/nl2sql.html)
+[![Vector Blueprint](https://img.shields.io/badge/Vector%20Blueprint-SVG%20High--Res-ff69b4?style=flat-square&logo=inkscape&logoColor=white)](../diagrams/SVG_DIAGRAM.svg)
 [![Latency](https://img.shields.io/badge/Latency-%3C%205ms%20AST%20Transpile-blue?style=flat-square)](https://github.com/VanshikaKritiSingh/NL2SQL)
-[![Engine](https://img.shields.io/badge/AST%20Engine-sqlglot%20%7C%20NetworkX-ff69b4?style=flat-square)](https://github.com/tobymao/sqlglot)
-[![Fine-Tuning](https://img.shields.io/badge/Training-QLoRA%204--bit%20NF4-blueviolet?style=flat-square&logo=huggingface&logoColor=white)](https://huggingface.co/)
+[![Engine](https://img.shields.io/badge/AST%20Engine-sqlglot%20%7C%20NetworkX-00bcd4?style=flat-square)](https://github.com/tobymao/sqlglot)
+[![Fine-Tuning](https://img.shields.io/badge/Training-QLoRA%204--bit%20NF4-7952b3?style=flat-square&logo=huggingface&logoColor=white)](https://huggingface.co/)
 
 <br />
 
 **Lead AI/ML Engineer:** Anunay Sharma &nbsp;|&nbsp; **Package:** `core/` & `offline/`
+
+<br />
+
+[Root Overview](../README.md) &bull; [Visual Blueprint](../diagrams/SVG_DIAGRAM.svg) &bull; [Interactive Spec](../html/nl2sql.html) &bull; [Studio GUI](../GUI/README.md) &bull; [Scripts & Automation](../scripts/README.md) &bull; [Offline Models](../offline/models/README.md)
 
 </div>
 
@@ -241,6 +247,19 @@ PYTHONPATH=. ./.venv/bin/pytest tests/ -v
 - Heuristic Cost & Execution Plan Estimator: PASSED
 - End-to-End Pipeline Orchestration & Dual-Path Routing: PASSED
 ```
+
+---
+
+## Related Subsystem Documentation & Specifications
+
+- **Root Pipeline Overview:** [`../README.md`](../README.md)
+- **Interactive Architecture Specification:** [`../html/nl2sql.html`](../html/nl2sql.html)
+- **High-Resolution Master Blueprint:** [`../diagrams/SVG_DIAGRAM.svg`](../diagrams/SVG_DIAGRAM.svg)
+- **Desktop & Web Studio Handbook:** [`../GUI/README.md`](../GUI/README.md)
+- **Cross-Platform Script Automation:** [`../scripts/README.md`](../scripts/README.md)
+- **Offline Model Checkpoint Registry:** [`../offline/models/README.md`](../offline/models/README.md)
+- **Static AST Validator Package:** [`../validator/`](../validator/)
+- **Query Cost & Blast Radius Estimator:** [`../cost_estimator/`](../cost_estimator/)
 
 ---
 

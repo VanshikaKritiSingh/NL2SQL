@@ -1,10 +1,29 @@
 // src/types/query.ts
-export type TargetDialect = 'mysql' | 'oracle' | 'sqlserver' | 'access' | 'postgres';
+export type TargetDialect =
+  | 'auto'
+  | 'postgres'
+  | 'mysql'
+  | 'sqlite'
+  | 'oracle'
+  | 'sqlserver'
+  | 'mariadb'
+  | 'duckdb'
+  | 'snowflake'
+  | 'bigquery'
+  | 'clickhouse'
+  | 'access'
+  | 'mongodb'
+  | 'couchbase'
+  | 'opencypher'
+  | 'influxql'
+  | 'timescaledb';
 
 export interface QueryRequest {
   user_id: string;
   query_text: string;
   target_dialect: TargetDialect;
+  database_profile?: string;
+  dry_run_only?: boolean;
 }
 
 export interface ResultData {
@@ -21,6 +40,9 @@ export interface QueryResponse {
   approval_payload: any | null;
   error_message: string | null;
   cache_hit: boolean;
+  database_profile?: string;
+  is_live_db_connected?: boolean;
+  execution_mode?: string;
 }
 
 export interface HistoryItem {
@@ -31,4 +53,5 @@ export interface HistoryItem {
   status: 'processing' | 'completed' | 'approval_required' | 'error' | 'rate_limited';
   timestamp: string;
   is_mutating: boolean;
+  database_profile?: string;
 }

@@ -3,9 +3,9 @@ import asyncio
 from datetime import datetime
 import os
 import sys
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, BackgroundTasks, HTTPException
-from models.query import QueryRequest, QueryResponse, ResultData, HistoryItem
+from models.query import QueryRequest, QueryResponse, ResultData, HistoryItem, TargetDialect
 from models.approval import ApprovalPayload, CostEstimate, SecurityCheck, ImpactedTable, DiffData, DmlRowDiff
 from mock_data.diffs import get_mock_ddl_diff, get_mock_dml_diff
 from services.pipeline_stub import simulate_pipeline_run
@@ -81,10 +81,13 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
     """Query Intake entry point: Receives natural language query, executes orchestrator pipeline."""
     
     # 1. Run full 16-stage orchestrator pipeline
+    target_engine = request.target_dialect.value if isinstance(request.target_dialect, TargetDialect) else str(request.target_dialect)
+    is_auto = (target_engine == "auto")
+    
     plan = orchestrator.process_query(
         query=request.query_text,
-        target_engine=request.target_dialect.value,
-        auto_mode=True,
+        target_engine=target_engine,
+        auto_mode=is_auto,
     )
 
     compiled_sql = plan.transpilation_result.compiled_query
@@ -106,9 +109,12 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
             approval_payload=None,
             error_message="; ".join(error_msgs) if error_msgs else "Validation policy rejected statement.",
             cache_hit=False,
+            database_profile=request.database_profile or "master_enterprise",
+            is_live_db_connected=False,
+            execution_mode="preview_sandbox",
         )
-    elif is_mutating:
-        # Generate approval payload
+    elif is_mutating and not request.dry_run_only:
+        # Generate approval payload for mutating statements
         cost_rep = plan.cost_report
         risk = "critical" if plan.statement_type == StatementType.DDL else "high"
         
@@ -121,7 +127,7 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
         approval_payload = ApprovalPayload(
             query_id=plan.query_id,
             generated_sql=sql_str,
-            target_dialect=request.target_dialect.value,
+            target_dialect=plan.target_dialect,
             risk_tier=risk,
             impacted_tables=impacted if impacted else [ImpactedTable(name="products", impact_level="direct", operation="UPDATE")],
             cost_estimate=CostEstimate(
@@ -147,9 +153,12 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
             approval_payload=approval_payload.model_dump(),
             error_message=None,
             cache_hit=False,
+            database_profile=request.database_profile or "master_enterprise",
+            is_live_db_connected=False,
+            execution_mode="preview_sandbox",
         )
     else:
-        # READ Query -> completed with tabular results
+        # READ Query or Dry-run Preview -> completed with tabular results
         rows = [
             {"user_id": 101, "username": "alice_w", "order_date": "2025-05-10 14:22:00", "status": "DELIVERED", "total_amount": 149.99},
             {"user_id": 102, "username": "bob_k", "order_date": "2025-05-12 09:15:30", "status": "SHIPPED", "total_amount": 89.50},
@@ -169,6 +178,9 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
             approval_payload=None,
             error_message=None,
             cache_hit=False,
+            database_profile=request.database_profile or "master_enterprise",
+            is_live_db_connected=False,
+            execution_mode="preview_sandbox",
         )
 
     stored_responses[response.query_id] = response
@@ -178,10 +190,11 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
         query_id=response.query_id,
         query_text=request.query_text,
         generated_sql=response.generated_sql,
-        target_dialect=request.target_dialect.value,
+        target_dialect=plan.target_dialect,
         status=response.status,
         timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         is_mutating=is_mutating,
+        database_profile=request.database_profile or "master_enterprise",
     )
     if request.user_id not in query_history:
         query_history[request.user_id] = []
@@ -194,7 +207,7 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
         user_id=request.user_id,
         is_mutating=is_mutating,
         approval_payload=response.approval_payload,
-        delay=0.10,
+        delay=0.08,
     )
 
     return response
@@ -204,3 +217,22 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
 async def get_user_history(user_id: str):
     """Returns query history for the given user."""
     return query_history.get(user_id, [])
+
+
+@router.delete("/history/{user_id}/{query_id}")
+async def delete_user_history_item(user_id: str, query_id: str):
+    """Deletes a single history item for the specified user."""
+    if user_id in query_history:
+        query_history[user_id] = [item for item in query_history[user_id] if item.query_id != query_id]
+        if query_id in stored_responses:
+            del stored_responses[query_id]
+        return {"status": "success", "message": f"Query {query_id} deleted"}
+    return {"status": "not_found", "message": "User history not found"}
+
+
+@router.delete("/history/{user_id}")
+async def clear_user_history(user_id: str):
+    """Clears all query history for the specified user."""
+    if user_id in query_history:
+        query_history[user_id] = []
+    return {"status": "success", "message": f"History cleared for user {user_id}"}

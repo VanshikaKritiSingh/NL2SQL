@@ -6,16 +6,15 @@
 
 [![Milestone](https://img.shields.io/badge/Milestone-Phase%20I%20%26%20II%20Complete-007acc?style=flat-square)](https://github.com/VanshikaKritiSingh/NL2SQL)
 [![Tests](https://img.shields.io/badge/Tests-17%2F17%20Passing-success?style=flat-square&logo=pytest&logoColor=white)](https://github.com/VanshikaKritiSingh/NL2SQL)
-[![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/Backend-FastAPI%20%7C%20Uvicorn-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/Frontend-React%2018%20%7C%20Electron-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
-[![Transpiler](https://img.shields.io/badge/Dialects-20%2B%20SQL%20%2B%20Graph%20%2B%20MQL-ff69b4?style=flat-square)](https://github.com/tobymao/sqlglot)
-[![Model](https://img.shields.io/badge/Foundation-Qwen2.5--Coder--7B--Instruct-blueviolet?style=flat-square&logo=huggingface&logoColor=white)](https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct)
+[![Interactive Spec](https://img.shields.io/badge/Architecture-Interactive%20HTML%20Spec-blueviolet?style=flat-square&logo=html5&logoColor=white)](html/nl2sql.html)
+[![Vector Diagram](https://img.shields.io/badge/Vector%20Blueprint-SVG%20High--Res-ff69b4?style=flat-square&logo=inkscape&logoColor=white)](diagrams/SVG_DIAGRAM.svg)
+[![Transpiler](https://img.shields.io/badge/Dialects-20%2B%20SQL%20%2B%20Graph%20%2B%20MQL-00bcd4?style=flat-square)](https://github.com/tobymao/sqlglot)
+[![Model](https://img.shields.io/badge/Foundation-Qwen2.5--Coder--7B--Instruct-7952b3?style=flat-square&logo=huggingface&logoColor=white)](https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 
 <br />
 
-[Overview](#executive-summary) &bull; [System Architecture](#system-architecture) &bull; [Universal Transpilation](#universal-ast-transpilation-engine) &bull; [Paradigms & Dialects](#multi-paradigm--dialect-support) &bull; [Offline ML Suite](#offline-machine-learning--fine-tuning-suite) &bull; [Quick Start](#quick-start) &bull; [Directory Layout](#repository-structure) &bull; [Engineering Team](#engineering-team)
+[Overview](#executive-summary) &bull; [Visual Blueprints](#interactive-specifications--visual-architecture-assets) &bull; [System Architecture](#system-architecture) &bull; [Universal Transpilation](#universal-ast-transpilation-engine) &bull; [Documentation Hub](#subsystem-documentation-hub) &bull; [Offline ML Suite](#offline-machine-learning--fine-tuning-suite) &bull; [Quick Start](#quick-start) &bull; [Team](#engineering-team)
 
 </div>
 
@@ -33,6 +32,45 @@ The **NL2SQL Production Pipeline** is an enterprise-grade compilation framework 
 3. **Speculative Intent Routing (DSpark Principles):** Fast CLEF-style discourse classifier (< 2ms) routes queries with speculative confidence scheduling and auto-mode divergence guardrails.
 4. **Hybrid Schema Grounding:** Combines snake_case-aware BM25 and character N-gram fuzzy salience merged via **Reciprocal Rank Fusion (RRF)**, backed by Steiner Minimal Tree foreign-key bridge join injection and sub-millisecond Trie cell grounding.
 5. **Consumer Hardware Feasibility:** 4-bit NF4 QLoRA fine-tuning fits consumer GPUs (< 7.5GB VRAM on RTX 4060 8GB / RTX 3060 12GB), quantizing to `Q4_K_M` GGUF for CPU inference (~4.3GB RAM).
+
+---
+
+## Interactive Specifications & Visual Architecture Assets
+
+The NL2SQL architecture is specified across interactive web specifications, vector SVG blueprints, and high-definition raster renders:
+
+<div align="center">
+
+[![NL2SQL Master Pipeline Architecture Blueprint](diagrams/pipeline_v2_check.png)](diagrams/SVG_DIAGRAM.svg)
+
+<p><em>Click the diagram above to inspect the full 1600x3560 vector SVG master blueprint (<a href="diagrams/SVG_DIAGRAM.svg">diagrams/SVG_DIAGRAM.svg</a>)</em></p>
+
+</div>
+
+### Visual & Interactive Specification Catalog
+
+| Asset | Format | Location | Primary Purpose | How to View |
+| :--- | :--- | :--- | :--- | :--- |
+| **Interactive Architecture Spec** | Standalone HTML / SVG | [`html/nl2sql.html`](html/nl2sql.html) | Interactive 16-stage pipeline guide with inlined vector SVG, stage reference table, and academic citations | Open in browser (`open html/nl2sql.html`) or serve via local HTTP server |
+| **Master Architecture Blueprint** | Vector SVG (1600x3560) | [`diagrams/SVG_DIAGRAM.svg`](diagrams/SVG_DIAGRAM.svg) | High-precision vector architecture schematic with exact subsystem boundaries and stage markers | Open in browser, Figma, Miro, or Inkscape |
+| **Pipeline High-Res Render** | 24-bit PNG | [`diagrams/pipeline_v2_check.png`](diagrams/pipeline_v2_check.png) | High-definition raster render for markdown renderers and presentation previews | Native image preview or GitHub file viewer |
+| **Design Companion Template** | HTML / CSS | [`html/template.html`](html/template.html) | Design system typography, layout tokens, and interactive component prototypes | Open in browser (`open html/template.html`) |
+| **Architecture Reference Document** | Markdown | [`NL2SQL-Pipeline-Architecture.md`](NL2SQL-Pipeline-Architecture.md) | Stage-by-stage text specification and companion document to `diagrams/SVG_DIAGRAM.svg` | Markdown viewer or GitHub |
+
+#### Viewing the Interactive Web Specification Locally
+```bash
+# Option 1: Direct browser launch
+# Linux
+xdg-open html/nl2sql.html
+# macOS
+open html/nl2sql.html
+# Windows
+start html\nl2sql.html
+
+# Option 2: Local HTTP server
+python -m http.server 8080 --directory html/
+# Then navigate to http://localhost:8080/nl2sql.html
+```
 
 ---
 
@@ -92,7 +130,7 @@ flowchart LR
     classDef source fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
     classDef engine fill:#1e1b4b,stroke:#a855f7,stroke-width:2px,color:#f8fafc;
     classDef sql fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#f8fafc;
-    classDef graph fill:#172554,stroke:#3b82f6,stroke-width:2px,color:#f8fafc;
+    classDef graph_alter fill:#172554,stroke:#3b82f6,stroke-width:2px,color:#f8fafc;
     classDef doc fill:#451a03,stroke:#f97316,stroke-width:2px,color:#f8fafc;
 
     AST["Canonical ANSI/PostgreSQL AST<br/>(sqlglot Expression Tree)"]:::source --> ENGINE["Deterministic Dialect Transpiler<br/>(core/dialect_converter.py)"]:::engine
@@ -107,11 +145,11 @@ flowchart LR
         SQL6["Trino, Presto & Apache Spark"]:::sql
     end
 
-    ENGINE -->|"OpenCypherVisitor"| GRAPH_GROUP["Graph Databases"]:::graph
+    ENGINE -->|"OpenCypherVisitor"| GRAPH_GROUP["Graph Databases"]:::graph_alter
     subgraph GRAPH_GROUP ["Declarative Graph Paradigm"]
-        G1["Neo4j (MATCH ... WHERE ... RETURN)"]:::graph
-        G2["AWS Neptune (openCypher Endpoint)"]:::graph
-        G3["Kùzu Embedded Graph Engine"]:::graph
+        G1["Neo4j (MATCH ... WHERE ... RETURN)"]:::graph_alter
+        G2["AWS Neptune (openCypher Endpoint)"]:::graph_alter
+        G3["Kùzu Embedded Graph Engine"]:::graph_alter
     end
 
     ENGINE -->|"MongoMQLVisitor"| DOC_GROUP["Document NoSQL Engines"]:::doc
@@ -209,7 +247,7 @@ NL2SQL/
 |   |-- src/                         # React 18, TypeScript, Monaco Editor, React Flow ER Diagrams
 |   |   |-- modules/
 |   |   |   |-- query_intake/        # Query intake, Monaco editor, progress tracker
-|   |   |   `-- approval_gate/       # React Flow ER graph, Monaco diffs, telemetry
+|   |   |   `-- approval_gate/       # React Flow ER graph_alter, Monaco diffs, telemetry
 |   |-- electron/                    # Electron container & native OS lifecycle bridge
 |   |-- server/                      # FastAPI bridge server for pipeline integration
 |   `-- README.md                    # Dedicated Desktop/Web Studio handbook
@@ -234,18 +272,45 @@ NL2SQL/
 
 ---
 
-## Subsystem Implementation Matrix
+## Subsystem Documentation Hub
 
-| Subsystem | Scope / Responsibility | Owner | Status |
-| :--- | :--- | :--- | :--- |
-| **Model Foundation & Training** | QLoRA fine-tuning & GGUF CPU export | Anunay Sharma | [![Status](https://img.shields.io/badge/Status-Complete-brightgreen?style=flat-square)](core/) |
-| **Schema Linker** | Hybrid RRF retrieval & Steiner join injection | Anunay Sharma | [![Status](https://img.shields.io/badge/Status-Complete-brightgreen?style=flat-square)](core/) |
-| **Dialect Transpiler** | SQL AST conversion (20+ dialects, Cypher, MQL) | Anunay Sharma | [![Status](https://img.shields.io/badge/Status-Complete-brightgreen?style=flat-square)](core/) |
-| **Paradigm Router** | Intent classification & auto-routing | Anunay Sharma | [![Status](https://img.shields.io/badge/Status-Complete-brightgreen?style=flat-square)](core/) |
-| **Pipeline Orchestrator** | End-to-end execution loop & dual-path router | Anunay Sharma | [![Status](https://img.shields.io/badge/Status-Complete-brightgreen?style=flat-square)](core/) |
-| **Static Validator** | 6-Layer AST verification & anti-pattern detection | Sarthak Singh | [![Status](https://img.shields.io/badge/Status-Complete-brightgreen?style=flat-square)](validator/) |
-| **Cost Estimator** | Heuristic cost & blast-radius checks | Sarthak Singh | [![Status](https://img.shields.io/badge/Status-Complete-brightgreen?style=flat-square)](cost_estimator/) |
-| **Approval Gate & Studio** | Desktop & Web Studio with ER diff visualization | Vanshika Kriti Singh | [![Status](https://img.shields.io/badge/Status-Complete-brightgreen?style=flat-square)](GUI/) |
+The NL2SQL repository follows a **Federated Documentation Architecture**. Rather than collapsing all module details into an unwieldy single file, each major engineering subsystem maintains its own dedicated, deep-dive handbook alongside its source code. All handbooks are unified via standardized navigation breadcrumbs and cross-subsystem links.
+
+```mermaid
+flowchart TD
+    classDef root fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
+    classDef domain fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#f8fafc;
+    classDef guide fill:#312e81,stroke:#a855f7,stroke-width:2px,color:#f8fafc;
+    classDef visual fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#f8fafc;
+
+    ROOT["Root README.md<br/>(System Overview & Navigation Hub)"]:::root
+
+    ROOT --> CORE["core/README.md<br/>AI/ML Engine & Transpiler Handbook"]:::domain
+    ROOT --> GUI_DOC["GUI/README.md<br/>Desktop & Web Studio Handbook"]:::domain
+    ROOT --> SCRIPTS_DOC["scripts/README.md<br/>Cross-Platform Automation Matrix"]:::domain
+    ROOT --> MODELS_DOC["offline/models/README.md<br/>Model Weights & Storage Registry"]:::domain
+
+    ROOT --> SPEC_HTML["html/nl2sql.html<br/>Interactive Web Architecture Spec"]:::visual
+    ROOT --> DIAGRAM_SVG["diagrams/SVG_DIAGRAM.svg<br/>1600x3560 Vector Blueprint"]:::visual
+
+    CORE <--> GUI_DOC
+    CORE <--> SCRIPTS_DOC
+    GUI_DOC <--> GUI_GUIDE["GUI_INTEGRATION_GUIDE.md<br/>Inter-Module Contract Bridges"]:::guide
+    CORE <--> DECIDED["DECIDED_MODULES.md<br/>16-Stage Module Allocations"]:::guide
+```
+
+### Federated Handbook Matrix
+
+| Handbook / Subsystem | Location | Lead Engineer | Scope & Core Responsibilities | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| **Core AI/ML & Compiler** | [`core/README.md`](core/README.md) | Anunay Sharma | DSpark speculative routing, hybrid BM25/Fuzzy RRF schema linker, Steiner tree joins, 20+ SQL / Cypher / MQL transpiler | [![Status](https://img.shields.io/badge/Status-Complete-brightgreen?style=flat-square)](core/README.md) |
+| **Desktop & Web Studio** | [`GUI/README.md`](GUI/README.md) | Vanshika Kriti Singh | Electron native lifecycle, React 18 / Vite hot reloading, Monaco SQL inspector, React Flow ER diff approval gate | [![Status](https://img.shields.io/badge/Status-Complete-brightgreen?style=flat-square)](GUI/README.md) |
+| **Automation & Scripts** | [`scripts/README.md`](scripts/README.md) | Multi-Platform | POSIX Bash (`.sh`), PowerShell (`.ps1`), and CMD (`.bat`) launcher matrix, zero-GPU setup, and dataset synthesis | [![Status](https://img.shields.io/badge/Status-Complete-brightgreen?style=flat-square)](scripts/README.md) |
+| **Offline Model Registry** | [`offline/models/README.md`](offline/models/README.md) | Anunay Sharma | Foundation model checkpoint storage (0.5B, 1.5B, 7B), GGUF quantizations, and download instructions | [![Status](https://img.shields.io/badge/Status-Complete-brightgreen?style=flat-square)](offline/models/README.md) |
+| **GUI Integration Guide** | [`GUI_INTEGRATION_GUIDE.md`](GUI_INTEGRATION_GUIDE.md) | Vanshika Kriti Singh | Typed FastAPI contracts, WebSocket streaming specifications, and backend stub connection points | [![Status](https://img.shields.io/badge/Status-Complete-brightgreen?style=flat-square)](GUI_INTEGRATION_GUIDE.md) |
+| **Decided Modules Spec** | [`DECIDED_MODULES.md`](DECIDED_MODULES.md) | All Leads | 16-stage pipeline functional definitions, role assignments, and phase progression | [![Status](https://img.shields.io/badge/Status-Complete-brightgreen?style=flat-square)](DECIDED_MODULES.md) |
+| **Static AST Validator** | [`validator/`](validator/) | Sarthak Singh | 6-Layer verification pipeline (Parse, Policy, Schema, Semantic, Query Anti-Patterns, Schema Anti-Patterns) | [![Status](https://img.shields.io/badge/Status-Complete-brightgreen?style=flat-square)](validator/) |
+| **Cost & Blast Radius Engine** | [`cost_estimator/`](cost_estimator/) | Sarthak Singh | Heuristic scan estimator, join depth evaluator, and PostgreSQL EXPLAIN plan adapter | [![Status](https://img.shields.io/badge/Status-Complete-brightgreen?style=flat-square)](cost_estimator/) |
 
 ---
 
@@ -262,39 +327,64 @@ chmod +x scripts/setup_linux.sh
 ./scripts/setup_linux.sh
 ```
 
-#### Windows PowerShell
+#### Windows PowerShell & CMD
 ```powershell
 git clone https://github.com/VanshikaKritiSingh/NL2SQL.git
 cd NL2SQL
 
+# PowerShell
 .\scripts\setup_windows.ps1
+
+# Windows Command Prompt
+scripts\setup_windows.bat
 ```
 
 ---
 
-### 2. Launch Desktop & Web Studio
+### 2. Launch Full-Stack Pipeline (FastAPI Backend + Web Studio)
 
 ```bash
-cd GUI
+# Linux / macOS
+./scripts/start_all.sh
 
-# Option A: Launch Native Desktop Application (Live Dev)
-npm run desktop:dev
+# Windows PowerShell
+.\scripts\start_all.ps1
 
-# Option B: Launch Browser Web Client
-npm run dev
+# Windows Command Prompt
+scripts\start_all.bat
+```
+
+> **Individual Services:**
+> - Backend API Server: `./scripts/start_backend.sh` (or `.\scripts\start_backend.ps1`)
+> - Frontend Studio GUI: `./scripts/start_gui.sh` (or `.\scripts\start_gui.ps1`)
+> - Desktop Electron App: `./scripts/start_gui.sh --desktop` (or `.\scripts\start_gui.ps1 -Desktop`)
+
+---
+
+### 3. Base Model Download & Offline Fine-Tuning
+
+```bash
+# Download foundation base model into offline/models/ (Presets: 0.5b, 1.5b, 7b, 7b-gguf)
+./scripts/download_model.sh --preset 0.5b
+
+# Start 4-bit NF4 QLoRA Fine-Tuning
+./scripts/start_train.sh --epochs 3
+
+# Run AST Exact Match & Execution Accuracy Evaluation
+./scripts/start_eval.sh
 ```
 
 ---
 
-### 3. Verification & Testing
+### 4. Verification & Testing
 
 ```bash
-# Run pytest verification suite (from repository root)
-PYTHONPATH=. ./.venv/bin/pytest tests/ -v
+# Run one-command test suite (Core pytest + FastAPI backend integration)
+./scripts/run_tests.sh
 ```
 
 ```
-============================== 17 passed in 0.17s ==============================
+============================== 17 passed in 0.16s ==============================
 - CLEF Drafter Intent Routing (Graph, Document, KV, OLAP): PASSED
 - Paradigm Suggestor Auto Mode & Manual Guardrails: PASSED
 - Dialect Transpilation (PostgreSQL, MySQL, SQLite, Cypher, MQL): PASSED
@@ -303,6 +393,14 @@ PYTHONPATH=. ./.venv/bin/pytest tests/ -v
 - 6-Layer Static AST Validator (Layers 1-6 & Anti-Patterns): PASSED
 - Heuristic Cost & Execution Plan Estimator: PASSED
 - End-to-End Orchestrator Dual-Path Routing: PASSED
+[OK] Root health check passed: NL2SQL Pipeline API
+[OK] Schema endpoint passed (4 tables, 3 FKs)
+[OK] SELECT Query intake passed (status=completed, rows=5)
+[OK] UPDATE Query approval gate triggered (status=approval_required, risk=high)
+[OK] DDL Query approval gate triggered (status=approval_required, diff=ddl)
+[OK] Approval decision passed (status=approved_executing)
+[OK] Query history passed (3 items logged)
+ALL INTEGRATION & VERIFICATION TESTS PASSED 100%!
 ```
 
 ---

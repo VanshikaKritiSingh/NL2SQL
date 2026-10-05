@@ -124,7 +124,7 @@ if [ "$SKIP_GUI" = false ]; then
     echo -e "${BOLD}[5/5] Setting up Desktop & Web Studio GUI (GUI/)...${NC}"
     if command -v npm &>/dev/null; then
         cd GUI
-        npm install --silent
+        npm install --cache .npm-cache --silent || npm install --silent
         cd "${REPO_ROOT}"
         echo -e "${GREEN}[OK] GUI npm dependencies installed.${NC}"
     else
@@ -148,8 +148,11 @@ echo -e "${GREEN}${BOLD}   NL2SQL Environment Setup Completed Successfully!  ${N
 echo -e "${GREEN}${BOLD}======================================================${NC}"
 echo ""
 echo -e "Quick Start Commands:"
-echo -e "  - Run Tests     : PYTHONPATH=. ./.venv/bin/pytest tests/ -v"
-echo -e "  - Launch GUI    : cd GUI && npm run desktop:dev  (or npm run dev)"
-echo -e "  - Fine-Tune     : ./.venv/bin/python offline/training/train_qlora.py"
-echo -e "  - Generate Data : ./.venv/bin/python scripts/generate_dataset.py"
+echo -e "  - Start All (Full Stack) : ./scripts/start_all.sh"
+echo -e "  - Start Backend Server   : ./scripts/start_backend.sh"
+echo -e "  - Start Frontend GUI     : ./scripts/start_gui.sh"
+echo -e "  - Download Base Model    : ./scripts/download_model.sh"
+echo -e "  - Run Verification Tests : ./scripts/run_tests.sh"
+echo -e "  - Fine-Tune QLoRA Model  : ./scripts/start_train.sh"
+echo -e "  - Evaluate Benchmark     : ./scripts/start_eval.sh"
 echo ""

@@ -117,8 +117,10 @@ Write-Host "`n======================================================" -Foregroun
 Write-Host "   NL2SQL Environment Setup Completed Successfully!  " -ForegroundColor Green
 Write-Host "======================================================" -ForegroundColor Green
 Write-Host "`nQuick Start Commands:"
-Write-Host "  - Run Tests     : .\.venv\Scripts\pytest tests/ -v"
-Write-Host "  - Launch Desktop: cd GUI; npm run desktop:dev"
-Write-Host "  - Launch Web App: cd GUI; npm run dev"
-Write-Host "  - Fine-Tune ML  : .\.venv\Scripts\python offline\training\train_qlora.py"
-Write-Host "  - Generate Data : .\.venv\Scripts\python scripts\generate_dataset.py`n"
+Write-Host "  - Start All (Full Stack) : .\scripts\start_all.ps1"
+Write-Host "  - Start Backend Server   : .\scripts\start_backend.ps1"
+Write-Host "  - Start Frontend GUI     : .\scripts\start_gui.ps1"
+Write-Host "  - Download Base Model    : .\scripts\download_model.ps1"
+Write-Host "  - Run Verification Tests : .\scripts\run_tests.ps1"
+Write-Host "  - Fine-Tune QLoRA Model  : .\scripts\start_train.ps1"
+Write-Host "  - Evaluate Benchmark     : .\scripts\start_eval.ps1`n"

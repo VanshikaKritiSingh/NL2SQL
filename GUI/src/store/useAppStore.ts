@@ -9,6 +9,8 @@ interface AppState {
   setUserId: (id: string) => void;
   targetDialect: TargetDialect;
   setTargetDialect: (dialect: TargetDialect) => void;
+  databaseProfile: string;
+  setDatabaseProfile: (profile: string) => void;
   currentView: 'query' | 'approval';
   setCurrentView: (view: 'query' | 'approval') => void;
   theme: AppTheme;
@@ -40,8 +42,10 @@ export const useAppStore = create<AppState>((set) => ({
     }
     set({ userId: id });
   },
-  targetDialect: 'mysql',
+  targetDialect: 'auto',
   setTargetDialect: (dialect) => set({ targetDialect: dialect }),
+  databaseProfile: 'master_enterprise',
+  setDatabaseProfile: (profile) => set({ databaseProfile: profile }),
   currentView: 'query',
   setCurrentView: (view) => set({ currentView: view }),
   theme: getStoredTheme(),

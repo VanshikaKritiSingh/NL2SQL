@@ -21,23 +21,26 @@ def run_tests():
     assert len(data["foreign_keys"]) == 3, "Expected 3 FKs"
     print("[OK] Schema endpoint passed (4 tables, 3 FKs)")
 
-    # 3. SELECT query check (M1)
+    # 3. SELECT query check (Auto mode)
     res = client.post("/api/query", json={
         "user_id": "test_vanshika",
         "query_text": "Show me all orders from last month",
-        "target_dialect": "mysql"
+        "target_dialect": "auto",
+        "database_profile": "master_enterprise"
     })
     assert res.status_code == 200
     data = res.json()
     assert data["status"] == "completed"
     assert data["result_data"]["row_count"] == 5
-    print("[OK] SELECT Query intake passed (status=completed, rows=5)")
+    select_query_id = data["query_id"]
+    print("[OK] SELECT Query intake passed in Auto mode (status=completed, rows=5)")
 
-    # 4. UPDATE query check (M14 Gate trigger)
+    # 4. UPDATE query check (Gate trigger)
     res = client.post("/api/query", json={
         "user_id": "test_vanshika",
         "query_text": "Increase all product prices by 10%",
-        "target_dialect": "mysql"
+        "target_dialect": "postgres",
+        "database_profile": "master_enterprise"
     })
     assert res.status_code == 200
     data = res.json()
@@ -45,11 +48,12 @@ def run_tests():
     assert data["approval_payload"]["risk_tier"] == "high"
     print("[OK] UPDATE Query approval gate triggered (status=approval_required, risk=high)")
 
-    # 5. DDL query check (M14 DDL Diff trigger)
+    # 5. DDL query check (DDL Diff trigger)
     res = client.post("/api/query", json={
         "user_id": "test_vanshika",
         "query_text": "Add a discount_code column to orders table",
-        "target_dialect": "mysql"
+        "target_dialect": "postgres",
+        "database_profile": "master_enterprise"
     })
     assert res.status_code == 200
     data = res.json()
@@ -75,6 +79,21 @@ def run_tests():
     hist = res.json()
     assert len(hist) >= 3
     print(f"[OK] Query history passed ({len(hist)} items logged)")
+
+    # 8. Selective History Deletion check
+    res = client.delete(f"/api/query/history/test_vanshika/{select_query_id}")
+    assert res.status_code == 200
+    res = client.get("/api/query/history/test_vanshika")
+    updated_hist = res.json()
+    assert len(updated_hist) == len(hist) - 1
+    print("[OK] Selective single query deletion passed")
+
+    # 9. Clear All History check
+    res = client.delete("/api/query/history/test_vanshika")
+    assert res.status_code == 200
+    res = client.get("/api/query/history/test_vanshika")
+    assert len(res.json()) == 0
+    print("[OK] Clear all history passed")
 
     print("\nALL BACKEND ENDPOINTS AND INTEGRATION STUBS VERIFIED 100% OPERATIONAL!")
 

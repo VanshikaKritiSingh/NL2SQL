@@ -30,11 +30,23 @@ li{margin:5px 0}
 ol.refs{font-size:13.5px}
 ol.refs a{color:#0b5cad}
 a.r{color:#0b5cad;text-decoration:none}
+.repo-nav{display:flex;flex-wrap:wrap;gap:12px;padding:8px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;margin-bottom:20px}
+.repo-nav a{color:#0b5cad;text-decoration:none;font-weight:500}
+.repo-nav a:hover{text-decoration:underline}
+.repo-nav span{color:#94a3b8}
 footer{margin-top:44px;padding-top:12px;border-top:1px solid #ddd;color:#666;font-size:12.5px}
 </style>
 </head>
 <body>
 <main>
+<nav class="repo-nav">
+  <strong>NL2SQL Documentation Network:</strong>
+  <a href="../README.md">Root Overview</a> <span>&bull;</span>
+  <a href="../diagrams/SVG_DIAGRAM.svg">Master Vector Blueprint (SVG)</a> <span>&bull;</span>
+  <a href="../core/README.md">Core AI/ML Engine</a> <span>&bull;</span>
+  <a href="../GUI/README.md">Desktop &amp; Web Studio</a> <span>&bull;</span>
+  <a href="../scripts/README.md">Environment Scripts</a>
+</nav>
 <h1>NL2SQL Pipeline: Production Architecture</h1>
 <p class="meta">Design draft for team review, v2 · diagram and legend inlined · headings Playfair/Fraunces, body Inter/Helvetica · stage numbers in the diagram match section 3</p>
 

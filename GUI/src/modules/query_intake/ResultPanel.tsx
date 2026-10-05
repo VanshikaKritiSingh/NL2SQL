@@ -1,6 +1,6 @@
-// src/modules/m1/ResultPanel.tsx
+// src/modules/query_intake/ResultPanel.tsx
 import React from 'react';
-import { Table, AlertTriangle, ShieldAlert, Zap, Server } from 'lucide-react';
+import { Table, AlertTriangle, ShieldAlert, Zap, Server, Database, CheckCircle, ExternalLink } from 'lucide-react';
 import { useQueryStore } from '../../store/useQueryStore';
 import { useAppStore } from '../../store/useAppStore';
 import { EmptyState } from '../../shared/EmptyState';
@@ -48,6 +48,9 @@ export const ResultPanel: React.FC = () => {
 
   // Approval Required Gate Triggered
   if (lastResponse.status === 'approval_required') {
+    const payload = lastResponse.approval_payload;
+    const riskTier = payload?.risk_tier || 'high';
+
     return (
       <div
         className={`flex flex-col h-full border rounded-xl overflow-hidden shadow-lg p-6 justify-center items-center text-center transition-colors ${
@@ -57,16 +60,29 @@ export const ResultPanel: React.FC = () => {
         <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 mb-3">
           <ShieldAlert className="w-6 h-6" />
         </div>
-        <h3 className="text-base font-semibold text-amber-500 mb-1">Human Approval Required</h3>
-        <p className={`text-xs max-w-sm mb-4 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-          Safety router detected a mutating or schema alteration query. Review ER impact, cost, and diffs before execution.
+        <h3 className="text-base font-semibold text-amber-500 mb-1">
+          Mutating Statement · Approval Gate Triggered
+        </h3>
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-[11px] px-2 py-0.5 rounded font-mono font-semibold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
+            Risk: {riskTier}
+          </span>
+          <span className="text-[11px] px-2 py-0.5 rounded font-mono text-slate-400 bg-slate-800 border border-slate-700">
+            Preview Sandbox Mode (No Live DB Attached)
+          </span>
+        </div>
+        <p className={`text-xs max-w-md mb-4 leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+          The static validator and blast-radius engine identified a database modification. In connected environments, live mutation requires human sign-off. You can review schema impact, diffs, and estimated cost in the Approval Gate.
         </p>
-        <button
-          onClick={() => setCurrentView('approval')}
-          className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-amber-600/20 transition-all cursor-pointer"
-        >
-          Open Approval Gate →
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setCurrentView('approval')}
+            className="flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-amber-600/20 transition-all cursor-pointer"
+          >
+            <span>Review in Approval Gate</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
     );
   }
@@ -89,13 +105,16 @@ export const ResultPanel: React.FC = () => {
         <div className="flex items-center gap-2">
           <Server className="w-4 h-4 text-emerald-500" />
           <span className={`text-xs font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
-            Execution Output
+            Sandbox Execution Output
           </span>
           {lastResponse.cache_hit && (
             <span className="flex items-center gap-1 text-[10px] font-semibold uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 px-1.5 py-0.5 rounded">
               <Zap className="w-3 h-3" /> Cache Hit
             </span>
           )}
+          <span className="text-[10px] text-slate-400 font-mono bg-slate-800/80 px-1.5 py-0.5 rounded border border-slate-700">
+            Preview / Dry-Run
+          </span>
         </div>
         <span className={`text-xs font-mono ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
           {resultData?.row_count || 0} rows returned
@@ -123,11 +142,13 @@ export const ResultPanel: React.FC = () => {
               {resultData.rows.map((row, idx) => (
                 <tr
                   key={idx}
-                  className={`transition-colors ${isDark ? 'hover:bg-slate-800/50' : 'hover:bg-slate-50'}`}
+                  className={`transition-colors ${
+                    isDark ? 'hover:bg-slate-800/50' : 'hover:bg-slate-50'
+                  }`}
                 >
                   {resultData.columns.map((col) => (
                     <td key={col} className="px-3 py-2 whitespace-nowrap">
-                      {String(row[col])}
+                      {row[col] !== undefined && row[col] !== null ? String(row[col]) : 'NULL'}
                     </td>
                   ))}
                 </tr>
@@ -135,11 +156,9 @@ export const ResultPanel: React.FC = () => {
             </tbody>
           </table>
         ) : (
-          <EmptyState
-            icon={<Table className="w-6 h-6" />}
-            title="Empty Result Set"
-            description="Query executed successfully but returned 0 rows."
-          />
+          <div className="flex items-center justify-center h-full text-xs text-slate-400">
+            Query produced empty result set or completed with 0 rows.
+          </div>
         )}
       </div>
     </div>

@@ -42,6 +42,21 @@
     padding: 56px 28px 100px;
   }
 
+  .repo-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 8px 14px;
+    background: #ffffff;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-size: 13px;
+    margin-bottom: 24px;
+  }
+  .repo-nav a { color: var(--accent); text-decoration: none; font-weight: 500; }
+  .repo-nav a:hover { text-decoration: underline; }
+  .repo-nav span { color: var(--ink-soft); }
+
   header.doc-header {
     margin-bottom: 48px;
     border-bottom: 1px solid var(--line);
@@ -260,6 +275,15 @@
 </head>
 <body>
 <div class="wrap">
+
+  <nav class="repo-nav">
+    <strong>NL2SQL Documentation Network:</strong>
+    <a href="../README.md">Root Overview</a> <span>&bull;</span>
+    <a href="../diagrams/SVG_DIAGRAM.svg">Master Vector Blueprint (SVG)</a> <span>&bull;</span>
+    <a href="../core/README.md">Core AI/ML Engine</a> <span>&bull;</span>
+    <a href="../GUI/README.md">Desktop &amp; Web Studio</a> <span>&bull;</span>
+    <a href="../scripts/README.md">Environment Scripts</a>
+  </nav>
 
   <header class="doc-header">
     <div class="kicker">Architecture reference · design draft for team review</div>
