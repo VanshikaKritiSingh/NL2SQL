@@ -34,7 +34,7 @@ The `core/` package provides the deterministic compilation engine, semantic cont
 flowchart TD
     classDef intake fill:#1e293b,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
     classDef rag fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#f8fafc;
-    classDef graph fill:#312e81,stroke:#a855f7,stroke-width:2px,color:#f8fafc;
+    classDef graph_fill fill:#312e81,stroke:#a855f7,stroke-width:2px,color:#f8fafc;
     classDef target fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#f8fafc;
     classDef dispatch fill:#831843,stroke:#fb7185,stroke-width:2px,color:#f8fafc;
 
@@ -55,7 +55,7 @@ flowchart TD
         SL --> RRF["Hybrid BM25 + Character 3-Gram Fuzzy Retrieval<br/>(Reciprocal Rank Fusion with rrf_k=60)"]:::rag
         TRIE --> SEEDS["Ranked Candidate Tables & Columns"]:::rag
         RRF --> SEEDS
-        SEEDS --> STEINER["Steiner Minimal Tree / Graph Closure<br/>(Auto-Injects Foreign Key Bridge Tables)"]:::graph
+        SEEDS --> STEINER["Steiner Minimal Tree / Graph Closure<br/>(Auto-Injects Foreign Key Bridge Tables)"]:::graph_fill
         STEINER --> PROMPT_DDL["LinkedSchemaContext (Table-Qualified DDL Fragment)"]:::rag
     end
 
