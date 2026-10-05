@@ -96,67 +96,8 @@ class SchemaProvider:
 
 
 # ------------------------------------------------------------------
-# Threshold configuration
+# Threshold configuration (canonical definitions in .thresholds)
 # ------------------------------------------------------------------
 
-@dataclass
-class Thresholds:
-    """Configuration values for decision thresholds."""
-    # READ thresholds (cost, rows, full‑scan)
-    escalate_cost: int = 50000
-    reject_cost: int = 1000000
-    escalate_rows_scanned: int = 100000
-    reject_rows_scanned: int = 20000000
-    full_scan_min_table_rows: int = 100000
-
-    # WRITE thresholds
-    escalate_rows_affected: int = 100
-
-    # DDL thresholds
-    escalate_table_rows: int = 500000
-
-    # Runtime limits
-    explain_timeout_ms: int = 2000
-
-
-class ConfigError(Exception):
-    """Raised when threshold config is invalid or missing."""
-
-
-def load_thresholds(path: str = "config/thresholds.json") -> Thresholds:
-    """Load thresholds from a JSON file. Supports a minimal fallback if file missing."""
-    if not os.path.exists(path):
-        # Minimal default – can be overridden by user later
-        return Thresholds()
-
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        # Basic validation – ensure required keys exist; otherwise use defaults
-        def get_int(key: str, default: int) -> int:
-            return int(data.get(key, default))
-
-        def get_float(key: str, default: float) -> float:
-            return float(data.get(key, default))
-
-        escalate_cost = int(data.get("escalate_cost", 50000))
-        reject_cost = int(data.get("reject_cost", 1000000))
-        escalate_rows_scanned = int(data.get("escalate_rows_scanned", 100000))
-        reject_rows_scanned = int(data.get("reject_rows_scanned", 20000000))
-        full_scan_min_table_rows = int(data.get("full_scan_min_table_rows", 100000))
-        escalate_rows_affected = int(data.get("escalate_rows_affected", 100))
-        escalate_table_rows = int(data.get("escalate_table_rows", 500000))
-        explain_timeout_ms = int(data.get("explain_timeout_ms", 2000))
-
-        return Thresholds(
-            escalate_cost=escalate_cost,
-            reject_cost=reject_cost,
-            escalate_rows_scanned=escalate_rows_scanned,
-            reject_rows_scanned=reject_rows_scanned,
-            full_scan_min_table_rows=full_scan_min_table_rows,
-            escalate_rows_affected=escalate_rows_affected,
-            escalate_table_rows=escalate_table_rows,
-            explain_timeout_ms=explain_timeout_ms,
-        )
-    except Exception as exc:
-        raise ConfigError(f"Failed to load thresholds from {path}: {exc}") from exc
+from .thresholds import Thresholds, ThresholdsError, load_thresholds, DEFAULT_THRESHOLDS
+ConfigError = ThresholdsError

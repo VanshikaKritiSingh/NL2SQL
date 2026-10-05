@@ -17,7 +17,6 @@ from .contracts import (
     StatementType,
     Status,
     ValidationResult,
-    parse_yaml_schema,
 )
 from .engine import (
     validate_parse,
@@ -39,7 +38,6 @@ __all__ = [
     "StatementType",
     "Status",
     "ValidationResult",
-    "parse_yaml_schema",
     "RuleRegistry",
     "RuleEntry",
     "DEFAULT_RULES",

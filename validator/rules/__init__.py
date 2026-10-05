@@ -18,27 +18,6 @@ from ..contracts import (
 )
 
 
-class IssueType(str, Enum):
-    PARSE = "PARSE"
-    POLICY = "POLICY"
-    SCHEMA = "SCHEMA"
-    SEMANTIC = "SEMANTIC"
-    QUERY_AP = "QUERY_AP"
-    SCHEMA_AP = "SCHEMA_AP"
-
-
-class IssueSeverity(str, Enum):
-    ERROR = "error"
-    WARNING = "warning"
-    INFO = "info"
-
-
-class Policy:
-    ALLOW = "ALLOW"
-    BLOCK = "BLOCK"
-    REJECT = "REJECT"
-
-
 @dataclass(frozen=True, slots=True)
 class RuleEntry:
     """Immutable definition of a single validation rule."""

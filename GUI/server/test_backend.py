@@ -5,7 +5,7 @@ from main import app
 
 client = TestClient(app)
 
-def run_tests():
+def test_backend_api():
     print("Running NL2SQL Backend API test suite...")
 
     # 1. Health check
@@ -98,4 +98,4 @@ def run_tests():
     print("\nALL BACKEND ENDPOINTS AND INTEGRATION STUBS VERIFIED 100% OPERATIONAL!")
 
 if __name__ == "__main__":
-    run_tests()
+    test_backend_api()

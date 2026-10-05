@@ -153,18 +153,3 @@ class RetryFeedback:
     suggestion: str  # one-line, model-actionable hint
     did_you_mean: Tuple[str, ...] = ()  # fuzzy-match hints (optional)
 
-
-# ------------------------------------------------------------------
-# Schema snapshot helpers
-# ------------------------------------------------------------------
-
-SCHEMA_KEYS: FrozenSet[str] = frozenset(
-    ("table", "columns", "pk", "fks", "indexes", "nullable", "row_count")
-)
-
-
-def parse_yaml_schema(text: str) -> Dict:
-    """Placeholder: real loader parses YAML; stub validates key presence."""
-    # This is a minimal stub — real work is done by FakeSchemaProvider.
-    # We keep it here so contracts.py has no dependency on yaml package.
-    return {"loaded": True, "raw": text}
