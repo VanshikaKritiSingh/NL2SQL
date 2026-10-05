@@ -95,6 +95,26 @@ def test_backend_api():
     assert len(res.json()) == 0
     print("[OK] Clear all history passed")
 
+    # 10. Fine-Tuning Stats & Benchmark API check
+    res = client.get("/api/finetuning/dataset-stats")
+    assert res.status_code == 200
+    stats = res.json()
+    assert "available_domains" in stats
+    print(f"[OK] Fine-tuning dataset stats endpoint passed ({len(stats['available_domains'])} domains)")
+
+    res = client.get("/api/finetuning/benchmark-metrics")
+    assert res.status_code == 200
+    bench = res.json()
+    assert len(bench["metrics"]) >= 2
+    print("[OK] Benchmark metrics endpoint passed")
+
+    # 11. Pipeline Tracing Stepper API check
+    res = client.post("/api/pipeline/trace", json={"query_text": "Find orders placed in Germany"})
+    assert res.status_code == 200
+    trace = res.json()
+    assert len(trace["steps"]) == 6
+    print("[OK] Pipeline Step-by-Step Tracer endpoint passed (6/6 stages verified)")
+
     print("\nALL BACKEND ENDPOINTS AND INTEGRATION STUBS VERIFIED 100% OPERATIONAL!")
 
 if __name__ == "__main__":

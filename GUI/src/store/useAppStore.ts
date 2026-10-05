@@ -11,8 +11,8 @@ interface AppState {
   setTargetDialect: (dialect: TargetDialect) => void;
   databaseProfile: string;
   setDatabaseProfile: (profile: string) => void;
-  currentView: 'query' | 'approval';
-  setCurrentView: (view: 'query' | 'approval') => void;
+  currentView: 'query' | 'approval' | 'stepper' | 'finetune';
+  setCurrentView: (view: 'query' | 'approval' | 'stepper' | 'finetune') => void;
   theme: AppTheme;
   setTheme: (theme: AppTheme) => void;
   toggleTheme: () => void;

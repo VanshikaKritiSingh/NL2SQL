@@ -4,6 +4,8 @@ import { TopBar } from './shared/TopBar';
 import { StatusBar } from './shared/StatusBar';
 import { QueryIntakePage } from './modules/query_intake/QueryIntakePage';
 import { ApprovalGatePage } from './modules/approval_gate/ApprovalGatePage';
+import { PipelineStepperPage } from './modules/stepper/PipelineStepperPage';
+import { FineTuningPage } from './modules/finetuning/FineTuningPage';
 import { useAppStore } from './store/useAppStore';
 import { useQueryStore } from './store/useQueryStore';
 import { useWebSocket } from './hooks/useWebSocket';
@@ -68,7 +70,10 @@ export default function App() {
 
       {/* Main View Router */}
       <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
-        {currentView === 'query' ? <QueryIntakePage /> : <ApprovalGatePage />}
+        {currentView === 'query' && <QueryIntakePage />}
+        {currentView === 'approval' && <ApprovalGatePage />}
+        {currentView === 'stepper' && <PipelineStepperPage />}
+        {currentView === 'finetune' && <FineTuningPage />}
       </main>
 
       {/* Cross-Cutting Observability Status Bar */}
@@ -76,3 +81,4 @@ export default function App() {
     </div>
   );
 }
+

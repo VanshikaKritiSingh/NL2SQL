@@ -1,6 +1,6 @@
 // src/shared/TopBar.tsx
 import React, { useState } from 'react';
-import { Database, User, ShieldAlert, Sparkles, Sun, Moon, Check, Edit2 } from 'lucide-react';
+import { Database, User, ShieldAlert, Sparkles, Sun, Moon, Check, Edit2, PlayCircle, Cpu } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { useQueryStore } from '../store/useQueryStore';
 import { usePipelineStore } from '../store/usePipelineStore';
@@ -32,7 +32,6 @@ export const TopBar: React.FC = () => {
   };
 
   const handleOpenApprovalGate = () => {
-    // If no active approval payload exists, initialize with the standard demo approval payload
     if (!approvalPayload) {
       setApprovalPayload(MOCK_UPDATE_APPROVAL);
     }
@@ -64,7 +63,7 @@ export const TopBar: React.FC = () => {
         </div>
       </div>
 
-      {/* Center Nav: Function Tabs (No M1/M14 labels) */}
+      {/* Center Nav: Function Tabs */}
       <div
         className={`flex items-center gap-1 p-1 rounded-lg border text-xs ${
           isDark ? 'bg-slate-800/80 border-slate-700/60' : 'bg-slate-100 border-slate-200'
@@ -84,6 +83,22 @@ export const TopBar: React.FC = () => {
           <Sparkles className="w-3.5 h-3.5" />
           <span>Query Intake</span>
         </button>
+
+        <button
+          onClick={() => setCurrentView('stepper')}
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-md font-medium transition-all cursor-pointer ${
+            currentView === 'stepper'
+              ? 'bg-cyan-600 text-white shadow'
+              : isDark
+              ? 'text-slate-400 hover:text-slate-200'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+          title="Interactive CLEF + Qwen LoRA + Transpiler Pipeline Stepper"
+        >
+          <PlayCircle className="w-3.5 h-3.5" />
+          <span>Pipeline Stepper</span>
+        </button>
+
         <button
           onClick={handleOpenApprovalGate}
           className={`flex items-center gap-1.5 px-3 py-1 rounded-md font-medium transition-all cursor-pointer ${
@@ -97,6 +112,21 @@ export const TopBar: React.FC = () => {
         >
           <ShieldAlert className="w-3.5 h-3.5" />
           <span>Approval Gate</span>
+        </button>
+
+        <button
+          onClick={() => setCurrentView('finetune')}
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-md font-medium transition-all cursor-pointer ${
+            currentView === 'finetune'
+              ? 'bg-purple-600 text-white shadow'
+              : isDark
+              ? 'text-slate-400 hover:text-slate-200'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+          title="Qwen2.5-Coder QLoRA Fine-Tuning & Spider Benchmark Studio"
+        >
+          <Cpu className="w-3.5 h-3.5" />
+          <span>Fine-Tuning Studio</span>
         </button>
       </div>
 
