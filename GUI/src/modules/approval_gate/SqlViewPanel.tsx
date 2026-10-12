@@ -23,35 +23,25 @@ export const SqlViewPanel: React.FC<SqlViewPanelProps> = ({ sql, dialect }) => {
 
   return (
     <div
-      className={`border rounded-xl overflow-hidden shadow-lg flex flex-col h-48 transition-colors ${
-        isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-      }`}
+      className="border rounded-xl overflow-hidden shadow-lg flex flex-col h-48 transition-colors bg-[var(--bg-card)] border-[var(--border-main)]"
     >
       <div
-        className={`h-9 px-3 border-b flex items-center justify-between shrink-0 transition-colors ${
-          isDark ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-slate-50'
-        }`}
+        className="h-9 px-3 border-b flex items-center justify-between shrink-0 transition-colors border-[var(--border-subtle)] bg-[var(--bg-card-header)]"
       >
         <div className="flex items-center gap-2">
-          <Code2 className="w-4 h-4 text-rose-500" />
-          <span className={`text-xs font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+          <Code2 className="w-4 h-4 text-[var(--danger)]" />
+          <span className="text-xs font-semibold text-[var(--text-main)]">
             Pending Statement for Review
           </span>
           <span
-            className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded ${
-              isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-200 text-slate-600'
-            }`}
+            className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border-subtle)]"
           >
             {dialect}
           </span>
         </div>
         <button
           onClick={handleCopy}
-          className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded transition-colors cursor-pointer ${
-            isDark
-              ? 'text-slate-400 hover:text-slate-200 bg-slate-800 hover:bg-slate-700'
-              : 'text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-300'
-          }`}
+          className="flex items-center gap-1 text-xs px-2 py-0.5 rounded transition-colors cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-subtle)]"
         >
           {copied ? (
             <>

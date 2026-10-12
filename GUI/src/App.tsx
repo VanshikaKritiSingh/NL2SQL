@@ -4,8 +4,6 @@ import { TopBar } from './shared/TopBar';
 import { StatusBar } from './shared/StatusBar';
 import { QueryIntakePage } from './modules/query_intake/QueryIntakePage';
 import { ApprovalGatePage } from './modules/approval_gate/ApprovalGatePage';
-import { PipelineStepperPage } from './modules/stepper/PipelineStepperPage';
-import { FineTuningPage } from './modules/finetuning/FineTuningPage';
 import { useAppStore } from './store/useAppStore';
 import { useQueryStore } from './store/useQueryStore';
 import { useWebSocket } from './hooks/useWebSocket';
@@ -60,11 +58,7 @@ export default function App() {
   const isDark = theme === 'dark';
 
   return (
-    <div
-      className={`h-screen w-screen flex flex-col overflow-hidden transition-colors ${
-        isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-800'
-      }`}
-    >
+    <div className="h-screen w-screen flex flex-col overflow-hidden bg-[var(--bg-app)] text-[var(--text-main)] transition-colors duration-200">
       {/* Global Top Bar */}
       <TopBar />
 
@@ -72,8 +66,6 @@ export default function App() {
       <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
         {currentView === 'query' && <QueryIntakePage />}
         {currentView === 'approval' && <ApprovalGatePage />}
-        {currentView === 'stepper' && <PipelineStepperPage />}
-        {currentView === 'finetune' && <FineTuningPage />}
       </main>
 
       {/* Cross-Cutting Observability Status Bar */}

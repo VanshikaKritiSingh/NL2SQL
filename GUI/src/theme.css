@@ -1,0 +1,70 @@
+/* theme.css — Charcoal Black + Ivory Green (Dark) & Solaris Warm High-Contrast (Light) */
+
+:root,
+:root.dark {
+  /* Charcoal Black with Ivory Green Contrast Palette (Dark) */
+  --bg-app: #0A0A0D;
+  --bg-header: #111116;
+  --bg-card: #14141B;
+  --bg-card-header: #1B1B24;
+  --bg-input: #0D0D12;
+  --bg-subtle: #20202B;
+  --bg-hover: #262635;
+
+  --border-main: #274737;
+  --border-subtle: #1C3328;
+  --border-focus: #4ADE80;
+
+  --text-main: #F2FFF5;
+  --text-secondary: #C8E8D2;
+  --text-muted: #82A48E;
+
+  --accent-primary: #22C55E;
+  --accent-hover: #16A34A;
+  --accent-glow: rgba(34, 197, 94, 0.25);
+
+  --danger: #F87171;
+  --danger-bg: rgba(248, 113, 113, 0.15);
+  --success: #4ADE80;
+  --success-bg: rgba(74, 222, 128, 0.15);
+  --warning: #FBBF24;
+  --warning-bg: rgba(251, 191, 36, 0.15);
+
+  /* React Flow & Diagrams */
+  --flow-bg: #0A0A0D;
+  --flow-grid: #1C3328;
+}
+
+:root.light {
+  /* High-Contrast Solaris Palette (Light) — Darker High-Contrast Text for Eye Protection */
+  --bg-app: #FDF6E3;
+  --bg-header: #EEE8D5;
+  --bg-card: #FFFDF8;
+  --bg-card-header: #EAE1C8;
+  --bg-input: #FAF3DE;
+  --bg-subtle: #E4D8B8;
+  --bg-hover: #DCD0B0;
+
+  --border-main: #A87E26;
+  --border-subtle: #D4BE8D;
+  --border-focus: #8F6B00;
+
+  --text-main: #001C24;
+  --text-secondary: #002B36;
+  --text-muted: #385058;
+
+  --accent-primary: #996E00;
+  --accent-hover: #7E5B00;
+  --accent-glow: rgba(153, 110, 0, 0.25);
+
+  --danger: #B91C1C;
+  --danger-bg: rgba(185, 28, 28, 0.12);
+  --success: #15803D;
+  --success-bg: rgba(21, 128, 61, 0.12);
+  --warning: #B45309;
+  --warning-bg: rgba(180, 83, 9, 0.12);
+
+  /* React Flow & Diagrams */
+  --flow-bg: #FDF6E3;
+  --flow-grid: #D4BE8D;
+}

@@ -11,8 +11,10 @@ interface AppState {
   setTargetDialect: (dialect: TargetDialect) => void;
   databaseProfile: string;
   setDatabaseProfile: (profile: string) => void;
-  currentView: 'query' | 'approval' | 'stepper' | 'finetune';
-  setCurrentView: (view: 'query' | 'approval' | 'stepper' | 'finetune') => void;
+  selectedModel: string;
+  setSelectedModel: (model: string) => void;
+  currentView: 'query' | 'approval';
+  setCurrentView: (view: 'query' | 'approval') => void;
   theme: AppTheme;
   setTheme: (theme: AppTheme) => void;
   toggleTheme: () => void;
@@ -23,7 +25,7 @@ const getStoredUserId = (): string => {
     const saved = localStorage.getItem('nl2sql_user_id');
     if (saved && saved.trim()) return saved.trim();
   }
-  return 'vanshika_analyst';
+  return 'bhuknu';
 };
 
 const getStoredTheme = (): AppTheme => {
@@ -44,8 +46,10 @@ export const useAppStore = create<AppState>((set) => ({
   },
   targetDialect: 'auto',
   setTargetDialect: (dialect) => set({ targetDialect: dialect }),
-  databaseProfile: 'master_enterprise',
+  databaseProfile: 'test',
   setDatabaseProfile: (profile) => set({ databaseProfile: profile }),
+  selectedModel: 'clef-flash:latest',
+  setSelectedModel: (model) => set({ selectedModel: model }),
   currentView: 'query',
   setCurrentView: (view) => set({ currentView: view }),
   theme: getStoredTheme(),

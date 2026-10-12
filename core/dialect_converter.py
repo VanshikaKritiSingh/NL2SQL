@@ -585,6 +585,8 @@ class DeterministicDialectConverter:
 
         try:
             compiled_sql = ast.sql(dialect=resolved_dialect, pretty=True)
+            if not compiled_sql.strip().endswith(";"):
+                compiled_sql = compiled_sql.strip() + ";"
         except Exception as e:
             raise DialectFeatureUnsupportedError(
                 feature=str(e),

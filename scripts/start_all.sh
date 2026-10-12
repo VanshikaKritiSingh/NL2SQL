@@ -70,6 +70,11 @@ fi
 sleep 1.5
 
 # 2. Start Frontend UI
+# Remove any stale production build so Electron/web never loads an old version
+echo -e "${YELLOW}[Cleanup] Removing stale GUI/dist to prevent loading old version...${NC}"
+rm -rf "${REPO_ROOT}/GUI/dist" 2>/dev/null || true
+rm -rf "${REPO_ROOT}/dist-electron" 2>/dev/null || true
+echo -e "${GREEN}[OK] Old build artifacts removed (only live server loaded).${NC}"
 echo -e "${BOLD}[2/2] Launching Studio GUI...${NC}"
 cd "${REPO_ROOT}/GUI"
 

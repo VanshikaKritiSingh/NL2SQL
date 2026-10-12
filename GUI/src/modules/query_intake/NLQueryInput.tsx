@@ -1,35 +1,24 @@
 // src/modules/query_intake/NLQueryInput.tsx
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, X, Database, Layers, Eye } from 'lucide-react';
+import { Send, Sparkles, X, Database, Eye } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { useQueryStore } from '../../store/useQueryStore';
 import { usePipelineStore } from '../../store/usePipelineStore';
 import { submitQuery } from '../../api/queryApi';
+import { apiFetch } from '../../api/client';
 import { LoadingSpinner } from '../../shared/LoadingSpinner';
-
-const DB_PROFILES = [
-  { id: 'master_enterprise', label: 'Enterprise Master (users, orders, products)' },
-  { id: 'analytics_warehouse', label: 'Analytics Warehouse (events, metrics, clicks)' },
-  { id: 'customer_crm', label: 'Customer CRM (accounts, leads, opportunities)' },
-  { id: 'inventory_mongo', label: 'Inventory Catalog (documents, json_specs)' },
-];
-
-const SUGGESTIONS = [
-  { text: 'Show total order amount and customer names from last month', tag: 'Analytics' },
-  { text: 'Increase all product prices in Electronics category by 10%', tag: 'DML Update' },
-  { text: 'Add a discount_code column to orders table', tag: 'DDL Alter' },
-  { text: 'Find shortest friendship path between Alice and Bob', tag: 'Graph Cypher' },
-  { text: 'Aggregate daily product revenue grouped by category', tag: 'Mongo MQL' },
-];
 
 export const NLQueryInput: React.FC = () => {
   const [inputText, setInputText] = useState('');
+  const [databases, setDatabases] = useState<string[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const userId = useAppStore((s) => s.userId);
   const targetDialect = useAppStore((s) => s.targetDialect);
   const databaseProfile = useAppStore((s) => s.databaseProfile);
   const setDatabaseProfile = useAppStore((s) => s.setDatabaseProfile);
+  const selectedModel = useAppStore((s) => s.selectedModel);
+  const setSelectedModel = useAppStore((s) => s.setSelectedModel);
   const theme = useAppStore((s) => s.theme);
   const isDark = theme === 'dark';
 
@@ -40,12 +29,28 @@ export const NLQueryInput: React.FC = () => {
   const addToHistory = useQueryStore((s) => s.addToHistory);
   const startPipeline = usePipelineStore((s) => s.startPipeline);
 
-  // Focus textarea on initial load
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.focus();
-    }
+    if (textareaRef.current) textareaRef.current.focus();
   }, []);
+
+  const fetchDatabases = async () => {
+    try {
+      const data = await apiFetch<any>('/connections/status/' + encodeURIComponent(userId));
+      if (data && Array.isArray(data.databases)) setDatabases(data.databases);
+    } catch { /* ignore */ }
+  };
+
+  const fetchModels = async () => {
+    try {
+      const data = await apiFetch<any>('/connections/models');
+      if (data && data.default) setSelectedModel(data.default);
+    } catch { /* ignore */ }
+  };
+
+  useEffect(() => {
+    fetchDatabases();
+    fetchModels();
+  }, [userId]);
 
   const handleSubmit = async (textToSubmit?: string) => {
     const q = (textToSubmit || inputText).trim();
@@ -58,12 +63,12 @@ export const NLQueryInput: React.FC = () => {
         query_text: q,
         target_dialect: targetDialect,
         database_profile: databaseProfile,
+        model_name: selectedModel,
       });
 
       startPipeline(res.query_id);
       setLastResponse(res);
 
-      // Add to query history
       addToHistory({
         query_id: res.query_id,
         query_text: q,
@@ -75,7 +80,6 @@ export const NLQueryInput: React.FC = () => {
         database_profile: databaseProfile,
       });
 
-      // If approval is required, set the payload
       if (res.status === 'approval_required' && res.approval_payload) {
         setApprovalPayload(res.approval_payload);
       }
@@ -105,44 +109,41 @@ export const NLQueryInput: React.FC = () => {
   const charCount = inputText.length;
 
   return (
-    <div
-      className={`border rounded-xl p-3.5 shadow-lg relative flex flex-col gap-2.5 transition-colors ${
-        isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'
-      }`}
-    >
+    <div className="border rounded-xl p-3.5 shadow-lg relative flex flex-col gap-2.5 transition-colors bg-[var(--bg-card)] border-[var(--border-main)]">
       {/* Top Header Row with DB Context Selector */}
-      <div className="flex items-center justify-between text-xs pb-1 border-b border-dashed border-slate-700/40">
+      <div className="flex items-center justify-between text-xs pb-1 border-b border-dashed border-[var(--border-subtle)]">
         <div className="flex items-center gap-2">
-          <Database className="w-3.5 h-3.5 text-indigo-400" />
-          <span className={`font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-            Connected DB Context:
-          </span>
+          <Database className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
+          <span className="font-semibold text-[var(--text-secondary)]">Connected DB Context:</span>
           <select
             value={databaseProfile}
             onChange={(e) => setDatabaseProfile(e.target.value)}
-            className={`text-xs rounded px-2 py-0.5 font-medium border cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-              isDark
-                ? 'bg-slate-800 border-slate-700 text-indigo-300'
-                : 'bg-slate-100 border-slate-300 text-indigo-700'
-            }`}
+            className="text-xs rounded px-2 py-0.5 font-medium border cursor-pointer focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)] bg-[var(--bg-input)] border-[var(--border-subtle)] text-[var(--text-main)]"
           >
-            {DB_PROFILES.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.label}
-              </option>
+            {databases.map((db) => (
+              <option key={db} value={db} className="bg-[var(--bg-card)] text-[var(--text-main)]">{db}</option>
             ))}
           </select>
+          <span className="text-[10px] text-[var(--text-muted)]">model:</span>
+          <select
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            className="text-xs rounded px-2 py-0.5 font-medium border cursor-pointer focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)] bg-[var(--bg-input)] border-[var(--border-subtle)] text-[var(--text-main)]"
+          >
+            <option value="qwen2.5-coder:7b" className="bg-[var(--bg-card)] text-[var(--text-main)]">qwen2.5-coder:7b (Top SOTA 8GB)</option>
+            <option value="clef-flash:latest" className="bg-[var(--bg-card)] text-[var(--text-main)]">clef-flash:latest (Local Installed)</option>
+            <option value="qwen2.5:0.5b" className="bg-[var(--bg-card)] text-[var(--text-main)]">qwen2.5:0.5b</option>
+            <option value="gemma:latest" className="bg-[var(--bg-card)] text-[var(--text-main)]">gemma:latest</option>
+          </select>
         </div>
-
-        <div className="flex items-center gap-2 text-[11px] text-slate-400">
+        <div className="flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
           <span className="flex items-center gap-1">
-            <Eye className="w-3 h-3 text-emerald-400" />
+            <Eye className="w-3 h-3 text-[var(--success)]" />
             <span>Dry-Run / Preview Mode</span>
           </span>
         </div>
       </div>
 
-      {/* Resizable Textarea Area */}
       <div className="relative">
         <textarea
           ref={textareaRef}
@@ -151,46 +152,25 @@ export const NLQueryInput: React.FC = () => {
           onChange={(e) => setInputText(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Ask a question in natural language... (e.g. 'Show me all active users and their total order amounts from last quarter')"
-          className={`w-full rounded-lg p-3 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 border font-sans select-text transition-colors resize-y min-h-[96px] max-h-[360px] leading-relaxed ${
-            isDark
-              ? 'bg-slate-950/90 text-slate-100 placeholder-slate-500 border-slate-700/70 focus:border-indigo-500'
-              : 'bg-slate-50 text-slate-900 placeholder-slate-400 border-slate-300 focus:border-indigo-600'
-          }`}
+          className="w-full rounded-lg p-3 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)] border font-sans select-text transition-colors resize-y min-h-[96px] max-h-[360px] leading-relaxed bg-[var(--bg-input)] text-[var(--text-main)] placeholder-[var(--text-muted)] border-[var(--border-subtle)] focus:border-[var(--accent-primary)]"
         />
       </div>
 
-      {/* Bottom Action Bar */}
       <div className="flex items-center justify-between flex-wrap gap-2 pt-0.5">
-        <div className="flex items-center gap-2.5 text-[11px] text-slate-400">
-          {charCount > 0 && (
-            <span className="font-mono">
-              {charCount} chars · {lineCount} line{lineCount > 1 ? 's' : ''}
-            </span>
-          )}
-          <span className={`hidden sm:inline font-mono ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-            <kbd className="px-1 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 text-[10px]">Enter</kbd> to execute, <kbd className="px-1 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 text-[10px]">Shift+Enter</kbd> for newline
+        <div className="flex items-center gap-2.5 text-[11px] text-[var(--text-muted)]">
+          {charCount > 0 && <span className="font-mono">{charCount} chars · {lineCount} line{lineCount > 1 ? 's' : ''}</span>}
+          <span className="hidden sm:inline font-mono text-[var(--text-muted)]">
+            <kbd className="px-1 py-0.5 rounded bg-[var(--bg-card-header)] text-[var(--text-main)] border border-[var(--border-subtle)] text-[10px]">Enter</kbd> to execute, <kbd className="px-1 py-0.5 rounded bg-[var(--bg-card-header)] text-[var(--text-main)] border border-[var(--border-subtle)] text-[10px]">Shift+Enter</kbd> for newline
           </span>
         </div>
-
         <div className="flex items-center gap-2 ml-auto">
           {inputText && (
-            <button
-              onClick={() => setInputText('')}
-              className={`p-1.5 rounded-md transition-colors cursor-pointer flex items-center gap-1 text-xs ${
-                isDark ? 'text-slate-400 hover:text-rose-400 hover:bg-slate-800' : 'text-slate-500 hover:text-rose-600 hover:bg-slate-100'
-              }`}
-              title="Clear input prompt"
-            >
+            <button onClick={() => setInputText('')} className="p-1.5 rounded-md transition-colors cursor-pointer flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--danger)] hover:bg-[var(--bg-hover)]" title="Clear input prompt">
               <X className="w-3.5 h-3.5" />
               <span>Clear</span>
             </button>
           )}
-
-          <button
-            onClick={() => handleSubmit()}
-            disabled={!inputText.trim() || isSubmitting}
-            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg text-xs font-semibold shadow-md shadow-indigo-600/20 transition-all cursor-pointer disabled:cursor-not-allowed"
-          >
+          <button onClick={() => handleSubmit()} disabled={!inputText.trim() || isSubmitting} className="flex items-center gap-1.5 px-4 py-2 bg-[var(--accent-primary)] hover:opacity-90 disabled:opacity-40 text-white rounded-lg text-xs font-semibold shadow-md transition-all cursor-pointer disabled:cursor-not-allowed">
             {isSubmitting ? (
               <>
                 <LoadingSpinner size="sm" />
@@ -204,34 +184,6 @@ export const NLQueryInput: React.FC = () => {
             )}
           </button>
         </div>
-      </div>
-
-      {/* Suggestion Chips */}
-      <div className="flex items-center gap-1.5 text-xs flex-wrap pt-1 border-t border-slate-800/40">
-        <span
-          className={`text-[11px] flex items-center gap-1 font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}
-        >
-          <Sparkles className="w-3 h-3 text-amber-500" /> Demo queries:
-        </span>
-        {SUGGESTIONS.map((sug, i) => (
-          <button
-            key={i}
-            onClick={() => {
-              setInputText(sug.text);
-              handleSubmit(sug.text);
-            }}
-            className={`px-2 py-0.5 rounded text-[11px] border transition-colors cursor-pointer flex items-center gap-1 ${
-              isDark
-                ? 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 border-slate-700'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-300'
-            }`}
-          >
-            <span>{sug.text}</span>
-            <span className="text-[9px] px-1 rounded bg-indigo-500/20 text-indigo-400 font-mono">
-              {sug.tag}
-            </span>
-          </button>
-        ))}
       </div>
     </div>
   );

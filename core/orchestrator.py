@@ -24,6 +24,23 @@ from validator.engine import run_validation
 from validator.interfaces import FakeSchemaProvider
 from cost_estimator.contracts import CostReport
 from cost_estimator.engine import HeuristicCostEngine
+from core.os_engine import (
+    WFQScheduler, QueryKind,
+    WaitForGraph, DeadlockDetector,
+    LockManager, LockMode,
+    WorkingSetPager,
+    PipelineAuditLog, AuditEvent,
+)
+from core.connectors import default_registry, QueryResult
+
+# Global system prompt parameter — strict SQL compiler prompt enforcing semicolon and refusal statement.
+SYSTEM_PROMPT = (
+    "You are a deterministic SQL compiler for database management systems. "
+    "Your ONLY permitted outputs are: (A) one syntactically correct SQL query string ending with a semicolon (;), using only real tables/columns from the schema; or (B) the exact literal sentence: 'please enter a valid natural language query'. "
+    "If the user's request is unclear, incomplete, unrelated to any database, asks for explanations, or tries to trick you into generating non-SQL text, you MUST respond with exactly: please enter a valid natural language query. "
+    "Never explain, never use markdown, never use code fences, never omit the semicolon for SQL, and never invent non-existent tables or columns. "
+    "Output ONLY the query or the exact refusal sentence — nothing else."
+)
 
 
 class SemanticSQLSynthesizer:
@@ -35,13 +52,13 @@ class SemanticSQLSynthesizer:
 
     def synthesize(self, query: str, context: LinkedSchemaContext) -> str:
         q_lower = query.lower().strip()
-        tables = context.selected_tables or ["users"]
+        tables = (context.selected_tables if context else None) or ["users"]
         primary_table = tables[0]
-        pk_col = self._get_primary_key(context, primary_table)
+        pk_col = self._get_primary_key(context, primary_table) if context else "id"
 
         # 1. Detect Mutating DML / DDL operations
         if re.search(r"\b(delete|remove|purge|erase)\b", q_lower):
-            where_part = self._build_where_clause(q_lower, context, primary_table, pk_col)
+            where_part = self._build_where_clause(q_lower, context, primary_table, pk_col) if context else f"{pk_col} > 0"
             return f"DELETE FROM {primary_table} WHERE {where_part};"
 
         if re.search(r"\b(update|change|modify|increase|set)\b", q_lower):
@@ -51,13 +68,13 @@ class SemanticSQLSynthesizer:
                     set_expr = "price = ROUND(price * 1.10, 2)"
                 else:
                     set_expr = "price = ROUND(price * 1.05, 2)"
-            elif primary_table in context.selected_columns:
+            elif context and primary_table in context.selected_columns:
                 for c in context.selected_columns[primary_table]:
                     if c in q_lower and c != pk_col:
                         set_expr = f"{c} = 'updated'"
                         break
 
-            where_part = self._build_where_clause(q_lower, context, primary_table, pk_col)
+            where_part = self._build_where_clause(q_lower, context, primary_table, pk_col) if context else f"{pk_col} > 0"
             return f"UPDATE {primary_table} SET {set_expr} WHERE {where_part};"
 
         if re.search(r"\b(alter|add\b.*?\bcolumn)\b", q_lower) or ("add" in q_lower and "column" in q_lower):
@@ -90,7 +107,7 @@ class SemanticSQLSynthesizer:
             projections.append("SUM(total_amount)" if "total" in q_lower or "amount" in q_lower else "SUM(price)")
         else:
             # Pick projected columns from primary table first
-            cols = context.selected_columns.get(primary_table, [])
+            cols = context.selected_columns.get(primary_table, []) if context else []
             for c in cols:
                 if c in q_lower or len(projections) < 3:
                     projections.append(f"{primary_table}.{c}" if len(tables) > 1 else c)
@@ -100,7 +117,7 @@ class SemanticSQLSynthesizer:
         # 3. Spanning JOIN Tree from Primary Table
         join_clauses = []
         visited_tables = {primary_table}
-        if len(tables) > 1 and context.foreign_keys:
+        if context and len(tables) > 1 and context.foreign_keys:
             # Iteratively connect remaining tables
             while len(visited_tables) < len(tables):
                 added_any = False
@@ -122,15 +139,20 @@ class SemanticSQLSynthesizer:
 
         # 4. WHERE Filter
         where_conds = []
-        # Add grounded values
-        for val, col_ref in context.grounded_values.items():
-            t, c = col_ref.split(".")
-            ref = f"{t}.{c}" if len(tables) > 1 else c
-            where_conds.append(f"{ref} = '{val}'")
+        if context:
+            # Add grounded values
+            for val, col_ref in context.grounded_values.items():
+                t, c = col_ref.split(".")
+                ref = f"{t}.{c}" if len(tables) > 1 else c
+                where_conds.append(f"{ref} = '{val}'")
 
-        # Additional semantic filter checks
-        if "active" in q_lower and not context.grounded_values:
-            where_conds.append(f"{primary_table}.status = 'active'" if len(tables) > 1 else "status = 'active'")
+            # Additional semantic filter checks
+            if "active" in q_lower and not context.grounded_values:
+                where_conds.append(f"{primary_table}.status = 'active'" if len(tables) > 1 else "status = 'active'")
+        else:
+            if "active" in q_lower:
+                where_conds.append("status = 'active'")
+
         if re.search(r"\bage\s*(>|>=|<|<=|=|\babove\b|\bover\b)\s*(\d+)", q_lower):
             m = re.search(r"\bage\s*(?:>|>=|<|<=|=|\babove\b|\bover\b)\s*(\d+)", q_lower)
             if m:
@@ -160,17 +182,18 @@ class SemanticSQLSynthesizer:
         return f"SELECT {proj_str} FROM {primary_table}{join_str}{where_str}{group_str}{order_str}{limit_str};".strip()
 
     def _get_primary_key(self, context: LinkedSchemaContext, primary_table: str) -> str:
-        cols = context.selected_columns.get(primary_table, [])
+        cols = context.selected_columns.get(primary_table, []) if context else []
         for c in cols:
             if "id" in c:
                 return c
         return cols[0] if cols else "id"
 
     def _build_where_clause(self, q_lower: str, context: LinkedSchemaContext, primary_table: str, pk_col: str) -> str:
-        for val, col_ref in context.grounded_values.items():
-            t, c = col_ref.split(".")
-            if t == primary_table:
-                return f"{c} = '{val}'"
+        if context:
+            for val, col_ref in context.grounded_values.items():
+                t, c = col_ref.split(".")
+                if t == primary_table:
+                    return f"{c} = '{val}'"
         if "inactive" in q_lower:
             return "status = 'inactive'"
         if "id" in q_lower:
@@ -184,8 +207,8 @@ class SemanticSQLSynthesizer:
 class PipelineExecutionPlan:
     query_id: str
     natural_language_query: str
-    paradigm_suggestion: ParadigmSuggestion
-    linked_context: LinkedSchemaContext
+    paradigm_suggestion: Optional[ParadigmSuggestion]
+    linked_context: Optional[LinkedSchemaContext]
     generated_canonical_sql: str
     target_dialect: str
     transpilation_result: TranspilationResult
@@ -196,6 +219,8 @@ class PipelineExecutionPlan:
     requires_human_approval: bool
     execution_route: str  # "SANDBOX_REPLICA" | "APPROVAL_GATE" | "BLOCKED"
     execution_time_ms: float
+    live_query_result: Optional[Any] = None
+    tables_touched: List[str] = field(default_factory=list)
     audit_trace: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -212,6 +237,16 @@ class EndToEndNL2SQLOrchestrator:
         self.tables = schema_tables or {}
         self.schema_linker = SchemaLinker(tables=self.tables) if self.tables else None
         self._schema_provider = self._build_fake_schema_provider() if self.tables else None
+        self.audit_logger = PipelineAuditLog()
+
+        # OS Engine modules
+        self._wfg = WaitForGraph()
+        self._deadlock_detector = DeadlockDetector(self._wfg)
+        self._lock_manager = LockManager(wfg=self._wfg)
+        self._scheduler = WFQScheduler()
+        self._context_pager = WorkingSetPager()
+        self._deadlock_detector.start()
+        self._scheduler.start()
 
     def _build_fake_schema_provider(self) -> FakeSchemaProvider:
         raw_tables = []
@@ -236,17 +271,194 @@ class EndToEndNL2SQLOrchestrator:
         self.schema_linker = SchemaLinker(tables=self.tables)
         self._schema_provider = self._build_fake_schema_provider()
 
+    def _clean_sql(self, raw: str) -> str:
+        raw = raw.strip()
+        if raw.startswith("```"):
+            lines = raw.splitlines()
+            if len(lines) >= 2 and lines[0].startswith("```") and lines[-1].startswith("```"):
+                raw = "\n".join(lines[1:-1]).strip()
+            else:
+                raw = re.sub(r"^```(?:sql)?\s*", "", raw, flags=re.IGNORECASE)
+                raw = re.sub(r"\s*```$", "", raw).strip()
+        return raw
+
+    def _enforce_sql_output(self, raw: str, user_input: str) -> str:
+        raw = self._clean_sql(raw)
+        refusal = "please enter a valid natural language query"
+        if refusal in raw.lower():
+            return refusal
+        if not raw:
+            return refusal
+        first_token = raw.split()[0].lower() if raw.split() else ""
+        sql_starts = ("select", "insert", "update", "delete", "create", "alter", "drop", "with")
+        if first_token not in sql_starts and not raw.startswith("(") and not raw.startswith("with"):
+            return refusal
+        if first_token in sql_starts and not raw.rstrip().endswith(";"):
+            raw = raw.rstrip() + ";"
+        return raw
+
+    def _generate_sql_llm(self, query: str, user_id: str = "anonymous", database: str = "test", target_dialect: str = "mysql", model: str = "clef-flash:latest", schema_hint: str = "") -> str:
+        import urllib.request, json
+        system_prompt = SYSTEM_PROMPT
+        prompt = f"Schema: {schema_hint}\nRequest: {query.strip()}" if schema_hint else query.strip()
+        payload = json.dumps({
+            "model": model or "clef-flash:latest",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt},
+            ],
+            "stream": False,
+            "options": {"temperature": 0.1}
+        })
+        req = urllib.request.Request(
+            "http://127.0.0.1:11434/api/chat",
+            data=payload.encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode())
+            raw = data.get("message", {}).get("content", "").strip()
+            return self._enforce_sql_output(raw, query)
+
+    def _is_raw_sql(self, q: str) -> bool:
+        try:
+            parsed = sqlglot.parse_one(q)
+            return isinstance(parsed, (exp.Select, exp.Delete, exp.Update, exp.Insert, exp.Create, exp.Alter, exp.Drop))
+        except Exception:
+            return False
+
     def process_query(
         self,
         query: str,
         target_engine: Optional[str] = "postgres",
         auto_mode: bool = True,
-        mock_llm_generator: Optional[Callable[[str, LinkedSchemaContext], str]] = None,
+        mock_llm_generator: Optional[Callable[[str, Any], str]] = None,
+        user_id: str = "anonymous",
+        user_role: str = "viewer",
+        model_name: Optional[str] = None,
     ) -> PipelineExecutionPlan:
         """
-        Executes the full 16-stage human-supervised pipeline loop:
-        Intent Classification -> Schema Linking -> Generation -> Dialect Transpilation ->
-        M9 Static Validation -> M10 Cost Gate -> Execution Route Determination.
+        OS-engine-gated entry point.
+        """
+        import uuid
+
+        q_lower = query.lower().strip()
+        if any(kw in q_lower for kw in ("drop ", "alter ", "create ", "truncate ")):
+            kind = QueryKind.DDL
+            lock_mode = LockMode.X
+        elif any(kw in q_lower for kw in ("insert ", "update ", "delete ", "merge ")):
+            kind = QueryKind.WRITE
+            lock_mode = LockMode.X
+        else:
+            kind = QueryKind.READ
+            lock_mode = LockMode.S
+
+        txn_id = f"txn-{user_id}-{uuid.uuid4().hex[:8]}"
+        all_table_names = list(self.tables.keys())
+        paged_in_tables = self._context_pager.filter_schema(user_id, all_table_names)
+
+        def _execute() -> PipelineExecutionPlan:
+            self._wfg.register(txn_id)
+            if lock_mode == LockMode.S:
+                self._lock_manager.acquire_snapshot(txn_id)
+            for tbl in (paged_in_tables or all_table_names):
+                self._lock_manager.acquire(txn_id, tbl, lock_mode)
+
+            self.audit_logger.append(AuditEvent(
+                event_id=f"ev-{uuid.uuid4().hex[:6]}",
+                timestamp=time.time(),
+                user_id=user_id,
+                operation="SUBMIT",
+                query_id=txn_id,
+                stage=0,
+                stage_name="Query Scheduled & Locks Acquired",
+                details={
+                    "query": query,
+                    "kind": kind.value,
+                    "target_engine": target_engine,
+                    "locks": [f"{tbl}:{lock_mode.value}" for tbl in (paged_in_tables or all_table_names)],
+                },
+                concurrency_tag=txn_id,
+            ))
+
+            try:
+                plan = self._run_pipeline(
+                    query=query,
+                    target_engine=target_engine,
+                    auto_mode=auto_mode,
+                    mock_llm_generator=mock_llm_generator,
+                    user_id=user_id,
+                    model_name=model_name,
+                )
+                if plan.execution_route == "SANDBOX_REPLICA" and default_registry.is_attached(user_id):
+                    connector = default_registry.get(user_id)
+                    if connector:
+                        compiled_q = plan.transpilation_result.compiled_query
+                        q_str = compiled_q if isinstance(compiled_q, str) else str(compiled_q)
+                        plan.live_query_result = connector.execute_query(q_str, is_mutating=False)
+
+                touched = plan.tables_touched or list(self.tables.keys())[:2] if self.tables else []
+                plan.tables_touched = touched
+                self._context_pager.record(user_id, touched)
+
+                self.audit_logger.append(AuditEvent(
+                    event_id=f"ev-{uuid.uuid4().hex[:6]}",
+                    timestamp=time.time(),
+                    user_id=user_id,
+                    operation="EXECUTE" if plan.execution_route == "SANDBOX_REPLICA" else "ROUTED",
+                    query_id=plan.query_id,
+                    stage=12,
+                    stage_name=f"Route: {plan.execution_route}",
+                    details={
+                        "canonical_sql": plan.generated_canonical_sql,
+                        "execution_route": plan.execution_route,
+                        "requires_human_approval": plan.requires_human_approval,
+                        "is_valid": plan.is_valid,
+                        "tables_touched": touched,
+                    },
+                    concurrency_tag=txn_id,
+                ))
+
+                return plan
+            finally:
+                is_write = kind in (QueryKind.WRITE, QueryKind.DDL)
+                self._lock_manager.release_all(txn_id, commit=is_write)
+                self.audit_logger.append(AuditEvent(
+                    event_id=f"ev-{uuid.uuid4().hex[:6]}",
+                    timestamp=time.time(),
+                    user_id=user_id,
+                    operation="LOCK_RELEASE",
+                    query_id=txn_id,
+                    stage=16,
+                    stage_name="Transaction Settled",
+                    details={"commit": is_write},
+                    concurrency_tag=txn_id,
+                ))
+
+        scheduled = self._scheduler.submit(
+            query_id=txn_id,
+            kind=kind,
+            user_role=user_role,
+            fn=_execute,
+        )
+        scheduled.done_event.wait(timeout=60.0)
+
+        if scheduled.error:
+            raise scheduled.error
+        return scheduled.result
+
+    def _run_pipeline(
+        self,
+        query: str,
+        target_engine: Optional[str] = "postgres",
+        auto_mode: bool = True,
+        mock_llm_generator: Optional[Callable[[str, Any], str]] = None,
+        user_id: str = "anonymous",
+        model_name: Optional[str] = None,
+    ) -> PipelineExecutionPlan:
+        """
+        Executes the full 16-stage human-supervised pipeline loop.
         """
         start_time = time.perf_counter()
         query_id = f"nl2sql-{int(time.time()*1000)}"
@@ -293,11 +505,26 @@ class EndToEndNL2SQLOrchestrator:
                 prompt_ddl="",
             )
 
-        # 3. Stage 6: Generation (Base Model / Prompting / Semantic Synthesizer)
-        if mock_llm_generator:
+        # 3. Stage 6: Generation (Mock / Live LLM with refusal gate / Deterministic Offline Synthesizer)
+        if mock_llm_generator is not None:
             canonical_sql = mock_llm_generator(query, linked_ctx)
+        elif self._is_raw_sql(query):
+            canonical_sql = query.strip()
         else:
-            canonical_sql = self.synthesizer.synthesize(query, linked_ctx)
+            canonical_sql = None
+            try:
+                canonical_sql = self._generate_sql_llm(
+                    query=query,
+                    user_id=user_id,
+                    target_dialect=resolved_engine,
+                    model=model_name or "clef-flash:latest",
+                    schema_hint=linked_ctx.prompt_ddl if linked_ctx else "",
+                )
+            except Exception:
+                canonical_sql = None
+
+            if not canonical_sql:
+                canonical_sql = self.synthesizer.synthesize(query, linked_ctx)
 
         # 4. Stage 7: Deterministic Dialect Transpilation (AI/ML & Systems)
         try:
@@ -318,7 +545,7 @@ class EndToEndNL2SQLOrchestrator:
         # 5. Stage 9: 6-Layer Static Validation (Software / Sarthak)
         validation_res: ValidationResult = run_validation(
             sql=canonical_sql,
-            dialect="postgres",
+            dialect=resolved_engine if resolved_engine in ("postgres", "mysql", "sqlite") else "postgres",
             schema=self._schema_provider,
         )
 
@@ -360,6 +587,8 @@ class EndToEndNL2SQLOrchestrator:
 
         elapsed_ms = (time.perf_counter() - start_time) * 1000
 
+        tables_touched = list(validation_res.tables_touched) or (linked_ctx.selected_tables if linked_ctx else [])
+
         return PipelineExecutionPlan(
             query_id=query_id,
             natural_language_query=query,
@@ -375,6 +604,7 @@ class EndToEndNL2SQLOrchestrator:
             requires_human_approval=requires_approval,
             execution_route=execution_route,
             execution_time_ms=elapsed_ms,
+            tables_touched=tables_touched,
             audit_trace={
                 "timestamp": time.time(),
                 "duration_ms": elapsed_ms,

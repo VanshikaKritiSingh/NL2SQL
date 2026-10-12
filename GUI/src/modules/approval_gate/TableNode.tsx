@@ -22,21 +22,19 @@ export const TableNode = memo(({ data }: TableNodeProps) => {
   const borderClass = {
     direct: 'border-2 border-rose-500 ring-4 ring-rose-500/20 shadow-xl',
     referenced: 'border-2 border-amber-400 ring-2 ring-amber-400/20 shadow-lg',
-    none: isDark ? 'border border-slate-700/80 shadow-md' : 'border border-slate-300 shadow-md',
+    none: 'border border-[var(--border-subtle)] shadow-md',
   }[impactLevel];
 
   const headerBg = {
     direct: 'bg-rose-950/80 border-b border-rose-800 text-rose-200',
     referenced: 'bg-amber-950/80 border-b border-amber-800 text-amber-200',
-    none: isDark
-      ? 'bg-slate-800/90 border-b border-slate-700 text-slate-200'
-      : 'bg-slate-100 border-b border-slate-200 text-slate-800',
+none: 'bg-[var(--bg-card-header)] border-b border-[var(--border-subtle)] text-[var(--text-main)]',
   }[impactLevel];
 
   return (
     <div
       className={`w-64 rounded-xl overflow-hidden text-xs font-mono transition-all ${
-        isDark ? 'bg-slate-900' : 'bg-white'
+        'bg-[var(--bg-card)]'
       } ${borderClass}`}
     >
       {/* Handles for FK Edges */}
@@ -56,12 +54,12 @@ export const TableNode = memo(({ data }: TableNodeProps) => {
       </div>
 
       {/* Columns List */}
-      <div className={`divide-y p-1 ${isDark ? 'divide-slate-800/60' : 'divide-slate-100'}`}>
+      <div className={`divide-y p-1 ${'divide-[var(--border-subtle)]'}`}>
         {table.columns.map((col) => (
           <div
             key={col.name}
             className={`px-2 py-1.5 flex items-center justify-between text-[11px] rounded transition-colors ${
-              isDark ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50'
+              'hover:bg-[var(--bg-hover)]'
             }`}
           >
             <div className="flex items-center gap-1.5 truncate">
@@ -82,9 +80,7 @@ export const TableNode = memo(({ data }: TableNodeProps) => {
                     ? isDark
                       ? 'font-bold text-amber-200'
                       : 'font-bold text-amber-700'
-                    : isDark
-                    ? 'text-slate-300'
-                    : 'text-slate-700'
+                    : 'text-[var(--text-secondary)]'
                 }`}
               >
                 {col.name}

@@ -43,11 +43,11 @@ function createMainWindow() {
     return { action: 'allow' };
   });
 
-  // In dev mode, load Vite dev server; otherwise load dist/index.html
+  // In dev mode, always load live Vite dev server; in production, load dist/index.html
   const devUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173';
   const distHtml = path.join(__dirname, '../dist/index.html');
 
-  if (isDev && !fs.existsSync(distHtml)) {
+  if (isDev) {
     loadWithRetry(mainWindow, devUrl);
   } else if (fs.existsSync(distHtml)) {
     mainWindow.loadFile(distHtml);

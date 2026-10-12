@@ -26,26 +26,26 @@ pipeline_source_of_truth: nl2sql.html
 stages: 16
 side_channels: 4
 assets:
-  - path: diagrams/SVG_DIAGRAM.svg
+  - path: docs/diagrams/SVG_DIAGRAM.svg
     kind: svg-master
     dims: 1600x3560
     theme: dark
     origin: miro-export
-  - path: diagrams/pipeline_v2_check.png
+  - path: docs/diagrams/pipeline_v2_check.png
     kind: png-render
     dims: 1400x2045
     theme: dark
     purpose: render-check
-  - path: html/nl2sql.html
+  - path: docs/html/nl2sql.html
     kind: html-self-contained
     theme: light
     inline_svg: true
-  - path: html/template.html
+  - path: docs/html/template.html
     kind: html-template
     placeholder: "%%SVG_DIAGRAM%%"
 architecture_docs:
-  - NL2SQL-Pipeline-Architecture.md
-  - DECIDED_MODULES.md
+  - docs/NL2SQL-Pipeline-Architecture.md
+  - docs/DECIDED_MODULES.md
 core_modules:
   - core/paradigm_suggestor.py (CLEF intent drafter, confidence scheduler, Auto Mode router, divergence guardrail)
   - core/dialect_converter.py (deterministic AST transpiler for 20+ SQL dialects, openCypher for Neo4j/Neptune, Mongo MQL)
@@ -80,8 +80,8 @@ Three third-year B.Tech CSE students working on a PBL deliverable:
 1. `context.md`: Workspace index of assets, exact positions, and color/shape legend semantics.
 2. `NL2SQL-Pipeline-Architecture.md`: Core architecture specification, 16 stages walkthrough, production practices, and references.
 3. `DECIDED_MODULES.md`: Technical module specifications for model foundation, schema linking, and dialect conversion.
-4. `nl2sql.html`: The pipeline as a self-contained webpage (light theme, inline SVG, embedded legend).
-5. `SVG_DIAGRAM.svg`: The master diagram (dark theme, Miro-exported, 1600x3560). Use this in tools that cannot render Mermaid (Confluence, PDF, email).
+4. `html/nl2sql.html`: The pipeline as a self-contained webpage (light theme, inline SVG, embedded legend).
+5. `diagrams/SVG_DIAGRAM.svg`: The master diagram (dark theme, Miro-exported, 1600x3560). Use this in tools that cannot render Mermaid (Confluence, PDF, email).
 6. `diagrams/pipeline_v2_check.png`: Rendered check of the SVG (dark theme, 1400x2045).
 7. `html/template.html`: The renderer template for future docs; defines the legend semantics used across HTML versions.
 

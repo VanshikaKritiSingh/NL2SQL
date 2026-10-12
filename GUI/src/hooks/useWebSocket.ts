@@ -6,9 +6,15 @@ import { useQueryStore } from '../store/useQueryStore';
 import { useAppStore } from '../store/useAppStore';
 import type { PipelineStageEvent } from '../types/pipeline';
 
+// ponytail: exponential backoff capped at 30s; upgrade to server-sent ping if WS proves unstable
+const BASE_DELAY_MS = 3000;
+const MAX_DELAY_MS = 30000;
+
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<any>(null);
+  const attemptRef = useRef(0);
+
   const userId = useAppStore((s) => s.userId);
   const setWsConnected = usePipelineStore((s) => s.setWsConnected);
   const updateStage = usePipelineStore((s) => s.updateStage);
@@ -26,6 +32,7 @@ export function useWebSocket() {
 
       ws.onopen = () => {
         setWsConnected(true);
+        attemptRef.current = 0; // reset on successful connect
       };
 
       ws.onmessage = (event) => {
@@ -47,7 +54,9 @@ export function useWebSocket() {
 
       ws.onclose = () => {
         setWsConnected(false);
-        reconnectTimeoutRef.current = setTimeout(connect, 3000);
+        attemptRef.current += 1;
+        const delay = Math.min(BASE_DELAY_MS * 2 ** (attemptRef.current - 1), MAX_DELAY_MS);
+        reconnectTimeoutRef.current = setTimeout(connect, delay);
       };
 
       ws.onerror = () => {

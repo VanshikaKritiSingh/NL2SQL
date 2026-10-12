@@ -30,6 +30,7 @@ class QueryRequest(BaseModel):
     target_dialect: TargetDialect = Field(default=TargetDialect.AUTO, description="Target DBMS dialect or Auto mode")
     database_profile: Optional[str] = Field(default="master_enterprise", description="Target database/schema profile for this session")
     dry_run_only: bool = Field(default=False, description="Whether to run in dry-run/preview mode without execution gating")
+    model_name: Optional[str] = Field(default="clef-flash:latest", description="Target local LLM model from Ollama — 9.1B Q8_0 recommended for SQL accuracy over 0.5B")
 
 
 class ResultData(BaseModel):
@@ -49,6 +50,7 @@ class QueryResponse(BaseModel):
     database_profile: Optional[str] = "master_enterprise"
     is_live_db_connected: bool = False
     execution_mode: str = "preview_sandbox"  # preview_sandbox | dry_run | live_connected
+    model_name: Optional[str] = None
 
 
 class HistoryItem(BaseModel):

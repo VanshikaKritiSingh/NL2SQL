@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import CORS_ORIGINS, APP_TITLE, APP_VERSION, APP_DESCRIPTION
-from routers import query, approval, schema, analysis, ws, finetuning, trace
+from routers import query, approval, schema, analysis, ws, connections, audit
 
 app = FastAPI(
     title=APP_TITLE,
@@ -24,8 +24,8 @@ app.include_router(query.router, prefix="/api")
 app.include_router(approval.router, prefix="/api")
 app.include_router(schema.router, prefix="/api")
 app.include_router(analysis.router, prefix="/api")
-app.include_router(finetuning.router, prefix="/api")
-app.include_router(trace.router, prefix="/api")
+app.include_router(connections.router, prefix="/api")
+app.include_router(audit.router, prefix="/api")
 app.include_router(ws.router)  # /ws/{user_id} at root
 
 

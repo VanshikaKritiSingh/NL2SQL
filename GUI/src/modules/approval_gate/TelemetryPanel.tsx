@@ -18,14 +18,14 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
       {/* EXPLAIN Cost Estimator Card */}
       <div
         className={`border rounded-xl p-3 shadow-lg flex flex-col justify-between transition-colors ${
-          isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+          'bg-[var(--bg-card)] border-[var(--border-main)]'
         }`}
       >
         <div>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1.5 text-xs font-semibold">
               <Calculator className="w-4 h-4 text-indigo-500" />
-              <span className={isDark ? 'text-slate-200' : 'text-slate-800'}>Execution Cost Estimate (EXPLAIN)</span>
+              <span className={'text-[var(--text-main)]'}>Execution Cost Estimate (EXPLAIN)</span>
             </div>
             <span
               className={`text-[10px] font-mono font-semibold uppercase px-2 py-0.5 rounded ${
@@ -43,25 +43,25 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
           <div className="grid grid-cols-2 gap-2 text-xs font-mono my-2">
             <div
               className={`p-2 rounded-lg border ${
-                isDark ? 'bg-slate-800/60 border-slate-700/50' : 'bg-slate-50 border-slate-200'
+                'bg-[var(--bg-card-header)] border-[var(--border-subtle)]'
               }`}
             >
-              <span className={`text-[10px] block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              <span className={`text-[10px] block ${'text-[var(--text-muted)]'}`}>
                 Estimated Rows:
               </span>
-              <span className={`text-sm font-bold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
+              <span className={`text-sm font-bold ${'text-[var(--text-main)]'}`}>
                 {costEstimate.estimated_rows.toLocaleString()}
               </span>
             </div>
             <div
               className={`p-2 rounded-lg border ${
-                isDark ? 'bg-slate-800/60 border-slate-700/50' : 'bg-slate-50 border-slate-200'
+                'bg-[var(--bg-card-header)] border-[var(--border-subtle)]'
               }`}
             >
-              <span className={`text-[10px] block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              <span className={`text-[10px] block ${'text-[var(--text-muted)]'}`}>
                 Relative Cost Units:
               </span>
-              <span className={`text-sm font-bold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
+              <span className={`text-sm font-bold ${'text-[var(--text-main)]'}`}>
                 {costEstimate.estimated_cost.toFixed(2)}
               </span>
             </div>
@@ -86,14 +86,14 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
       {/* Security & Concurrency Guardrail Card */}
       <div
         className={`border rounded-xl p-3 shadow-lg flex flex-col justify-between transition-colors ${
-          isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+          'bg-[var(--bg-card)] border-[var(--border-main)]'
         }`}
       >
         <div>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1.5 text-xs font-semibold">
               <ShieldAlert className="w-4 h-4 text-rose-500" />
-              <span className={isDark ? 'text-slate-200' : 'text-slate-800'}>Concurrency & Deadlock Analyzer</span>
+              <span className={'text-[var(--text-main)]'}>Concurrency & Deadlock Analyzer</span>
             </div>
             <span
               className={`text-[10px] font-mono font-semibold uppercase px-2 py-0.5 rounded ${
@@ -109,26 +109,26 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
           <div className="grid grid-cols-2 gap-2 text-xs font-mono my-2">
             <div
               className={`p-2 rounded-lg border flex items-center justify-between ${
-                isDark ? 'bg-slate-800/60 border-slate-700/50' : 'bg-slate-50 border-slate-200'
+                'bg-[var(--bg-card-header)] border-[var(--border-subtle)]'
               }`}
             >
               <div>
-                <span className={`text-[10px] block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                <span className={`text-[10px] block ${'text-[var(--text-muted)]'}`}>
                   Lock Granularity:
                 </span>
-                <span className={`text-xs font-bold uppercase ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
+                <span className={`text-xs font-bold uppercase ${'text-[var(--text-main)]'}`}>
                   {securityCheck.lock_level} LOCK
                 </span>
               </div>
-              <Lock className={`w-4 h-4 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
+              <Lock className={`w-4 h-4 ${'text-[var(--text-muted)]'}`} />
             </div>
             <div
               className={`p-2 rounded-lg border flex items-center justify-between ${
-                isDark ? 'bg-slate-800/60 border-slate-700/50' : 'bg-slate-50 border-slate-200'
+                'bg-[var(--bg-card-header)] border-[var(--border-subtle)]'
               }`}
             >
               <div>
-                <span className={`text-[10px] block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                <span className={`text-[10px] block ${'text-[var(--text-muted)]'}`}>
                   Role Privileges:
                 </span>
                 <span className="text-xs font-bold text-emerald-500">AUTHORIZED</span>
@@ -144,7 +144,7 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
               <span
                 key={i}
                 className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono border ${
-                  isDark ? 'bg-slate-800 text-slate-300 border-slate-700' : 'bg-slate-100 text-slate-700 border-slate-300'
+                  'bg-[var(--bg-card-header)] text-[var(--text-secondary)] border-[var(--border-subtle)]'
                 }`}
               >
                 <Tag className="w-2.5 h-2.5 text-slate-400" />

@@ -18,7 +18,7 @@ export const DiffPanel: React.FC<DiffPanelProps> = ({ diffData }) => {
     return (
       <div
         className={`border rounded-xl p-4 text-center text-xs ${
-          isDark ? 'bg-slate-900 border-slate-800 text-slate-500' : 'bg-white border-slate-200 text-slate-400'
+          'bg-[var(--bg-card)] border-[var(--border-main)] text-[var(--text-muted)]'
         }`}
       >
         No schema or row-level diff data for this query type.
@@ -29,13 +29,13 @@ export const DiffPanel: React.FC<DiffPanelProps> = ({ diffData }) => {
   return (
     <div
       className={`border rounded-xl overflow-hidden shadow-lg flex flex-col h-64 transition-colors ${
-        isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+        'bg-[var(--bg-card)] border-[var(--border-main)]'
       }`}
     >
       {/* Header */}
       <div
         className={`h-9 px-3 border-b flex items-center justify-between shrink-0 transition-colors ${
-          isDark ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-slate-50'
+          'border-[var(--border-subtle)] bg-[var(--bg-card-header)]'
         }`}
       >
         <div className="flex items-center gap-2">
@@ -44,13 +44,13 @@ export const DiffPanel: React.FC<DiffPanelProps> = ({ diffData }) => {
           ) : (
             <Table2 className="w-4 h-4 text-emerald-500" />
           )}
-          <span className={`text-xs font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+          <span className={`text-xs font-semibold ${'text-[var(--text-main)]'}`}>
             {diff_type === 'ddl' ? 'Schema Migration Diff (Dolt Checkpoint)' : 'Data Row Diff Preview (DML)'}
           </span>
         </div>
         <span
           className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded ${
-            isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-200 text-slate-600'
+            'bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border-subtle)]'
           }`}
         >
           {diff_type.toUpperCase()} Mode
@@ -86,7 +86,7 @@ export const DiffPanel: React.FC<DiffPanelProps> = ({ diffData }) => {
           <table className="w-full text-left text-xs border-collapse font-mono">
             <thead
               className={`sticky top-0 border-b text-[11px] ${
-                isDark ? 'bg-slate-800/80 border-slate-700 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-600'
+                'bg-[var(--bg-card-header)] border-[var(--border-subtle)] text-[var(--text-secondary)]'
               }`}
             >
               <tr>
@@ -98,13 +98,13 @@ export const DiffPanel: React.FC<DiffPanelProps> = ({ diffData }) => {
                 <th className="px-2 py-1.5">After Value</th>
               </tr>
             </thead>
-            <tbody className={`divide-y ${isDark ? 'divide-slate-800 text-slate-300' : 'divide-slate-100 text-slate-700'}`}>
+            <tbody className={`divide-y ${'divide-[var(--border-subtle)] text-[var(--text-main)]'}`}>
               {dml_rows.map((row) => {
                 const cols = Object.keys(row.columns);
                 return cols.map((colName, idx) => (
                   <tr
                     key={`${row.row_id}-${colName}`}
-                    className={`transition-colors ${isDark ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50'}`}
+                    className={`transition-colors ${'hover:bg-[var(--bg-hover)]'}`}
                   >
                     {idx === 0 && (
                       <>
@@ -118,7 +118,7 @@ export const DiffPanel: React.FC<DiffPanelProps> = ({ diffData }) => {
                         </td>
                       </>
                     )}
-                    <td className={`px-2 py-1.5 font-semibold ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                    <td className={`px-2 py-1.5 font-semibold ${'text-[var(--text-muted)]'}`}>
                       {colName}
                     </td>
                     <td className="px-2 py-1.5 text-rose-500 line-through">

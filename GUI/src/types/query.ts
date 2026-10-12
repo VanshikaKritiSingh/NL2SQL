@@ -24,6 +24,7 @@ export interface QueryRequest {
   target_dialect: TargetDialect;
   database_profile?: string;
   dry_run_only?: boolean;
+  model_name?: string;
 }
 
 export interface ResultData {

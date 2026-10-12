@@ -40,31 +40,29 @@ export const ApprovalGatePage: React.FC = () => {
   return (
     <div
       className={`flex-1 flex flex-col h-full overflow-hidden transition-colors ${
-        isDark ? 'bg-slate-950/40' : 'bg-slate-50'
+        'bg-[var(--bg-app)]'
       }`}
     >
       {/* Sub-header Banner */}
       <div
         className={`h-12 px-4 border-b flex items-center justify-between shrink-0 transition-colors ${
-          isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'
+          'bg-[var(--bg-header)] border-[var(--border-main)] text-[var(--text-main)]'
         }`}
       >
         <div className="flex items-center gap-3">
           <button
             onClick={() => setCurrentView('query')}
             className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded transition-colors cursor-pointer ${
-              isDark
-                ? 'text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700'
-                : 'text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-300'
+'text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-subtle)]'
             }`}
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Back to Query Intake</span>
           </button>
-          <span className={isDark ? 'text-slate-700' : 'text-slate-300'}>|</span>
+          <span className={'text-[var(--border-subtle)]'}>|</span>
           <div className="flex items-center gap-2">
             <ShieldAlert className="w-4 h-4 text-rose-500" />
-            <span className={`text-xs font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+            <span className={`text-xs font-semibold ${'text-[var(--text-main)]'}`}>
               Human Approval Gate: Safety & Impact Review
             </span>
           </div>
@@ -73,7 +71,7 @@ export const ApprovalGatePage: React.FC = () => {
         {/* Demo Scenario Switcher & Risk Badge */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1 text-xs">
-            <span className={`text-[11px] mr-1 hidden sm:inline ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+            <span className={`text-[11px] mr-1 hidden sm:inline ${'text-[var(--text-muted)]'}`}>
               Review Scenario:
             </span>
             <button
@@ -81,9 +79,7 @@ export const ApprovalGatePage: React.FC = () => {
               className={`px-2.5 py-1 rounded text-xs font-medium transition-all cursor-pointer ${
                 activePayload.query_id === MOCK_UPDATE_APPROVAL.query_id
                   ? 'bg-rose-600 text-white shadow-xs'
-                  : isDark
-                  ? 'bg-slate-800 text-slate-400 hover:text-slate-200'
-                  : 'bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-300'
+                  : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-hover)] border border-[var(--border-subtle)]'
               }`}
             >
               Price Update (DML)
@@ -93,9 +89,7 @@ export const ApprovalGatePage: React.FC = () => {
               className={`px-2.5 py-1 rounded text-xs font-medium transition-all cursor-pointer ${
                 activePayload.query_id === MOCK_ALTER_APPROVAL.query_id
                   ? 'bg-rose-600 text-white shadow-xs'
-                  : isDark
-                  ? 'bg-slate-800 text-slate-400 hover:text-slate-200'
-                  : 'bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-300'
+                  : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-hover)] border border-[var(--border-subtle)]'
               }`}
             >
               Add Column (DDL)
@@ -114,7 +108,7 @@ export const ApprovalGatePage: React.FC = () => {
             <div className="h-full flex flex-col">
               <div
                 className={`text-xs font-semibold mb-2 flex items-center gap-2 ${
-                  isDark ? 'text-slate-300' : 'text-slate-700'
+                  'text-[var(--text-secondary)]'
                 }`}
               >
                 <Database className="w-4 h-4 text-indigo-500" />
@@ -129,7 +123,7 @@ export const ApprovalGatePage: React.FC = () => {
           <PanelResizeHandle
             className={`w-2 transition-colors cursor-col-resize flex items-center justify-center hover:bg-indigo-600/50`}
           >
-            <div className={`w-0.5 h-6 rounded-full ${isDark ? 'bg-slate-700' : 'bg-slate-300'}`} />
+            <div className={`w-0.5 h-6 rounded-full ${'bg-[var(--border-main)]'}`} />
           </PanelResizeHandle>
 
           {/* Right Panel: SQL Statement + Diff View + Pre-flight Telemetry */}

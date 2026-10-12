@@ -13,6 +13,7 @@ node_modules/
 .npm-cache/
 dist/
 dist-electron/
+*.tsbuildinfo
 
 # Python artifacts
 __pycache__/
@@ -50,8 +51,22 @@ data/
 datasets/
 !offline/datasets/.gitkeep
 
+# RLAIF Engine & Local Document Pool (Unfollowed local directory)
+rlaif_engine/documents/*
+!rlaif_engine/documents/.gitkeep
+rlaif_engine/trajectories/*
+!rlaif_engine/trajectories/.gitkeep
+rlaif_engine/*.db
+.env
+
 # ML Logs & Telemetry
 wandb/
 runs/
 lightning_logs/
 .cache/
+
+# Hide directories from GitHub
+offline/
+validator/
+test/
+tests/

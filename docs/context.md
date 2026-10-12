@@ -8,12 +8,16 @@ Consolidated reference index for all pipeline specifications and documentation a
 
 Repo: `https://github.com/VanshikaKritiSingh/NL2SQL` (main).
 
-Files present (root):
+Files present (consolidated in docs/):
 - `NL2SQL-Pipeline-Architecture.md` — pipeline specification, 16 stages, mermaid diagram + prose walkthrough.
 - `DECIDED_MODULES.md` — technical architecture specifications for Module 0 (Model foundation/eval), Module 1 (Schema linker), and Module 2 (Dialect converter).
 - `DOCUMENTATION.md` — documentation handbook (machine-readable YAML + human-readable walkthrough).
+- `CONNECTORS_QUICKSTART.md` — multi-engine database connector guide.
+- `DesignAnalysis.md` — system design deep dive and evaluation.
+- `GUI_INTEGRATION_GUIDE.md` — frontend and backend integration guide.
+- `FINE_TUNE_GUIDE.md` — fine-tuning walkthrough.
 - `diagrams/` — `SVG_DIAGRAM.svg` (primary dark source, 1600×3560) + `pipeline_v2_check.png` (render check).
-- `html/` — `nl2sql.html` (v2, light theme, inline SVG) + `template.html` (render template, `%%SVG_DIAGRAM%%` placeholder).
+- `html/` — `nl2sql.html` (v2, light theme, inline SVG), `template.html`, and `DesignWorkbench.html`.
 
 ---
 

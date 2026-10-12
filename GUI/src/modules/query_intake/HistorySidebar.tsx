@@ -63,20 +63,20 @@ export const HistorySidebar: React.FC = () => {
     return (
       <div
         className={`w-10 border-r flex flex-col items-center py-3 shrink-0 transition-colors ${
-          isDark ? 'border-slate-800 bg-slate-900/80' : 'border-slate-200 bg-white'
+          'border-[var(--border-subtle)] bg-[var(--bg-header)] text-[var(--text-main)]'
         }`}
       >
         <button
           onClick={toggleHistorySidebar}
           className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-            isDark ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-800'
+            'hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
           }`}
           title="Expand Query History"
         >
           <ChevronRight className="w-4 h-4" />
         </button>
         <div className={`mt-4 [writing-mode:vertical-rl] rotate-180 text-[11px] font-mono uppercase tracking-wider ${
-          isDark ? 'text-slate-500' : 'text-slate-400'
+          'text-[var(--text-muted)]'
         }`}>
           History ({history.length})
         </div>
@@ -87,21 +87,21 @@ export const HistorySidebar: React.FC = () => {
   return (
     <aside
       className={`w-64 border-r flex flex-col shrink-0 transition-colors ${
-        isDark ? 'border-slate-800 bg-slate-900/90' : 'border-slate-200 bg-white'
+        'border-[var(--border-subtle)] bg-[var(--bg-header)] text-[var(--text-main)]'
       }`}
     >
       {/* Header */}
       <div
         className={`h-11 px-3 border-b flex items-center justify-between transition-colors ${
-          isDark ? 'border-slate-800' : 'border-slate-200 bg-slate-50'
+          'border-[var(--border-subtle)] bg-[var(--bg-card-header)] text-[var(--text-main)]'
         }`}
       >
         <div className="flex items-center gap-2 text-xs font-semibold">
           <History className="w-3.5 h-3.5 text-indigo-500" />
-          <span className={isDark ? 'text-slate-200' : 'text-slate-800'}>Query History</span>
+          <span className={'text-[var(--text-main)]'}>Query History</span>
           <span
             className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
-              isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-200 text-slate-600'
+              'bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border-subtle)]'
             }`}
           >
             {history.length}
@@ -112,7 +112,7 @@ export const HistorySidebar: React.FC = () => {
             <button
               onClick={handleClearAll}
               className={`p-1 rounded transition-colors cursor-pointer ${
-                isDark ? 'hover:bg-slate-800 text-slate-500 hover:text-rose-400' : 'hover:bg-slate-200 text-slate-400 hover:text-rose-600'
+                'hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--danger)]'
               }`}
               title="Clear all history"
             >
@@ -122,7 +122,7 @@ export const HistorySidebar: React.FC = () => {
           <button
             onClick={toggleHistorySidebar}
             className={`p-1 rounded transition-colors cursor-pointer ${
-              isDark ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' : 'hover:bg-slate-200 text-slate-500 hover:text-slate-800'
+              'hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
             }`}
             title="Collapse Sidebar"
           >
@@ -134,7 +134,7 @@ export const HistorySidebar: React.FC = () => {
       {/* History Items List */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
         {history.length === 0 ? (
-          <div className={`p-4 text-center text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+          <div className={`p-4 text-center text-xs ${'text-[var(--text-muted)]'}`}>
             No queries in current session. Type a natural language question to start.
           </div>
         ) : (
@@ -146,12 +146,8 @@ export const HistorySidebar: React.FC = () => {
                 onClick={() => handleSelectHistoryItem(item)}
                 className={`p-2.5 rounded-lg border transition-all cursor-pointer group relative ${
                   isSelected
-                    ? isDark
-                      ? 'bg-indigo-950/30 border-indigo-500/60 shadow-sm'
-                      : 'bg-indigo-50/70 border-indigo-300 shadow-sm'
-                    : isDark
-                    ? 'bg-slate-800/40 hover:bg-slate-800 border-slate-700/40 hover:border-slate-600'
-                    : 'bg-slate-50 hover:bg-slate-100 border-slate-200 hover:border-slate-300'
+                    ? 'bg-[var(--accent-glow)] border-[var(--accent-primary)] shadow-sm'
+                    : 'bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border-[var(--border-subtle)] hover:border-[var(--border-main)]'
                 }`}
               >
                 {/* Delete button on hover / top right */}
@@ -173,14 +169,14 @@ export const HistorySidebar: React.FC = () => {
                   }`}>
                     {item.target_dialect}
                   </span>
-                  <span className={`text-[10px] font-mono ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                  <span className={`text-[10px] font-mono ${'text-[var(--text-muted)]'}`}>
                     {item.timestamp}
                   </span>
                 </div>
 
                 <p
                   className={`text-xs line-clamp-2 font-medium mb-1.5 ${
-                    isDark ? 'text-slate-200' : 'text-slate-800'
+                    'text-[var(--text-main)]'
                   }`}
                 >
                   {item.query_text}

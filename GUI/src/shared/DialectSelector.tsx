@@ -71,40 +71,34 @@ export const DialectSelector: React.FC = () => {
     <div
       className={`flex items-center gap-1.5 border rounded-lg px-2.5 py-1 text-xs transition-colors shadow-xs ${
         isAuto
-          ? isDark
-            ? 'bg-indigo-950/40 border-indigo-500/50 text-indigo-200'
-            : 'bg-indigo-50 border-indigo-300 text-indigo-900'
-          : isDark
-          ? 'bg-slate-800/90 border-slate-700/80 text-slate-200'
-          : 'bg-slate-100 border-slate-300 text-slate-800'
+          ? 'bg-[var(--accent-glow)] border-[var(--accent-primary)] text-[var(--accent-primary)] font-semibold'
+          : 'bg-[var(--bg-card)] border-[var(--border-subtle)] text-[var(--text-main)]'
       }`}
     >
       {isAuto ? (
-        <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+        <Sparkles className="w-3.5 h-3.5 text-[var(--warning)] animate-pulse" />
       ) : (
-        <Database className="w-3.5 h-3.5 text-indigo-500" />
+        <Database className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
       )}
-      <span className={`font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+      <span className="font-medium text-[var(--text-muted)]">
         DBMS Target:
       </span>
       <select
         value={targetDialect}
         onChange={(e) => setTargetDialect(e.target.value as TargetDialect)}
-        className={`bg-transparent font-medium focus:outline-none cursor-pointer pr-1 max-w-[200px] truncate ${
-          isDark ? 'text-slate-100' : 'text-slate-900'
-        }`}
+        className="bg-transparent font-medium focus:outline-none cursor-pointer pr-1 max-w-[200px] truncate text-[var(--text-main)]"
       >
         {DIALECT_CATEGORIES.map((cat) => (
           <optgroup
             key={cat.category}
             label={cat.category}
-            className={isDark ? 'bg-slate-900 text-slate-400 font-semibold' : 'bg-slate-100 text-slate-600 font-semibold'}
+            className="bg-[var(--bg-card-header)] text-[var(--text-secondary)] font-semibold"
           >
             {cat.options.map((opt) => (
               <option
                 key={opt.id}
                 value={opt.id}
-                className={isDark ? 'bg-slate-950 text-slate-100 font-normal' : 'bg-white text-slate-800 font-normal'}
+                className="bg-[var(--bg-card)] text-[var(--text-main)] font-normal"
               >
                 {opt.label}
               </option>

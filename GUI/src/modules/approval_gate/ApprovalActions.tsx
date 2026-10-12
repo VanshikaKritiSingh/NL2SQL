@@ -29,7 +29,7 @@ export const ApprovalActions: React.FC<ApprovalActionsProps> = ({ queryId, riskT
   const handleDecision = async (decision: 'approve' | 'reject') => {
     setIsSubmitting(true);
     try {
-      await submitApproval(queryId, {
+      const res = await submitApproval(queryId, {
         query_id: queryId,
         decision,
         feedback: feedback.trim() || null,
@@ -37,15 +37,46 @@ export const ApprovalActions: React.FC<ApprovalActionsProps> = ({ queryId, riskT
       });
 
       if (decision === 'approve') {
+        const msg = res.message || 'Approved! Mutation committed to transaction checkpoint and dispatched to connected database.';
         setSettledResult({
           type: 'approved',
-          message: 'Approved! Changes committed to Dolt CAS transaction checkpoint and dispatched to connected database.',
+          message: msg,
         });
+
+        // Update active query status in store
+        const currentResp = useQueryStore.getState().lastResponse;
+        if (currentResp) {
+          useQueryStore.getState().setLastResponse({
+            ...currentResp,
+            status: 'completed',
+            result_data: {
+              columns: ['status', 'action', 'details'],
+              rows: [
+                {
+                  status: 'COMMITTED',
+                  action: 'DBMS_EXECUTION_SUCCESS',
+                  details: msg,
+                },
+              ],
+              row_count: 1,
+            },
+          });
+        }
       } else {
+        const msg = `Rejected! Feedback saved: "${feedback.trim() || 'Manual reject'}" and routed back for query adjustment.`;
         setSettledResult({
           type: 'rejected',
-          message: `Rejected! Feedback saved: "${feedback.trim() || 'Manual reject'}" and routed back for query adjustment.`,
+          message: msg,
         });
+
+        const currentResp = useQueryStore.getState().lastResponse;
+        if (currentResp) {
+          useQueryStore.getState().setLastResponse({
+            ...currentResp,
+            status: 'error',
+            error_message: `Statement rejected by human reviewer. Feedback: ${feedback.trim() || 'No feedback'}`,
+          });
+        }
       }
     } catch {
       alert('Failed to submit approval decision.');
@@ -96,14 +127,14 @@ export const ApprovalActions: React.FC<ApprovalActionsProps> = ({ queryId, riskT
   return (
     <div
       className={`p-4 shrink-0 shadow-2xl border-t transition-colors ${
-        isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+        'bg-[var(--bg-header)] border-[var(--border-main)]'
       }`}
     >
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
         {/* Left: Operational Context Reminder */}
         <div className="flex items-center gap-3">
           <RiskBadge level={riskTier} />
-          <span className={`text-xs font-mono hidden sm:inline ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+          <span className={`text-xs font-mono hidden sm:inline ${'text-[var(--text-muted)]'}`}>
             Approval commits transaction to Dolt CAS checkpoint and dispatches to primary database.
           </span>
         </div>
@@ -118,9 +149,7 @@ export const ApprovalActions: React.FC<ApprovalActionsProps> = ({ queryId, riskT
                 value={feedback}
                 onChange={(e) => setFeedback(e.target.value)}
                 className={`flex-1 rounded-lg px-3 py-2 text-xs border focus:outline-none focus:ring-1 focus:ring-rose-500 font-sans ${
-                  isDark
-                    ? 'bg-slate-800 text-slate-100 placeholder-slate-500 border-slate-700'
-                    : 'bg-slate-100 text-slate-900 placeholder-slate-400 border-slate-300'
+'bg-[var(--bg-input)] text-[var(--text-main)] placeholder-[var(--text-muted)] border-[var(--border-subtle)]'
                 }`}
               />
               <button
@@ -145,9 +174,7 @@ export const ApprovalActions: React.FC<ApprovalActionsProps> = ({ queryId, riskT
                 onClick={() => setShowRejectBox(true)}
                 disabled={isSubmitting}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
-                  isDark
-                    ? 'bg-slate-800 hover:bg-rose-950/80 hover:border-rose-700 text-slate-300 hover:text-rose-300 border-slate-700'
-                    : 'bg-slate-100 hover:bg-rose-50 hover:border-rose-300 text-slate-700 hover:text-rose-700 border-slate-300'
+'bg-[var(--bg-card)] hover:bg-[var(--danger-bg)] hover:border-[var(--danger)] text-[var(--text-main)] hover:text-[var(--danger)] border-[var(--border-subtle)]'
                 }`}
               >
                 <XCircle className="w-4 h-4 text-rose-500" />

@@ -78,9 +78,10 @@ stored_responses: Dict[str, QueryResponse] = {}
 
 @router.post("", response_model=QueryResponse)
 async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks):
-    """Query Intake entry point: Receives natural language query, executes orchestrator pipeline."""
-    
-    # 1. Run full 16-stage orchestrator pipeline
+    """Query Intake entry point: Receives natural language or SQL query, compiles via LLM and executes against live DB or orchestrator."""
+    from core.connectors import default_registry
+
+    # 1. Run full 16-stage orchestrator pipeline with direct Ollama LLM grounding
     target_engine = request.target_dialect.value if isinstance(request.target_dialect, TargetDialect) else str(request.target_dialect)
     is_auto = (target_engine == "auto")
     
@@ -88,6 +89,9 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
         query=request.query_text,
         target_engine=target_engine,
         auto_mode=is_auto,
+        user_id=request.user_id,
+        user_role="analyst",
+        model_name=request.model_name,
     )
 
     compiled_sql = plan.transpilation_result.compiled_query
@@ -119,8 +123,9 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
         risk = "critical" if plan.statement_type == StatementType.DDL else "high"
         
         impacted = []
-        for t in plan.linked_context.selected_tables:
-            impacted.append(ImpactedTable(name=t, impact_level="direct" if t == plan.linked_context.selected_tables[0] else "referenced", operation=plan.statement_type.value))
+        selected_tbls = plan.linked_context.selected_tables if plan.linked_context and hasattr(plan.linked_context, "selected_tables") else []
+        for t in selected_tbls:
+            impacted.append(ImpactedTable(name=t, impact_level="direct" if t == selected_tbls[0] else "referenced", operation=plan.statement_type.value))
 
         diff = get_mock_ddl_diff() if plan.statement_type == StatementType.DDL else get_mock_dml_diff()
 
@@ -145,6 +150,10 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
             diff_data=diff,
         )
 
+        is_attached = default_registry.is_attached(request.user_id)
+        conn = default_registry.get(request.user_id) if is_attached else None
+        active_db_name = conn.config.database if conn else (request.database_profile or "master_enterprise")
+
         response = QueryResponse(
             query_id=plan.query_id,
             status="approval_required",
@@ -153,34 +162,66 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
             approval_payload=approval_payload.model_dump(),
             error_message=None,
             cache_hit=False,
-            database_profile=request.database_profile or "master_enterprise",
-            is_live_db_connected=False,
-            execution_mode="preview_sandbox",
+            database_profile=active_db_name,
+            is_live_db_connected=is_attached,
+            execution_mode="live_connected" if is_attached else "preview_sandbox",
+            model_name=request.model_name or "clef-flash:latest",
         )
     else:
-        # READ Query or Dry-run Preview -> completed with tabular results
-        rows = [
-            {"user_id": 101, "username": "alice_w", "order_date": "2025-05-10 14:22:00", "status": "DELIVERED", "total_amount": 149.99},
-            {"user_id": 102, "username": "bob_k", "order_date": "2025-05-12 09:15:30", "status": "SHIPPED", "total_amount": 89.50},
-            {"user_id": 103, "username": "charlie_m", "order_date": "2025-05-15 18:44:12", "status": "PROCESSING", "total_amount": 299.00},
-            {"user_id": 104, "username": "diana_p", "order_date": "2025-05-18 11:05:00", "status": "DELIVERED", "total_amount": 45.20},
-            {"user_id": 105, "username": "evan_r", "order_date": "2025-05-20 16:30:45", "status": "PENDING", "total_amount": 120.00},
-        ]
+        # READ Query -> live results if socket attached, else sandbox preview
+        if plan.live_query_result and not plan.live_query_result.error:
+            lr = plan.live_query_result
+            res_data = ResultData(
+                columns=lr.columns,
+                rows=lr.rows,
+                row_count=lr.row_count,
+            )
+            is_live = True
+            exec_mode = "live_database"
+        elif plan.live_query_result and plan.live_query_result.error:
+            # Live execution error from DB engine
+            response = QueryResponse(
+                query_id=plan.query_id,
+                status="error",
+                generated_sql=sql_str,
+                result_data=None,
+                approval_payload=None,
+                error_message=f"Live database execution error: {plan.live_query_result.error}",
+                cache_hit=False,
+                database_profile=request.database_profile or "master_enterprise",
+                is_live_db_connected=True,
+                execution_mode="live_database",
+            )
+            stored_responses[response.query_id] = response
+            return response
+        else:
+            # Sandbox preview fallback
+            rows = [
+                {"user_id": 101, "username": "alice_w", "order_date": "2025-05-10 14:22:00", "status": "DELIVERED", "total_amount": 149.99},
+                {"user_id": 102, "username": "bob_k", "order_date": "2025-05-12 09:15:30", "status": "SHIPPED", "total_amount": 89.50},
+                {"user_id": 103, "username": "charlie_m", "order_date": "2025-05-15 18:44:12", "status": "PROCESSING", "total_amount": 299.00},
+                {"user_id": 104, "username": "diana_p", "order_date": "2025-05-18 11:05:00", "status": "DELIVERED", "total_amount": 45.20},
+                {"user_id": 105, "username": "evan_r", "order_date": "2025-05-20 16:30:45", "status": "PENDING", "total_amount": 120.00},
+            ]
+            res_data = ResultData(
+                columns=list(rows[0].keys()),
+                rows=rows,
+                row_count=len(rows),
+            )
+            is_live = False
+            exec_mode = "preview_sandbox"
+
         response = QueryResponse(
             query_id=plan.query_id,
             status="completed",
             generated_sql=sql_str,
-            result_data=ResultData(
-                columns=list(rows[0].keys()),
-                rows=rows,
-                row_count=len(rows),
-            ),
+            result_data=res_data,
             approval_payload=None,
             error_message=None,
             cache_hit=False,
             database_profile=request.database_profile or "master_enterprise",
-            is_live_db_connected=False,
-            execution_mode="preview_sandbox",
+            is_live_db_connected=is_live,
+            execution_mode=exec_mode,
         )
 
     stored_responses[response.query_id] = response
@@ -200,16 +241,7 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
         query_history[request.user_id] = []
     query_history[request.user_id].insert(0, history_entry)
 
-    # 4. Trigger WebSocket pipeline stage simulation in background
-    background_tasks.add_task(
-        simulate_pipeline_run,
-        query_id=response.query_id,
-        user_id=request.user_id,
-        is_mutating=is_mutating,
-        approval_payload=response.approval_payload,
-        delay=0.08,
-    )
-
+    # 4. Record to history and return response
     return response
 
 

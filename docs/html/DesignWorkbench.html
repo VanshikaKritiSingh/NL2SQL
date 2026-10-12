@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design Workbench — 56 Principles & Implementation Candidates</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+:root {
+  --bg: oklch(0.12 0.02 240);
+  --surface: oklch(0.16 0.025 240);
+  --surface2: oklch(0.20 0.03 240);
+  --border: oklch(0.24 0.02 240);
+  --text: oklch(0.92 0.01 240);
+  --text-dim: oklch(0.70 0.02 240);
+  --brand: oklch(0.65 0.22 260);
+  --brand-subtle: oklch(0.85 0.08 260);
+  --radius-inner: 8px;
+  --radius-outer: 16px;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-6: 24px; --space-8: 32px;
+  --font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  padding: var(--space-6);
+  max-width: 1200px;
+  margin: 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+h1 { font-size: 2rem; letter-spacing: -0.02em; margin-bottom: var(--space-2); }
+h2 { font-size: 1.4rem; margin: var(--space-8) 0 var(--space-4); letter-spacing: -0.01em; border-bottom: 1px solid var(--border); padding-bottom: var(--space-2); }
+h3 { font-size: 1.1rem; color: var(--brand-subtle); margin: var(--space-4) 0 var(--space-2); }
+p, li { font-size: 0.95rem; color: var(--text-dim); }
+ul { padding-left: var(--space-4); margin-bottom: var(--space-3); }
+li { margin-bottom: var(--space-1); }
+.card {
+  background: var(--surface);
+  border-radius: var(--radius-inner);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--border);
+}
+.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-4); }
+.badge {
+  display: inline-block; padding: 2px var(--space-2); border-radius: 4px;
+  font-size: 0.75rem; background: var(--surface2); color: var(--text);
+  border: 1px solid var(--border); font-family: var(--font-mono); margin-right: 4px;
+}
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: var(--space-3); }
+th, td { text-align: left; padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border); }
+th { color: var(--text-dim); font-weight: 600; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.05em; background: var(--surface2); }
+select {
+  background: var(--surface2); color: var(--text); border: 1px solid var(--border);
+  padding: var(--space-2) var(--space-3); border-radius: var(--radius-inner);
+  font-family: var(--font-sans); font-size: 1rem; width: 100%; max-width: 400px;
+}
+.summary-bar { display: flex; gap: var(--space-6); flex-wrap: wrap; margin: var(--space-4) 0; }
+.stat { text-align: center; }
+.stat-val { font-size: 1.8rem; font-weight: 700; color: var(--brand-subtle); }
+.stat-label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+.mermaid {
+  background: var(--surface);
+  border-radius: var(--radius-inner);
+  padding: var(--space-4);
+  margin: var(--space-4) 0;
+  border: 1px solid var(--border);
+  display: flex;
+  justify-content: center;
+}
+.hidden { display: none; }
+</style>
+</head>
+<body>
+
+<h1>🎨 Design System Workbench</h1>
+<p>56 Codified Skills, Heuristics & Interface Rules + Implementation Architectures</p>
+
+<div class="summary-bar">
+  <div class="stat"><div class="stat-val">56</div><div class="stat-label">Principles</div></div>
+  <div class="stat"><div class="stat-val">6</div><div class="stat-label">Dimensions</div></div>
+  <div class="stat"><div class="stat-val">6</div><div class="stat-label">Core Visuals</div></div>
+  <div class="stat"><div class="stat-val">4</div><div class="stat-label">App / Game Options</div></div>
+</div>
+
+<h2>🚀 Candidate Software / Game Options Satisfying All Rules</h2>
+<div class="card">
+  <label for="appSelect" style="display:block; font-weight:600; margin-bottom: var(--space-2);">Select an implementation archetype to inspect design mapping:</label>
+  <select id="appSelect" onchange="renderAppOption(this.value)">
+    <option value="sql_workbench">1. SQL Forge (Autonomous AI Data Workbench)</option>
+    <option value="hexcrawler_game">2. HexCrawler: Tactical Roguelike (Game)</option>
+    <option value="agent_ops">3. AgentOps Commander (Autonomous Multi-Agent Orchestrator)</option>
+    <option value="deck_builder">4. ChronoDeck: Quantum Battler (Strategy Game)</option>
+  </select>
+</div>
+
+<div id="optionDetails" class="card"></div>
+
+<h2>📐 6 System Architecture Diagrams</h2>
+
+<h3>Dimension 1: Anti-Dashboard vs. Progressive Workbench</h3>
+<pre class="mermaid">
+graph LR
+    A[MULTI-PANEL ANTI-PATTERN] --> B[Visual Overload]
+    A --> C[Cognitive Saturation]
+    A --> D[No Clear Focus]
+    A --> E[Scattered Information]
+    D[PROGRESSIVE WORKBENCH] --> F[Clear Hierarchy]
+    D --> G[Intentional Spacing]
+    D --> H[Contextual Access]
+    D --> I[Reduced Cognitive Load]
+    classDef anti fill:#3d1a1a,stroke:#ff6666,color:#fff;
+    classDef premium fill:#1a3d24,stroke:#66ff66,color:#fff;
+    class A anti;
+    class D premium;
+</pre>
+
+<h3>Dimension 1: Three-Tier Progressive Disclosure Horizon</h3>
+<pre class="mermaid">
+graph TD
+    A[USER VIEWPORT] --> B[TIER 1: OVERVIEW]
+    subgraph B [Tier 1: Primary Horizon]
+        B1[Headline Metric]
+        B2[Primary Action Button]
+        B3[Status Indicator]
+    end
+    B --> C[Tier 2: Zoom & Filter]
+    subgraph C [Tier 2: Secondary Access]
+        C1[Search Box]
+        C2[Faceted Filters]
+        C3[Date Range Picker]
+    end
+    C --> D[Tier 3: Details-on-Demand]
+    subgraph D [Tier 3: Contextual Sheets]
+        D1[Slide-over Drawer]
+        D2[Expandable Row Accordion]
+        D3[Contextual Modal]
+    end
+    classDef tier1 fill:#1a283d,stroke:#1976d2,color:#fff;
+    classDef tier2 fill:#2d1a3d,stroke:#7b1fa2,color:#fff;
+    classDef tier3 fill:#3d2b1a,stroke:#f57c00,color:#fff;
+    class B1,B2,B3 tier1;
+    class C1,C2,C3 tier2;
+    class D1,D2,D3 tier3;
+</pre>
+
+<h3>Dimension 2: Strict 4px/8px Spatial Scale Token Cascade</h3>
+<pre class="mermaid">
+graph TD
+    P[Primitives] --> S[Semantic Tokens]
+    S --> U[Component Usage]
+    P --> P1[--space-1: 4px]
+    P --> P2[--space-2: 8px]
+    P --> P3[--space-3: 12px]
+    P --> P4[--space-4: 16px]
+    P --> P5[--space-6: 24px]
+    P --> P6[--space-8: 32px]
+    S --> S1[--space-1 applied]
+    S --> S2[--space-2 applied]
+    S --> S3[--space-3 applied]
+    S --> S4[--space-4 applied]
+    S --> S5[--space-6 applied]
+    S --> S6[--space-8 applied]
+    U --> U1[button.padding]
+    U --> U2[list.gap]
+    U --> U3[card.padding]
+    U --> U4[badge.padding]
+    style P fill:#1a283d,stroke:#1976d2,color:#fff;
+    style S fill:#2d1a3d,stroke:#7b1fa2,color:#fff;
+    style U fill:#3d2b1a,stroke:#f57c00,color:#fff;
+</pre>
+
+<h3>Dimension 3: Interaction Lifecycle & Doherty Threshold</h3>
+<pre class="mermaid">
+graph LR
+    A[User Click / Key] --> B[Instant Tactile Scale <16ms]
+    B --> C[Optimistic Local Update]
+    C --> D{Async Worker / API}
+    D -->|Fast <400ms| E[Reconcile Diff]
+    D -->|Slow >400ms| F[Skeleton Pacemaker]
+    F --> G[Wait / Show State]
+    G --> E
+    E --> H[Silent Rollback OR Success]
+    H --> I[Undo Toast 6s Window]
+    classDef user fill:#1a283d,stroke:#1976d2,color:#fff;
+    classDef instant fill:#1a3d24,stroke:#66ff66,color:#fff;
+    classDef async fill:#3d2b1a,stroke:#f57c00,color:#fff;
+    classDef result fill:#1a3d24,stroke:#4caf50,color:#fff;
+    classDef slow fill:#3d1a1a,stroke:#ff6b35,color:#fff;
+    classDef undo fill:#1a303d,stroke:#0288d1,color:#fff;
+    class A user;
+    class B,C instant;
+    class D async;
+    class E,H result;
+    class F,G slow;
+    class I undo;
+</pre>
+
+<h3>Dimension 5: AI Workbench Paradigm vs. Chatbox</h3>
+<pre class="mermaid">
+graph TB
+    subgraph TraditionalChat [Traditional Chat Interface]
+        TC1[User Prompt] --> TC2[Agent Response]
+        TC2 --> TC3[Raw Markdown Output]
+        TC3 --> TC4[Manual Execution]
+    end
+    subgraph Workbench [Structured AI Workbench]
+        WB1[Issue / Context] --> WB2[Speculative Diff]
+        WB2 --> WB3[Agent Controls]
+        WB3 --> WB4[Apply / Reject]
+        WB4 --> WB5[Audit Trail]
+    end
+    classDef chat fill:#3d1a1a,stroke:#ff6666,color:#fff;
+    classDef bench fill:#1a3d24,stroke:#66ff66,color:#fff;
+    class TC1,TC2,TC3,TC4 chat;
+    class WB1,WB2,WB3,WB4,WB5 bench;
+</pre>
+
+<h3>Dimension 5: The Asynchronous Agent State Triad (5-State)</h3>
+<pre class="mermaid">
+stateDiagram-v2
+    [*] --> Queued : Trigger
+    Queued --> Reasoning : Start
+    Reasoning --> Executing : Schema Ready
+    Executing --> Blocked : Human Gate Needed
+    Executing --> Settled : Complete
+    Blocked --> Executing : Resumed
+    Blocked --> Settled : Approved / Rejected
+    Settled --> [*]
+</pre>
+
+<h2>📚 56 Principles Quick Reference Matrix</h2>
+<div class="card" style="overflow-x:auto;">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Principle</th>
+        <th>Dimension</th>
+        <th>Core Rule</th>
+        <th>Key Benefit</th>
+      </tr>
+    </thead>
+    <tbody id="matrixBody"></tbody>
+  </table>
+</div>
+
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+
+const optionsData = {
+  sql_workbench: {
+    title: "📝 SQL Forge (Autonomous AI Data Workbench)",
+    type: "Developer Tool / AI Application",
+    desc: "A high-precision developer workbench that replaces cluttered multi-panel DB tools. Features a focused editor canvas, 3-tier progressive schema drawer, speculative diff staging for AI queries, and instant undo execution.",
+    satisfactions: [
+      { rule: "Principle 1 & 7 (Anti-Dashboard & Surface Partitioning)", desc: "Splits Operational code editing from Analytical metric exploration. No simultaneous 8-panel clutter." },
+      { rule: "Principle 39 & 42 (AI Workbench & Speculative Diffs)", desc: "Agent-generated SQL is presented as an interactive diff with side-by-side AST inspection, not raw chat text." },
+      { rule: "Principle 19 & 20 (Doherty Threshold & Optimistic UI)", desc: "Query mutations execute optimistically with rollback toasts and <16ms keyboard triggers." },
+      { rule: "Principle 49 (Agent State Triad)", desc: "Visual badges track AI execution through Queued → Reasoning → Executing → Blocked → Settled." },
+      { rule: "Principle 54 (Data Grid Ergonomics)", desc: "Sticky table headers, frozen primary keys, and tabular numbers for query results." }
+    ]
+  },
+  hexcrawler_game: {
+    title: "🕷️ HexCrawler: Tactical Roguelike (Game)",
+    type: "Turn-based Strategy / RPG",
+    desc: "A tile-based tactical dungeon crawler featuring clean spatial mechanics, zero visual clutter, micro-feedback spring animations, and a 3-tier progressive tactical HUD.",
+    satisfactions: [
+      { rule: "Principle 1 & 4 (Progressive Disclosure & Miller's Chunking)", desc: "Macro map → Active combat arena → Contextual loot sheet. Never displays 30 stat meters simultaneously." },
+      { rule: "Principle 3 (Hick's Law)", desc: "Caps active tactical actions to 4 primary skills with an expandable spellbook modal." },
+      { rule: "Principle 23 & 24 (Spring Physics & Compositor Hygiene)", desc: "Sub-16ms tactile unit movement with spring-damped easing curves on GPU transform/opacity only." },
+      { rule: "Principle 14 & 15 (Concentric Radii & Tabular Numerals)", desc: "Damage tickers and countdown timers use monospaced numbers with zero horizontal layout jitter." },
+      { rule: "Principle 36 (Peak-End Rule)", desc: "Celebratory micro-animations on boss defeats and level clear closure moments." }
+    ]
+  },
+  agent_ops: {
+    title: "🤖 AgentOps Commander (Autonomous Multi-Agent Orchestrator)",
+    type: "Enterprise Infrastructure / ACI Workbench",
+    desc: "A mission-control workbench for managing fleets of autonomous coding and research agents. Built around shared observability, steerability, and streaming pacemakers.",
+    satisfactions: [
+      { rule: "Principle 40 & 44 (Continuous Steerability & Shared Observability)", desc: "Real-time timeline nodes with one-click human pause/redirect gates and immutable WebSocket state sync." },
+      { rule: "Principle 41 (Progressive Token Streaming & Layout Locking)", desc: "Locked container heights prevent vertical scroll bounce during high-throughput LLM reasoning streams." },
+      { rule: "Principle 43 & 45 (Grounding Breadcrumbs & ACI Craft)", desc: "Hoverable provenance badges show exact retrieved context chunks; structured JSON error envelopes." },
+      { rule: "Principle 47 (Microsoft HAX 1)", desc: "Persistent capability & failure boundaries (model version, token cost ceiling, dialect limits) pinned to header." },
+      { rule: "Principle 51 & 52 (Semantic Tokens & Dark Mode Craft)", desc: "Built with 3-tier OKLCH token hierarchy and surface elevation over pure black." }
+    ]
+  },
+  deck_builder: {
+    title: "🃏 ChronoDeck: Quantum Battler (Strategy Game)",
+    type: "Deck-Building Strategy Game",
+    desc: "A temporal card game featuring timeline manipulation, speculative branching, and fluid spatial card ergonomics.",
+    satisfactions: [
+      { rule: "Principle 50 (Parallel Speculative Branching)", desc: "Test future timeline card plays on speculative non-destructive ghost branches before committing." },
+      { rule: "Principle 21 & 22 (Fitts's Law & Keyboard First)", desc: "Bottom-anchored oversized card hitboxes (44px+ hit targets) plus 1-9 number key hotkeys." },
+      { rule: "Principle 28 (Universal Undo)", desc: "All non-random phase actions are instantly reversible via Cmd+Z / Undo button within the current turn." },
+      { rule: "Principle 8 & 9 (Proximity & Common Region)", desc: "Subtle background luminescence separates active hand, draw pile, and battlefield zones without harsh 1px borders." },
+      { rule: "Principle 37 (Von Restorff Effect)", desc: "'End Turn' is the solitary vibrant primary anchor button on screen; all other controls are ghost/subtle." }
+    ]
+  }
+};
+
+const principles = [
+  ["01", "Progressive Disclosure", "Cognitive Architecture", "3-Tier Horizon (Overview → Zoom → Details)", "Eliminates multi-panel clutter"],
+  ["02", "Opinionated Defaults", "Cognitive Architecture", "Ship 1 tuned path; refuse speculative toggles", "Removes configuration fatigue"],
+  ["03", "Hick's Law", "Cognitive Architecture", "Cap top actions at 3-5; fuzzy search for >7", "Accelerates decision velocity"],
+  ["04", "Miller's Law / Chunking", "Cognitive Architecture", "Partition into <=4 discrete clusters", "Prevents working memory saturation"],
+  ["05", "Tesler's Law", "Cognitive Architecture", "System absorbs state/routing complexity", "Shifts burden from human to code"],
+  ["06", "Calmer Interfaces", "Cognitive Architecture", "Chrome recedes; contrast ranks priority", "Eliminates visual screaming"],
+  ["07", "Surface Partitioning", "Cognitive Architecture", "Separate Operational from Analytical views", "Preserves user mental models"],
+  ["08", "Law of Proximity", "Visual Craft & Gestalt", "Group gap = 2x-3x internal item gap", "Whitespace groups without borders"],
+  ["09", "Law of Common Region", "Visual Craft & Gestalt", "Subtle background elevation deltas", "Eliminates harsh 1px solid borders"],
+  ["10", "Law of Similarity", "Visual Craft & Gestalt", "Identical visual signature for like roles", "Builds instant recognition"],
+  ["11", "Strict 4px/8px Scale", "Visual Craft & Gestalt", "All spatial values map to 4/8/12/16/24/32px", "Guarantees rhythm and cadence"],
+  ["12", "Optical Alignment", "Visual Craft & Gestalt", "Offset mass centers (e.g. play icon +2px)", "Fixes optical imbalance"],
+  ["13", "Multi-Layer Shadows", "Visual Craft & Gestalt", "Ambient occlusion + directional key light", "Natural physical depth"],
+  ["14", "Concentric Corner Radii", "Visual Craft & Gestalt", "R_inner = R_outer - Padding", "Eliminates optical corner pinching"],
+  ["15", "Tabular Numerals", "Visual Craft & Gestalt", "font-variant-numeric: tabular-nums", "Stops horizontal number jitter"],
+  ["16", "Typographic Hierarchy", "Visual Craft & Gestalt", "45-75ch measure, negative heading tracking", "Optimal reading comfort"],
+  ["17", "OKLCH Color Systems", "Visual Craft & Gestalt", "Perceptually uniform lightness palettes", "Clean programmatic theme shifts"],
+  ["18", "APCA Perceptual Contrast", "Visual Craft & Gestalt", "Target Lc >= 60-75 for text legibility", "Surpasses WCAG 2 false positives"],
+  ["19", "Doherty Threshold", "Interaction & Motion", "Immediate feedback in <=16ms (<400ms cycle)", "Maintains cognitive flow state"],
+  ["20", "Optimistic UI & Rollback", "Interaction & Motion", "Mutate client state instantly; toast rollback", "Zero-latency perception"],
+  ["21", "Fitts's Law", "Interaction & Motion", ">=24px desktop, >=44px mobile hitboxes", "Eliminates target miss clicks"],
+  ["22", "Keyboard-First Cmd+K", "Interaction & Motion", "Global palette + roving tabindex", "Unbroken home-row productivity"],
+  ["23", "Tactile Micro-Feedback", "Interaction & Motion", "Active scale 0.97 + spring damping", "Physical responsiveness"],
+  ["24", "Compositor-Only Motion", "Interaction & Motion", "Animate transform/opacity only; ban 'all'", "Zero reflow frame drops (60fps)"],
+  ["25", "Contextual Surfaces", "Interaction & Motion", "Popover vs Sheet vs Modal hierarchy", "Preserves task context"],
+  ["26", "Actionable Empty States", "Interaction & Motion", "Monochrome anchor + clear CTA", "Turns dead ends into catalysts"],
+  ["27", "Content-Aware Skeletons", "Interaction & Motion", "Mirror incoming dimensions; CLS < 0.05", "Eliminates layout jumps"],
+  ["28", "Universal Undo", "Interaction & Motion", "6s non-blocking undo toast over modals", "Frictionless reversible actions"],
+  ["29", "Dieter Rams Principle 10", "Design Canons", "Less, but better; delete decorative fluff", "Uncompromised product utility"],
+  ["30", "Norman: Affordances", "Design Canons", "Clear signifiers & hover feedback", "Zero guesswork on clickability"],
+  ["31", "Norman: Mental Models", "Design Canons", "Natural directional physical mapping", "Matches intuitive expectations"],
+  ["32", "Nielsen: System Status", "Design Canons", "Persistent ambient state indicators", "Eliminates user uncertainty"],
+  ["33", "Nielsen: Error Prevention", "Design Canons", "Input masks & contextual disabled tooltips", "Prevents invalid user states"],
+  ["34", "Jakob's Law", "Design Canons", "Follow established web conventions", "Zero cognitive novelty tax"],
+  ["35", "Aesthetic-Usability Effect", "Design Canons", "High visual craft builds user trust", "Lowers anxiety in complex tasks"],
+  ["36", "Peak-End Rule", "Design Canons", "Celebrate milestone completions", "Leaves lasting positive memory"],
+  ["37", "Von Restorff Effect", "Design Canons", "Single primary solid brand CTA per view", "Unambiguous visual priority"],
+  ["38", "Frictionless Forms", "Design Canons", "16px input font size; top-aligned labels", "Prevents mobile zoom & drops"],
+  ["39", "Workbench Over Chatbox", "AI & Agent Architecture", "Embed AI in domain surface with AST tools", "High-precision expert workflows"],
+  ["40", "Steerability & Interruption", "AI & Agent Architecture", "Interactive step nodes with pause/redirect", "Eliminates black-box panic"],
+  ["41", "Progressive Token Streaming", "AI & Agent Architecture", "Container locking & batch token smoothing", "Prevents layout bounce"],
+  ["42", "Speculative Diff Staging", "AI & Agent Architecture", "Syntax diff cards with Apply/Reject gates", "Safe inspection of AI mutations"],
+  ["43", "Grounding & Citations", "AI & Agent Architecture", "Interactive provenance pill badges", "Verifiable AI trust"],
+  ["44", "Shared Observability", "AI & Agent Architecture", "Immutable WebSocket run URLs & teammate cursors", "Collaborative agent supervision"],
+  ["45", "ACI Craft (API as UI)", "AI & Agent Architecture", "Explicit tool docstrings & remedy envelopes", "Prevents LLM hallucination loops"],
+  ["46", "Context Window Budgeting", "AI & Agent Architecture", "Just-in-time retrieval over prompt stuffing", "Prevents context rot & latency"],
+  ["47", "Microsoft HAX Guideline 1", "AI & Agent Architecture", "Explicit capability & dialect limitations header", "Calibrates user expectations"],
+  ["48", "Semantic Zoom Diffs", "AI & Agent Architecture", "Narrative 2-sentence diff summaries", "Cuts PR/diff review fatigue"],
+  ["49", "Agent State Triad", "AI & Agent Architecture", "5-state tokens: Queued/Reason/Exec/Block/Settle", "Clear lifecycle transparency"],
+  ["50", "Speculative Branching", "AI & Agent Architecture", "Side-by-side non-destructive canvas forks", "Fearless AI experimentation"],
+  ["51", "3-Tier Design Tokens", "Design Systems", "Primitives -> Semantic Aliases -> Component Scopes", "Single source of truth"],
+  ["52", "Dark Mode Craft", "Design Systems", "Slate base elevation over pure black (#000)", "Reduces eye fatigue and glare"],
+  ["53", "Container Queries", "Design Systems", "@container intrinsic component fluidity", "Robust modular layouts"],
+  ["54", "Data Grid Ergonomics", "Design Systems", "Sticky headers, frozen IDs, right-aligned nums", "High-density scannability"],
+  ["55", "Actionable Error Envelopes", "Design Systems", "Plain language + exact param + auto-fix CTA", "Turns errors into teachers"],
+  ["56", "Quality as Habit", "Design Systems", "Weekly polish rituals & zero UI bug SLA", "Sustained engineering craft"]
+];
+
+function renderAppOption(key) {
+  const opt = optionsData[key];
+  if (!opt) return;
+  
+  let html = `<h3>${opt.title}</h3>
+  <p><span class="badge">${opt.type}</span> ${opt.desc}</p>
+  <h4 style="margin-top: var(--space-4); margin-bottom: var(--space-2); color: var(--text);">How it fulfills the 56 Design Principles:</h4>
+  <ul>`;
+  
+  opt.satisfactions.forEach(s => {
+    html += `<li><strong>${s.rule}:</strong> ${s.desc}</li>`;
+  });
+  
+  html += `</ul>`;
+  document.getElementById('optionDetails').innerHTML = html;
+}
+
+function renderMatrix() {
+  const tbody = document.getElementById('matrixBody');
+  let rows = '';
+  principles.forEach(p => {
+    rows += `<tr>
+      <td><strong>${p[0]}</strong></td>
+      <td style="color: var(--text); font-weight: 500;">${p[1]}</td>
+      <td><span class="badge">${p[2]}</span></td>
+      <td>${p[3]}</td>
+      <td>${p[4]}</td>
+    </tr>`;
+  });
+  tbody.innerHTML = rows;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderAppOption('sql_workbench');
+  renderMatrix();
+});
+</script>
+</body>
+</html>
