@@ -1,70 +1,157 @@
-/* theme.css — Charcoal Black + Ivory Green (Dark) & Solaris Warm High-Contrast (Light) */
+/* theme.css — Light: Monochromatic Soft-UI & Jet-Black Contrast
+                  Dark: Obsidian Bento & Ambient Plum-Violet Glow */
 
+/* ═══════════════════════════════════════════════════════
+   DARK THEME — Obsidian Bento & Ambient Plum-Violet Glow
+   ═══════════════════════════════════════════════════════ */
 :root,
 :root.dark {
-  /* Charcoal Black with Ivory Green Contrast Palette (Dark) */
-  --bg-app: #0A0A0D;
-  --bg-header: #111116;
-  --bg-card: #14141B;
-  --bg-card-header: #1B1B24;
-  --bg-input: #0D0D12;
-  --bg-subtle: #20202B;
-  --bg-hover: #262635;
+  /* Obsidian Surfaces */
+  --bg-app: #0E0E14;
+  --bg-outer: #0E0E14;
+  --bg-header: #151520;
+  --bg-card: #1B1B24;
+  --bg-card-header: #22222E;
+  --bg-input: #16161E;
+  --bg-subtle: #252530;
+  --bg-hover: #2C2C3A;
 
-  --border-main: #274737;
-  --border-subtle: #1C3328;
-  --border-focus: #4ADE80;
+  /* Hairline borders */
+  --border-main: rgba(255,255,255,0.14);
+  --border-subtle: rgba(255,255,255,0.10);
+  --border-focus: #8E94F2;
 
-  --text-main: #F2FFF5;
-  --text-secondary: #C8E8D2;
-  --text-muted: #82A48E;
+  /* Typography */
+  --text-main: #FFFFFF;
+  --text-secondary: #C8C8D4;
+  --text-muted: #9A9AA6;
 
-  --accent-primary: #22C55E;
-  --accent-hover: #16A34A;
-  --accent-glow: rgba(34, 197, 94, 0.25);
+  /* Accent — periwinkle / lavender */
+  --accent-primary: #8E94F2;
+  --accent-secondary: #B48EBA;
+  --accent-hover: #A5AAFF;
+  --accent-glow: rgba(157, 123, 255, 0.22);
 
+  /* Semantic */
   --danger: #F87171;
-  --danger-bg: rgba(248, 113, 113, 0.15);
-  --success: #4ADE80;
-  --success-bg: rgba(74, 222, 128, 0.15);
+  --danger-bg: rgba(248, 113, 113, 0.12);
+  --success: #2ECC71;
+  --success-bg: rgba(46, 204, 113, 0.12);
   --warning: #FBBF24;
-  --warning-bg: rgba(251, 191, 36, 0.15);
+  --warning-bg: rgba(251, 191, 36, 0.12);
 
-  /* React Flow & Diagrams */
-  --flow-bg: #0A0A0D;
-  --flow-grid: #1C3328;
+  /* Positive delta green */
+  --delta-positive: #2ECC71;
+
+  /* CTA button colors */
+  --btn-primary-bg: #8E94F2;
+  --btn-primary-text: #FFFFFF;
+  --btn-primary-hover: #A5AAFF;
+  --btn-primary-glow: rgba(142,148,242,0.35);
+
+  /* React Flow & Diagrams (ER Canvas) */
+  --flow-bg: #101018;
+  --flow-grid: rgba(255, 255, 255, 0.12);
+
+  /* Table Node ER */
+  --er-node-bg: #181824;
+  --er-node-border: rgba(255, 255, 255, 0.15);
+  --er-node-shadow: 0 8px 30px rgba(0,0,0,0.50);
+  --er-pk-badge: #7B2CBF;
+  --er-attr-bg: #13131C;
+  --er-attr-text: #FFFFFF;
+  --er-attr-type: #9A9AA6;
+  --er-header-gradient-from: #7B2CBF;
+  --er-header-gradient-to: #1E1E2C;
+  --er-edge-color-from: #8E94F2;
+  --er-edge-color-to: #B48EBA;
+
+  /* Bento card styling */
+  --card-radius: 0px;
+  --card-hairline: 1px solid rgba(255,255,255,0.12);
+
+  /* Ambient glow */
+  --ambient-glow: rgba(157, 123, 255, 0.22);
+
+  /* Scrollbar */
+  --scrollbar-track: #0E0E14;
+  --scrollbar-thumb: #2C2C3A;
+  --scrollbar-thumb-hover: #8E94F2;
 }
 
+/* ═══════════════════════════════════════════════════════
+   LIGHT THEME — Monochromatic Soft-UI & Jet-Black Contrast
+   ═══════════════════════════════════════════════════════ */
 :root.light {
-  /* High-Contrast Solaris Palette (Light) — Darker High-Contrast Text for Eye Protection */
-  --bg-app: #FDF6E3;
-  --bg-header: #EEE8D5;
-  --bg-card: #FFFDF8;
-  --bg-card-header: #EAE1C8;
-  --bg-input: #FAF3DE;
-  --bg-subtle: #E4D8B8;
-  --bg-hover: #DCD0B0;
+  /* Surfaces */
+  --bg-app: #FFFFFF;
+  --bg-outer: #E5E8EF;
+  --bg-header: #FFFFFF;
+  --bg-card: #F4F6F9;
+  --bg-card-header: #ECEEF3;
+  --bg-input: #F4F6F9;
+  --bg-subtle: #E8EBF0;
+  --bg-hover: #EDF0F7;
 
-  --border-main: #A87E26;
-  --border-subtle: #D4BE8D;
-  --border-focus: #8F6B00;
+  /* Borders */
+  --border-main: #DDE1E8;
+  --border-subtle: #E8EBF0;
+  --border-focus: #111111;
 
-  --text-main: #001C24;
-  --text-secondary: #002B36;
-  --text-muted: #385058;
+  /* Typography — jet-black contrast */
+  --text-main: #111111;
+  --text-secondary: #333333;
+  --text-muted: #888C94;
 
-  --accent-primary: #996E00;
-  --accent-hover: #7E5B00;
-  --accent-glow: rgba(153, 110, 0, 0.25);
+  /* Accent — jet-black for high contrast */
+  --accent-primary: #111111;
+  --accent-secondary: #333333;
+  --accent-hover: #000000;
+  --accent-glow: rgba(17, 17, 17, 0.08);
 
-  --danger: #B91C1C;
-  --danger-bg: rgba(185, 28, 28, 0.12);
-  --success: #15803D;
-  --success-bg: rgba(21, 128, 61, 0.12);
-  --warning: #B45309;
-  --warning-bg: rgba(180, 83, 9, 0.12);
+  /* Semantic */
+  --danger: #DC2626;
+  --danger-bg: rgba(220, 38, 38, 0.08);
+  --success: #16A34A;
+  --success-bg: rgba(22, 163, 74, 0.08);
+  --warning: #D97706;
+  --warning-bg: rgba(217, 119, 6, 0.08);
 
-  /* React Flow & Diagrams */
-  --flow-bg: #FDF6E3;
-  --flow-grid: #D4BE8D;
+  /* Positive delta */
+  --delta-positive: #16A34A;
+
+  /* CTA button — solid jet-black with white text */
+  --btn-primary-bg: #111111;
+  --btn-primary-text: #FFFFFF;
+  --btn-primary-hover: #000000;
+  --btn-primary-glow: rgba(17, 17, 17, 0.08);
+
+  /* React Flow & Diagrams (ER Canvas) */
+  --flow-bg: #E8E8EC;
+  --flow-grid: #D2D2D8;
+
+  /* Table Node ER */
+  --er-node-bg: #FFFFFF;
+  --er-node-border: #EBE6EE;
+  --er-node-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  --er-pk-badge: #6712DC;
+  --er-attr-bg: #F4F4F6;
+  --er-attr-text: #1E1E24;
+  --er-attr-type: #8E8E98;
+  --er-header-gradient-from: #8D3CFF;
+  --er-header-gradient-to: #FAF7FC;
+  --er-edge-color-from: #6712DC;
+  --er-edge-color-to: #8D3CFF;
+
+  /* Bento card styling */
+  --card-radius: 0px;
+  --card-hairline: 1px solid #DDE1E8;
+
+  /* Ambient glow — N/A for light, kept subtle */
+  --ambient-glow: rgba(17, 17, 17, 0.04);
+
+  /* Scrollbar */
+  --scrollbar-track: #F4F6F9;
+  --scrollbar-thumb: #CCD0D8;
+  --scrollbar-thumb-hover: #111111;
 }

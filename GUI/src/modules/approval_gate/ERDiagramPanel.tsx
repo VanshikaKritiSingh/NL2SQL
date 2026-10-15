@@ -42,13 +42,14 @@ export const ERDiagramPanel: React.FC<ERDiagramPanelProps> = ({ schema, impacted
     });
 
     const cols = 2;
-    const xGap = 340;
-    const yGap = 260;
+    const xGap = 360;
+    const yGap = 300;
 
     return schema.tables.map((tbl, i) => {
       const col = i % cols;
       const row = Math.floor(i / cols);
       const impact = impactedMap.get(tbl.name.toLowerCase());
+      const isSelected = i === 0 || impact !== undefined;
 
       return {
         id: tbl.name,
@@ -58,16 +59,21 @@ export const ERDiagramPanel: React.FC<ERDiagramPanelProps> = ({ schema, impacted
           table: tbl,
           impactLevel: impact ? impact.level : 'none',
           operation: impact?.operation || null,
+          isSelectedEntity: isSelected,
         },
       };
     });
-  }, [schema, impactedTables]);
+  }, [schema, impactedTables, isDark]);
 
-  // Convert schema foreign keys to React Flow edges
+  // Connectors: Link exact Foreign Key rows to Primary Key rows using orthogonal elbow paths
+  // Adapts stroke color and label styling according to the selected theme
   const initialEdges = useMemo(() => {
     if (!schema || !schema.foreign_keys) return [];
 
     const impactedNames = new Set(impactedTables.map((t) => t.name.toLowerCase()));
+    const edgeColor = isDark ? '#A78BFA' : '#6712DC';
+    const edgeLabelColor = isDark ? '#E0E7FF' : '#6712DC';
+    const edgeLabelBg = isDark ? '#1E1E2C' : '#FFFFFF';
 
     return schema.foreign_keys.map((fk, i) => {
       const isImpacted =
@@ -76,19 +82,26 @@ export const ERDiagramPanel: React.FC<ERDiagramPanelProps> = ({ schema, impacted
       return {
         id: `fk-${fk.from_table}-${fk.to_table}-${i}`,
         source: fk.from_table,
+        sourceHandle: `${fk.from_table}-${fk.from_column}`,
         target: fk.to_table,
+        targetHandle: `${fk.to_table}-${fk.to_column}`,
         type: 'smoothstep',
+        pathOptions: { borderRadius: 12 },
         animated: isImpacted,
         label: `${fk.from_column} → ${fk.to_column}`,
-        labelStyle: { fill: isDark ? '#94a3b8' : '#475569', fontSize: 10, fontFamily: 'monospace' },
-        labelBgStyle: { fill: isDark ? '#0f172a' : '#ffffff', fillOpacity: 0.9 },
+        labelStyle: { fill: edgeLabelColor, fontSize: 10, fontFamily: 'monospace', fontWeight: 600 },
+        labelBgStyle: { fill: edgeLabelBg, fillOpacity: 0.95, rx: 0, ry: 0 },
+        labelBgPadding: [6, 4] as [number, number],
         style: {
-          stroke: isImpacted ? '#f43f5e' : '#6366f1',
-          strokeWidth: isImpacted ? 2.5 : 1.5,
+          stroke: edgeColor,
+          strokeWidth: 2,
         },
         markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: isImpacted ? '#f43f5e' : '#6366f1',
+          type: MarkerType.Arrow, // Open V-shaped arrowhead per specification
+          color: edgeColor,
+          strokeWidth: 2,
+          width: 14,
+          height: 14,
         },
       };
     });
@@ -105,15 +118,25 @@ export const ERDiagramPanel: React.FC<ERDiagramPanelProps> = ({ schema, impacted
     setEdges(initialEdges);
   }, [initialEdges, setEdges]);
 
-  // Re-key ReactFlow when schema changes so fitView runs fresh on each schema load
-  const flowKey = schema ? schema.dialect + '-' + schema.tables.length : 'empty';
+  // Re-key ReactFlow when schema or theme changes so fitView runs fresh on theme toggle
+  const flowKey = schema ? `${schema.dialect}-${schema.tables.length}-${theme}` : `empty-${theme}`;
 
   return (
     <div
-      className={`w-full h-full rounded-xl overflow-hidden border relative transition-colors ${
-        'bg-[var(--bg-app)] border-[var(--border-main)]'
+      className={`w-full h-full rounded-none overflow-hidden relative shadow-inner ${
+        isDark ? 'border border-white/15 bg-[#101018]' : 'border border-[#DDE1E8] bg-[#E8E8EC]'
       }`}
     >
+      {/* SVG Gradient definitions for connectors */}
+      <svg className="absolute w-0 h-0 pointer-events-none">
+        <defs>
+          <linearGradient id="purpleConnectorGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor={isDark ? '#8E94F2' : '#6712DC'} />
+            <stop offset="100%" stopColor={isDark ? '#C4B5FD' : '#8D3CFF'} />
+          </linearGradient>
+        </defs>
+      </svg>
+
       <ReactFlow
         key={flowKey}
         nodes={nodes}
@@ -128,35 +151,62 @@ export const ERDiagramPanel: React.FC<ERDiagramPanelProps> = ({ schema, impacted
       >
         <Background
           variant={BackgroundVariant.Dots}
-          gap={16}
-          size={1}
-          color={isDark ? '#4338CA' : '#C89B3C'}
+          gap={20}
+          size={1.5}
+          color={isDark ? 'rgba(255, 255, 255, 0.15)' : '#D2D2D8'}
         />
         <Controls
-          className={`border rounded-lg ${
-            'bg-[var(--bg-card)] border-[var(--border-subtle)] text-[var(--text-main)]'
-          }`}
+          className={
+            isDark
+              ? '!bg-[#181824] !border !border-white/20 !shadow-2xl !rounded-none overflow-hidden [&_button]:!bg-[#181824] [&_button]:!border-white/15 [&_button]:!fill-slate-300 [&_button:hover]:!bg-[#222232] [&_path]:!fill-slate-300'
+              : '!bg-white !border !border-[#EBE6EE] !shadow-lg !rounded-none overflow-hidden [&_button]:!bg-white [&_button]:!border-[#EBE6EE] [&_button]:!fill-slate-600 [&_button:hover]:!bg-[#F4F4F6]'
+          }
         />
         <MiniMap
-          nodeColor={(n) => (n.data?.impactLevel === 'direct' ? '#f43f5e' : '#4f46e5')}
-          maskColor={isDark ? 'rgba(15, 23, 42, 0.7)' : 'rgba(241, 245, 249, 0.7)'}
-          className={`border rounded-lg ${'bg-[var(--bg-card)] border-[var(--border-subtle)]'}`}
+          nodeColor={(n) => {
+            if (n.data?.impactLevel === 'direct') return isDark ? '#F43F5E' : '#E11D48';
+            return isDark ? '#8E94F2' : '#6712DC';
+          }}
+          maskColor={isDark ? 'rgba(16, 16, 24, 0.75)' : 'rgba(232, 232, 236, 0.7)'}
+          className={
+            isDark
+              ? '!bg-[#181824] !border !border-white/20 !rounded-none !shadow-xl'
+              : '!bg-white !border !border-[#EBE6EE] !rounded-none !shadow-md'
+          }
         />
       </ReactFlow>
 
-      {/* Legend Badge Overlay */}
+      {/* Floating Node Inspector UI / Legend Overlay */}
       <div
-        className={`absolute top-3 left-3 border rounded-lg p-2.5 text-[11px] font-mono shadow-lg flex items-center gap-4 ${
-          'bg-[var(--bg-card)] border-[var(--border-subtle)] text-[var(--text-main)]'
+        className={`absolute top-3 left-3 backdrop-blur-md rounded-none p-2.5 text-[11px] font-sans shadow-lg flex items-center gap-4 ${
+          isDark
+            ? 'bg-[#181824]/95 border border-white/15 text-slate-200'
+            : 'bg-white/95 border border-[#EBE6EE] text-[#1E1E24]'
         }`}
       >
-        <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded bg-rose-500/20 border-2 border-rose-500" />
-          <span className={'text-[var(--text-secondary)]'}>Direct Write Target</span>
+        <div className="flex items-center gap-2">
+          <span
+            className={`w-4 h-4 rounded-none text-white text-[8px] font-bold flex items-center justify-center ${
+              isDark ? 'bg-[#7B2CBF]' : 'bg-[#6712DC]'
+            }`}
+          >
+            PK
+          </span>
+          <span className={`font-medium ${isDark ? 'text-slate-200' : 'text-[#1E1E24]'}`}>Primary Key</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded bg-amber-500/20 border-2 border-amber-400" />
-          <span className={'text-[var(--text-secondary)]'}>Referenced / Cascade</span>
+        <div className="flex items-center gap-2">
+          <span
+            className={`w-4 h-4 rounded-none text-white text-[8px] font-bold flex items-center justify-center ${
+              isDark ? 'bg-[#9D4EDD]' : 'bg-[#8D3CFF]'
+            }`}
+          >
+            FK
+          </span>
+          <span className={`font-medium ${isDark ? 'text-slate-200' : 'text-[#1E1E24]'}`}>Foreign Key</span>
+        </div>
+        <div className={`flex items-center gap-1.5 text-[10px] font-mono ${isDark ? 'text-slate-400' : 'text-[#8E8E98]'}`}>
+          <span className={`w-4 h-0.5 ${isDark ? 'bg-[#8E94F2]' : 'bg-[#6712DC]'}`} />
+          <span>Elbow Connectors (12px bend)</span>
         </div>
       </div>
     </div>

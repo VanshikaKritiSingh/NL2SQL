@@ -195,28 +195,202 @@ async def list_accessible_databases(req: ListDatabasesRequest):
         )
 
 
+# ─── Dependency Map: Connector → pip packages ───────────────────────────────
+CONNECTOR_DEPS = {
+    "sqlite": [],  # stdlib, no extra deps
+    "duckdb": ["duckdb"],
+    "postgres": ["psycopg2-binary"],
+    "mysql": ["pymysql"],
+    "clickhouse": [],  # uses stdlib urllib (HTTP API)
+    "mongodb": ["pymongo"],
+    "neo4j": ["neo4j"],
+    "redis": ["redis"],
+    "cassandra": ["cassandra-driver"],
+    "dynamodb": ["boto3"],
+}
+
+
+class InstallDepsRequest(BaseModel):
+    connector_type: str = Field(..., description="Target connector type (e.g. mysql, postgres)")
+
+
+@router.post("/install-deps")
+async def install_connector_dependencies(req: InstallDepsRequest):
+    """
+    Automatically installs Python driver packages required for the selected connector.
+    Runs `pip install` in a subprocess and returns real-time status.
+    """
+    import subprocess
+    import sys
+
+    ct = req.connector_type.lower().strip()
+    if ct not in CONNECTOR_DEPS:
+        raise HTTPException(status_code=400, detail=f"Unknown connector type: '{ct}'. Supported: {list(CONNECTOR_DEPS.keys())}")
+
+    packages = CONNECTOR_DEPS[ct]
+    if not packages:
+        return {
+            "ok": True,
+            "connector_type": ct,
+            "packages": [],
+            "message": f"No external dependencies needed for {ct} — it uses Python stdlib or built-in HTTP.",
+            "already_installed": True,
+        }
+
+    # Check which are already installed
+    already = []
+    missing = []
+    for pkg in packages:
+        import_name = pkg.replace("-", "_").replace("psycopg2_binary", "psycopg2")
+        try:
+            __import__(import_name)
+            already.append(pkg)
+        except ImportError:
+            missing.append(pkg)
+
+    if not missing:
+        return {
+            "ok": True,
+            "connector_type": ct,
+            "packages": already,
+            "message": f"All dependencies for {ct} are already installed: {', '.join(already)}",
+            "already_installed": True,
+        }
+
+    # Install missing packages
+    install_log = []
+    failed = []
+    for pkg in missing:
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "install", pkg, "--quiet", "--disable-pip-version-check"],
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            if result.returncode == 0:
+                install_log.append({"package": pkg, "status": "installed", "output": result.stdout.strip()})
+            else:
+                install_log.append({"package": pkg, "status": "failed", "error": result.stderr.strip()})
+                failed.append(pkg)
+        except subprocess.TimeoutExpired:
+            install_log.append({"package": pkg, "status": "timeout", "error": "Installation timed out after 120s"})
+            failed.append(pkg)
+        except Exception as e:
+            install_log.append({"package": pkg, "status": "error", "error": str(e)})
+            failed.append(pkg)
+
+    if failed:
+        return {
+            "ok": False,
+            "connector_type": ct,
+            "packages": packages,
+            "install_log": install_log,
+            "message": f"Failed to install: {', '.join(failed)}. Check pip and network.",
+            "already_installed": False,
+        }
+
+    return {
+        "ok": True,
+        "connector_type": ct,
+        "packages": packages,
+        "install_log": install_log,
+        "message": f"Successfully installed {', '.join(missing)} for {ct} connector.",
+        "already_installed": False,
+    }
+
+
+@router.get("/check-deps/{connector_type}")
+async def check_connector_dependencies(connector_type: str):
+    """
+    Checks whether the Python driver packages for a given connector type are installed.
+    Returns installed/missing status for each package.
+    """
+    ct = connector_type.lower().strip()
+    if ct not in CONNECTOR_DEPS:
+        raise HTTPException(status_code=400, detail=f"Unknown connector type: '{ct}'")
+
+    packages = CONNECTOR_DEPS[ct]
+    if not packages:
+        return {
+            "ok": True,
+            "connector_type": ct,
+            "all_installed": True,
+            "packages": [],
+            "message": f"{ct} uses Python stdlib — no external packages needed.",
+        }
+
+    status_list = []
+    all_ok = True
+    for pkg in packages:
+        import_name = pkg.replace("-", "_").replace("psycopg2_binary", "psycopg2")
+        try:
+            mod = __import__(import_name)
+            ver = getattr(mod, "__version__", getattr(mod, "version", "unknown"))
+            status_list.append({"package": pkg, "installed": True, "version": str(ver)})
+        except ImportError:
+            status_list.append({"package": pkg, "installed": False, "version": None})
+            all_ok = False
+
+    return {
+        "ok": True,
+        "connector_type": ct,
+        "all_installed": all_ok,
+        "packages": status_list,
+        "message": "All dependencies ready." if all_ok else f"Missing packages: {', '.join(p['package'] for p in status_list if not p['installed'])}",
+    }
+
+
 @router.get("/models")
 async def list_available_models():
-    """Lists available local LLM models from Ollama daemon."""
+    """Lists available local LLM models dynamically from local Ollama daemon, including thinking capabilities."""
     import urllib.request
     import json
     try:
         req = urllib.request.Request("http://127.0.0.1:11434/api/tags", headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=3.0) as resp:
             data = json.loads(resp.read().decode())
-            models = [m.get("name") for m in data.get("models", []) if m.get("name")]
+            models = []
+            model_details = []
+            for m in data.get("models", []):
+                name = m.get("name")
+                if not name:
+                    continue
+                models.append(name)
+                caps = m.get("capabilities", [])
+                model_details.append({
+                    "name": name,
+                    "family": m.get("details", {}).get("family", ""),
+                    "parameter_size": m.get("details", {}).get("parameter_size", ""),
+                    "supports_thinking": "thinking" in caps,
+                })
+            
+            # Intelligently pick best default model from installed models
+            best_default = None
+            if models:
+                preferred_keywords = ["coder", "sql", "llama3.2", "qwen2.5", "qwen3", "mistral", "gemma"]
+                for kw in preferred_keywords:
+                    match = next((m for m in models if kw in m.lower()), None)
+                    if match:
+                        best_default = match
+                        break
+                if not best_default:
+                    best_default = models[0]
+
             return {
                 "ok": True,
                 "online": True,
-                "models": models if models else ["qwen2.5:0.5b"],
-                "default": "qwen2.5:0.5b" if "qwen2.5:0.5b" in models else (models[0] if models else "qwen2.5:0.5b"),
+                "models": models,
+                "model_details": model_details,
+                "default": best_default or "offline_synthesizer",
             }
     except Exception as e:
         return {
             "ok": True,
             "online": False,
-            "models": ["qwen2.5:0.5b", "gemma:latest"],
-            "default": "qwen2.5:0.5b",
+            "models": [],
+            "model_details": [],
+            "default": "offline_synthesizer",
             "error": str(e),
         }
 

@@ -95,6 +95,30 @@ def test_backend_api():
     assert len(res.json()) == 0
     print("[OK] Clear all history passed")
 
+    # 10. Myspire Connector Dependencies & Connection tests
+    res = client.get("/api/connections/check-deps/sqlite")
+    assert res.status_code == 200
+    assert res.json()["all_installed"] is True
+    print("[OK] Check deps (sqlite) passed:", res.json()["message"])
+
+    res = client.get("/api/connections/check-deps/mysql")
+    assert res.status_code == 200
+    print("[OK] Check deps (mysql) passed, all_installed:", res.json()["all_installed"])
+
+    res = client.post("/api/connections/install-deps", json={"connector_type": "sqlite"})
+    assert res.status_code == 200
+    assert res.json()["ok"] is True
+    assert res.json()["already_installed"] is True
+    print("[OK] Install deps (sqlite auto-setup) passed")
+
+    res = client.post("/api/connections/test", json={
+        "connector_type": "sqlite",
+        "database": ":memory:"
+    })
+    assert res.status_code == 200
+    assert res.json()["ok"] is True
+    print("[OK] Test connection (sqlite :memory:) passed, dialect:", res.json()["dialect"])
+
     print("\nALL BACKEND ENDPOINTS AND INTEGRATION STUBS VERIFIED 100% OPERATIONAL!")
 
 if __name__ == "__main__":

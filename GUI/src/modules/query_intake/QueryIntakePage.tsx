@@ -1,4 +1,4 @@
-// src/modules/m1/QueryIntakePage.tsx
+// src/modules/query_intake/QueryIntakePage.tsx
 import React, { useEffect } from 'react';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { HistorySidebar } from './HistorySidebar';
@@ -27,7 +27,9 @@ export const QueryIntakePage: React.FC = () => {
 
       {/* Main Workspace Area */}
       <main
-        className="flex-1 flex flex-col p-4 gap-3 overflow-hidden transition-colors bg-[var(--bg-app)]"
+        className={`flex-1 flex flex-col p-4 gap-3 overflow-hidden transition-colors duration-300 ${
+          isDark ? 'bg-[var(--bg-app)]' : 'bg-white'
+        }`}
       >
         {/* Natural Language Query Intake Box */}
         <NLQueryInput />
@@ -40,8 +42,10 @@ export const QueryIntakePage: React.FC = () => {
               <SqlInspector />
             </Panel>
 
-            <PanelResizeHandle className="w-2 hover:bg-[var(--accent-glow)] transition-colors cursor-col-resize flex items-center justify-center">
-              <div className="w-0.5 h-6 rounded-full bg-[var(--border-main)]" />
+            <PanelResizeHandle className={`w-2 transition-colors cursor-col-resize flex items-center justify-center rounded-none ${
+              isDark ? 'hover:bg-[var(--accent-primary)]/20' : 'hover:bg-[#111111]/10'
+            }`}>
+              <div className={`w-0.5 h-8 rounded-none ${isDark ? 'bg-[var(--border-main)]' : 'bg-[var(--border-main)]'}`} />
             </PanelResizeHandle>
 
             {/* Right Panel: Result Table / Status */}

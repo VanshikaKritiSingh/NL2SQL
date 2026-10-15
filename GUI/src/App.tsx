@@ -58,19 +58,25 @@ export default function App() {
   const isDark = theme === 'dark';
 
   return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden bg-[var(--bg-app)] text-[var(--text-main)] transition-colors duration-200">
-      {/* Global Top Bar */}
-      <TopBar />
+    <div className={`h-screen w-screen flex items-center justify-center overflow-hidden transition-colors duration-300 ${isDark ? 'bg-[#0E0E14]' : 'bg-[#E5E8EF]'}`}>
+      <div className={`h-full w-full flex flex-col overflow-hidden transition-colors duration-300 ${isDark ? 'bg-[var(--bg-app)]' : 'floating-app'} text-[var(--text-main)]`}>
+        {/* Ambient glow overlay for dark theme header */}
+        {isDark && (
+          <div className="absolute inset-x-0 top-0 h-40 pointer-events-none ambient-glow-header z-0" />
+        )}
 
-      {/* Main View Router */}
-      <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
-        {currentView === 'query' && <QueryIntakePage />}
-        {currentView === 'approval' && <ApprovalGatePage />}
-      </main>
+        {/* Global Top Bar */}
+        <TopBar />
 
-      {/* Cross-Cutting Observability Status Bar */}
-      <StatusBar />
+        {/* Main View Router */}
+        <main className="flex-1 min-h-0 flex flex-col overflow-hidden relative z-10">
+          {currentView === 'query' && <QueryIntakePage />}
+          {currentView === 'approval' && <ApprovalGatePage />}
+        </main>
+
+        {/* Cross-Cutting Observability Status Bar */}
+        <StatusBar />
+      </div>
     </div>
   );
 }
-

@@ -1,40 +1,137 @@
 @import "tailwindcss";
 @import "./theme.css";
 
-/* Enforce crisp zero rounded corners across entire interface */
+/* ─── Global reset & Sharp 90-Degree Corners ─── */
 *, *::before, *::after {
+  box-sizing: border-box;
   border-radius: 0px !important;
 }
 
 @layer base {
-  * {
-    box-sizing: border-box;
-  }
-
   html, body {
     height: 100%;
     margin: 0;
     padding: 0;
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    background-color: var(--bg-app);
+    font-family: 'Inter', 'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background-color: var(--bg-outer);
     color: var(--text-main);
-    letter-spacing: 0.15px;
-    transition: background-color 0.2s ease, color 0.2s ease;
+    letter-spacing: 0.01em;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  #root {
+    height: 100%;
   }
 }
 
-/* Custom crisp scrollbars — no rounded thumb, theme-aware */
+/* ─── Smooth scrollbar — theme-aware & sharp ─── */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-app);
+  background: var(--scrollbar-track);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border-main);
+  background: var(--scrollbar-thumb);
   border-radius: 0px !important;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-primary);
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* ─── Ambient purple glow backgrounds (dark theme) ─── */
+.dark .ambient-glow-header {
+  background: radial-gradient(ellipse at 80% 0%, rgba(157,123,255,0.18) 0%, transparent 60%);
+}
+.dark .ambient-glow-sidebar {
+  background: radial-gradient(ellipse at 50% 50%, rgba(157,123,255,0.10) 0%, transparent 70%);
+}
+.dark .ambient-glow-btn {
+  box-shadow: 0 4px 28px rgba(142,148,242,0.30), 0 1px 6px rgba(142,148,242,0.15);
+}
+
+/* ─── Bento card styles ─── */
+.bento-card {
+  border-radius: 0px !important;
+  border: var(--card-hairline);
+  transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+/* ─── Floating app container (light theme) ─── */
+.light .floating-app {
+  border-radius: 0px !important;
+  background: #FFFFFF;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.04);
+}
+
+/* ─── Recessed input / secondary panel (light theme) ─── */
+.recessed-panel {
+  background: var(--bg-card);
+  border-radius: 0px !important;
+  border: none;
+}
+
+/* ─── Soft-UI selected row highlight (light) ─── */
+.light .row-selected {
+  background-color: #EDF0F7;
+}
+
+/* ─── Fade-in animation for modals ─── */
+@keyframes fade-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+/* ─── Universal Modal Overlay (Centered, No Viewport Overflow) ─── */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  z-index: 9999;
+  overflow-y: auto;
+}
+
+/* ─── React Flow overrides for ER canvas ─── */
+.react-flow__background {
+  background-color: var(--flow-bg) !important;
+}
+
+.react-flow__controls button {
+  background: var(--bg-card) !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--text-main) !important;
+  border-radius: 0px !important;
+}
+
+.react-flow__minimap {
+  border-radius: 0px !important;
+}
+
+/* ─── Global pill badge style ─── */
+.pill-badge {
+  border-radius: 0px !important;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* ─── Glow spline chart support (dark) ─── */
+.dark .glow-spline {
+  filter: drop-shadow(0 0 8px rgba(142,148,242,0.40));
 }

@@ -1,6 +1,6 @@
 // src/modules/query_intake/ResultPanel.tsx
 import React, { useState, useEffect } from 'react';
-import { Table, AlertTriangle, ShieldAlert, Zap, Server, Database, CheckCircle, ExternalLink, GitBranch } from 'lucide-react';
+import { Table, AlertTriangle, ShieldAlert, Zap, Server, Database, CheckCircle } from 'lucide-react';
 import { useQueryStore } from '../../store/useQueryStore';
 import { useAppStore } from '../../store/useAppStore';
 import { EmptyState } from '../../shared/EmptyState';
@@ -12,6 +12,8 @@ import type { SchemaInfo } from '../../types/schema';
 export const ResultPanel: React.FC = () => {
   const lastResponse = useQueryStore((s) => s.lastResponse);
   const targetDialect = useAppStore((s) => s.targetDialect);
+  const theme = useAppStore((s) => s.theme);
+  const isDark = theme === 'dark';
   const [isApprovalOpen, setIsApprovalOpen] = useState(false);
   const [isERDiagramOpen, setIsERDiagramOpen] = useState(false);
   const [schema, setSchema] = useState<SchemaInfo | null>(null);
@@ -23,10 +25,10 @@ export const ResultPanel: React.FC = () => {
   if (!lastResponse) {
     return (
       <div
-        className="flex flex-col h-full border rounded-xl overflow-hidden shadow-lg transition-colors bg-[var(--bg-card)] border-[var(--border-main)]"
+        className="flex flex-col h-full overflow-hidden shadow-lg transition-all duration-300 bento-card rounded-none"
       >
         <EmptyState
-          icon={<Table className="w-6 h-6 text-[var(--accent-primary)]" />}
+          icon={<Table className={`w-6 h-6 ${isDark ? 'text-[var(--accent-primary)]' : 'text-[var(--accent-primary)]'}`} />}
           title="Sandbox Execution Results"
           description="Read-only query outputs or execution statuses will display here."
         />
@@ -38,13 +40,17 @@ export const ResultPanel: React.FC = () => {
   if (lastResponse.status === 'error') {
     return (
       <div
-        className="flex flex-col h-full border rounded-xl overflow-hidden shadow-lg p-6 justify-center items-center text-center transition-colors bg-[var(--bg-card)] border-[var(--border-main)]"
+        className="flex flex-col h-full overflow-hidden shadow-lg p-6 justify-center items-center text-center transition-all duration-300 bento-card rounded-none"
       >
-        <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-500 mb-3">
+        <div className="w-12 h-12 rounded-none bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-500 mb-3">
           <AlertTriangle className="w-6 h-6" />
         </div>
         <h3 className="text-base font-semibold text-rose-500 mb-1">Execution Blocked</h3>
-        <p className="text-xs text-rose-400 max-w-md font-mono bg-rose-500/10 p-3 rounded-lg border border-rose-500/20">
+        <p className={`text-xs max-w-md font-mono p-3 rounded-none border ${
+          isDark
+            ? 'text-rose-400 bg-rose-500/10 border-rose-500/20'
+            : 'text-rose-600 bg-rose-50 border-rose-200'
+        }`}>
           {lastResponse.error_message || 'Pipeline validator or safety gate rejected this query.'}
         </p>
       </div>
@@ -59,19 +65,31 @@ export const ResultPanel: React.FC = () => {
 
     return (
       <div
-        className="flex flex-col h-full border rounded-xl overflow-hidden shadow-lg p-6 justify-center items-center text-center transition-colors bg-[var(--bg-card)] border-[var(--border-main)]"
+        className="flex flex-col h-full overflow-hidden shadow-lg p-6 justify-center items-center text-center transition-all duration-300 bento-card rounded-none"
       >
-        <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 mb-3">
+        <div className={`w-12 h-12 rounded-none flex items-center justify-center mb-3 ${
+          isDark
+            ? 'bg-amber-500/10 border border-amber-500/30 text-amber-400'
+            : 'bg-amber-50 border border-amber-200 text-amber-600'
+        }`}>
           <ShieldAlert className="w-6 h-6" />
         </div>
-        <h3 className="text-base font-semibold text-amber-500 mb-1">
+        <h3 className={`text-base font-semibold mb-1 ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
           Mutating Statement · Approval Required
         </h3>
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-[11px] px-2 py-0.5 rounded font-mono font-semibold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
+          <span className={`text-[11px] px-2.5 py-0.5 rounded-none font-mono font-semibold uppercase ${
+            isDark
+              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+              : 'bg-amber-50 text-amber-700 border border-amber-200'
+          }`}>
             Risk: {riskTier}
           </span>
-          <span className="text-[11px] px-2 py-0.5 rounded font-mono bg-[var(--bg-card-header)] border border-[var(--border-subtle)] text-[var(--text-muted)]">
+          <span className={`text-[11px] px-2.5 py-0.5 rounded-none font-mono ${
+            isDark
+              ? 'bg-[var(--bg-card-header)] border border-[var(--border-main)] text-[var(--text-muted)]'
+              : 'bg-[var(--bg-card-header)] border border-[var(--border-subtle)] text-[var(--text-muted)]'
+          }`}>
             Target: {lastResponse.database_profile || 'Connected DBMS'}
           </span>
         </div>
@@ -82,7 +100,11 @@ export const ResultPanel: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsApprovalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-rose-600/25 transition-all cursor-pointer"
+            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-none text-xs font-semibold shadow-lg transition-all cursor-pointer ${
+              isDark
+                ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/25'
+                : 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/20'
+            }`}
           >
             <ShieldAlert className="w-3.5 h-3.5" />
             <span>Make Changes to Database</span>
@@ -90,9 +112,13 @@ export const ResultPanel: React.FC = () => {
 
           <button
             onClick={() => setIsERDiagramOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 border rounded-lg text-xs font-semibold transition-all cursor-pointer bg-[var(--bg-card-header)] border-[var(--border-subtle)] text-[var(--text-main)] hover:bg-[var(--bg-hover)]"
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-none text-xs font-semibold transition-all cursor-pointer ${
+              isDark
+                ? 'bg-[var(--bg-card-header)] border border-[var(--border-main)] text-[var(--text-main)] hover:bg-[var(--bg-hover)]'
+                : 'bg-white border border-[var(--border-subtle)] text-[var(--text-main)] hover:bg-[var(--bg-hover)]'
+            }`}
           >
-            <Database className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
+            <Database className={`w-3.5 h-3.5 ${isDark ? 'text-[var(--accent-primary)]' : 'text-[var(--accent-primary)]'}`} />
             <span>{isDDL ? 'View Updated ER Diagram' : 'View ER Diagram'}</span>
           </button>
         </div>
@@ -125,61 +151,83 @@ export const ResultPanel: React.FC = () => {
 
   return (
     <div
-      className="flex flex-col h-full border rounded-xl overflow-hidden shadow-lg transition-colors bg-[var(--bg-card)] border-[var(--border-main)]"
+      className="flex flex-col h-full overflow-hidden shadow-lg transition-all duration-300 bento-card rounded-none"
     >
       {/* Header */}
       <div
-        className="h-10 px-3 border-b flex items-center justify-between shrink-0 transition-colors border-[var(--border-subtle)] bg-[var(--bg-card-header)]"
+        className={`min-h-10 h-auto py-1.5 px-3 border-b flex flex-wrap gap-2 items-center justify-between shrink-0 transition-colors rounded-none ${
+          isDark
+            ? 'border-[var(--border-main)] bg-[var(--bg-card-header)]'
+            : 'border-[var(--border-subtle)] bg-[var(--bg-card-header)]'
+        }`}
       >
-        <div className="flex items-center gap-2">
-          <Server className="w-4 h-4 text-[var(--success)]" />
-          <span className="text-xs font-semibold text-[var(--text-main)]">
+        <div className="flex flex-wrap items-center gap-2 shrink-0 min-w-0">
+          <Server className="w-4 h-4 text-[var(--success)] shrink-0" />
+          <span className="text-xs font-semibold text-[var(--text-main)] whitespace-nowrap">
             Execution Output
           </span>
           {lastResponse.cache_hit && (
-            <span className="flex items-center gap-1 text-[10px] font-semibold uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 px-1.5 py-0.5 rounded">
+            <span className={`flex items-center gap-1 text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-none whitespace-nowrap shrink-0 ${
+              isDark
+                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+            }`}>
               <Zap className="w-3 h-3" /> Cache Hit
             </span>
           )}
-          <span className="text-[10px] font-mono bg-[var(--bg-card-header)] px-1.5 py-0.5 rounded border border-[var(--border-subtle)] text-[var(--text-muted)]">
+          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-none whitespace-nowrap shrink-0 ${
+            isDark
+              ? 'bg-[var(--bg-card-header)] border border-[var(--border-main)] text-[var(--text-muted)]'
+              : 'bg-[var(--bg-card-header)] border border-[var(--border-subtle)] text-[var(--text-muted)]'
+          }`}>
             {lastResponse.execution_mode === 'live_database' ? 'Live DB Socket' : 'Preview / Dry-Run'}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
           <button
             onClick={() => setIsERDiagramOpen(true)}
-            className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded border transition-colors cursor-pointer bg-[var(--bg-card)] border-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-hover)]"
+            className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-none transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
+              isDark
+                ? 'bg-[var(--bg-card)] border border-[var(--border-main)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-hover)]'
+                : 'bg-white border border-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-hover)]'
+            }`}
             title="Inspect Schema ER Diagram"
           >
-            <Database className="w-3 h-3 text-[var(--accent-primary)]" />
+            <Database className={`w-3 h-3 ${isDark ? 'text-[var(--accent-primary)]' : 'text-[var(--accent-primary)]'}`} />
             <span>Schema ER</span>
           </button>
-          <span className="text-xs font-mono text-[var(--text-muted)]">
+          <span className="text-xs font-mono text-[var(--text-muted)] whitespace-nowrap shrink-0">
             {resultData?.row_count || 0} rows
           </span>
         </div>
       </div>
 
       {/* Table Data */}
-      <div className="flex-1 overflow-auto">
+      <div className={`flex-1 min-h-0 w-full overflow-x-auto overflow-y-auto rounded-none ${isDark ? 'bg-[var(--bg-card)]' : 'bg-[var(--bg-card)]'}`}>
         {resultData && resultData.rows.length > 0 ? (
-          <table className="w-full text-left text-xs border-collapse font-mono">
+          <table className="min-w-full text-left text-xs border-collapse font-mono">
             <thead
-              className="sticky top-0 border-b text-[11px] bg-[var(--bg-card-header)] border-[var(--border-subtle)] text-[var(--text-secondary)]"
+              className={`sticky top-0 border-b text-[11px] ${
+                isDark
+                  ? 'bg-[var(--bg-card-header)] border-[var(--border-main)] text-[var(--text-secondary)]'
+                  : 'bg-[var(--bg-card-header)] border-[var(--border-subtle)] text-[var(--text-secondary)]'
+              }`}
             >
               <tr>
                 {resultData.columns.map((col) => (
-                  <th key={col} className="px-3 py-2 font-semibold">
+                  <th key={col} className="px-3 py-2 font-bold whitespace-nowrap">
                     {col}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--border-subtle)] text-[var(--text-main)]">
+            <tbody className={`divide-y text-[var(--text-main)] ${
+              isDark ? 'divide-[var(--border-main)]' : 'divide-[var(--border-subtle)]'
+            }`}>
               {resultData.rows.map((row, idx) => (
                 <tr
                   key={idx}
-                  className="transition-colors hover:bg-[var(--bg-hover)]"
+                  className={`transition-colors ${isDark ? 'hover:bg-[var(--bg-hover)]' : 'hover:bg-[#EDF0F7]'}`}
                 >
                   {resultData.columns.map((col) => (
                     <td key={col} className="px-3 py-2 whitespace-nowrap">

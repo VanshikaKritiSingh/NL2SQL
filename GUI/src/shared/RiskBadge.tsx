@@ -11,15 +11,15 @@ export const RiskBadge: React.FC<RiskBadgeProps> = ({ level, className = '' }) =
   const norm = (level || 'low').toLowerCase();
 
   const styles = {
-    low: 'bg-emerald-950/80 text-emerald-400 border-emerald-800',
-    medium: 'bg-amber-950/80 text-amber-400 border-amber-800',
-    high: 'bg-rose-950/80 text-rose-400 border-rose-800',
-    critical: 'bg-red-950 text-red-400 border-red-700 animate-pulse font-bold',
-  }[norm] || 'bg-slate-800 text-slate-300 border-slate-700';
+    low: 'bg-[#2ECC71]/15 text-[#2ECC71] border-[#2ECC71]/30',
+    medium: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+    high: 'bg-rose-500/15 text-rose-400 border-rose-500/30',
+    critical: 'bg-red-500/20 text-red-400 border-red-500/40 animate-pulse font-bold',
+  }[norm] || 'bg-slate-500/15 text-slate-300 border-slate-500/30';
 
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded text-xs uppercase tracking-wider font-semibold border ${styles} ${className}`}
+      className={`inline-flex items-center px-2.5 py-0.5 rounded-none text-xs uppercase tracking-wider font-semibold border ${styles} ${className}`}
     >
       {norm} Risk
     </span>

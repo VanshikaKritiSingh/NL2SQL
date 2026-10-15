@@ -92,6 +92,7 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
         user_id=request.user_id,
         user_role="analyst",
         model_name=request.model_name,
+        thinking_enabled=request.thinking_enabled,
     )
 
     compiled_sql = plan.transpilation_result.compiled_query
@@ -165,7 +166,7 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
             database_profile=active_db_name,
             is_live_db_connected=is_attached,
             execution_mode="live_connected" if is_attached else "preview_sandbox",
-            model_name=request.model_name or "clef-flash:latest",
+            model_name=plan.model_name or request.model_name or "auto",
         )
     else:
         # READ Query -> live results if socket attached, else sandbox preview
@@ -222,6 +223,7 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
             database_profile=request.database_profile or "master_enterprise",
             is_live_db_connected=is_live,
             execution_mode=exec_mode,
+            model_name=plan.model_name or request.model_name or "auto",
         )
 
     stored_responses[response.query_id] = response

@@ -24,27 +24,37 @@ export const SqlInspector: React.FC = () => {
 
   return (
     <div
-      className="flex flex-col h-full border rounded-xl overflow-hidden shadow-lg transition-colors bg-[var(--bg-card)] border-[var(--border-main)]"
+      className="flex flex-col h-full overflow-hidden shadow-lg transition-all duration-300 bento-card rounded-none"
     >
       {/* Header */}
       <div
-        className="h-10 px-3 border-b flex items-center justify-between shrink-0 transition-colors border-[var(--border-subtle)] bg-[var(--bg-card-header)]"
+        className={`min-h-10 h-auto py-1.5 px-3 border-b flex flex-wrap gap-2 items-center justify-between shrink-0 transition-colors rounded-none ${
+          isDark
+            ? 'border-[var(--border-main)] bg-[var(--bg-card-header)]'
+            : 'border-[var(--border-subtle)] bg-[var(--bg-card-header)]'
+        }`}
       >
-        <div className="flex items-center gap-2">
-          <Code2 className="w-4 h-4 text-[var(--accent-primary)]" />
-          <span className="text-xs font-semibold text-[var(--text-main)]">
+        <div className="flex flex-wrap items-center gap-2 shrink-0 min-w-0">
+          <Code2 className={`w-4 h-4 shrink-0 ${isDark ? 'text-[var(--accent-primary)]' : 'text-[var(--accent-primary)]'}`} />
+          <span className="text-xs font-semibold text-[var(--text-main)] whitespace-nowrap">
             Generated SQL
           </span>
-          <span
-            className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border-subtle)]"
-          >
+          <span className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded-none whitespace-nowrap shrink-0 ${
+            isDark
+              ? 'bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border-main)]'
+              : 'bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border-subtle)]'
+          }`}>
             {targetDialect} Dialect
           </span>
         </div>
         {sql && (
           <button
             onClick={handleCopy}
-            className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-subtle)]"
+            className={`flex items-center gap-1 text-xs px-2 py-1 rounded-none transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
+              isDark
+                ? 'text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-main)]'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-main)] bg-white hover:bg-[var(--bg-hover)] border border-[var(--border-subtle)]'
+            }`}
           >
             {copied ? (
               <>
@@ -62,7 +72,7 @@ export const SqlInspector: React.FC = () => {
       </div>
 
       {/* Editor Body */}
-      <div className="flex-1 relative">
+      <div className={`flex-1 relative ${isDark ? 'bg-[var(--bg-card)]' : 'bg-[var(--bg-card)]'}`}>
         {sql ? (
           <Editor
             height="100%"

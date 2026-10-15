@@ -69,36 +69,42 @@ export const DialectSelector: React.FC = () => {
 
   return (
     <div
-      className={`flex items-center gap-1.5 border rounded-lg px-2.5 py-1 text-xs transition-colors shadow-xs ${
+      className={`flex items-center gap-1.5 border rounded-none px-2.5 py-1.5 text-xs transition-all shrink-0 whitespace-nowrap ${
         isAuto
-          ? 'bg-[var(--accent-glow)] border-[var(--accent-primary)] text-[var(--accent-primary)] font-semibold'
+          ? isDark
+            ? 'bg-[var(--accent-primary)]/15 border-[var(--accent-primary)]/40 text-[var(--accent-primary)] font-semibold shadow-xs'
+            : 'bg-[#111111] text-white border-[#111111] font-semibold shadow-xs'
+          : isDark
+          ? 'bg-[var(--bg-card)] border-[var(--border-main)] text-[var(--text-main)]'
           : 'bg-[var(--bg-card)] border-[var(--border-subtle)] text-[var(--text-main)]'
       }`}
     >
       {isAuto ? (
-        <Sparkles className="w-3.5 h-3.5 text-[var(--warning)] animate-pulse" />
+        <Sparkles className={`w-3.5 h-3.5 shrink-0 ${isDark ? 'text-[var(--accent-primary)] animate-pulse' : 'text-amber-400 animate-pulse'}`} />
       ) : (
-        <Database className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
+        <Database className={`w-3.5 h-3.5 shrink-0 ${isDark ? 'text-[var(--accent-primary)]' : 'text-[var(--accent-primary)]'}`} />
       )}
-      <span className="font-medium text-[var(--text-muted)]">
+      <span className={`font-medium shrink-0 whitespace-nowrap ${isAuto && !isDark ? 'text-white/80' : 'text-[var(--text-muted)]'}`}>
         DBMS Target:
       </span>
       <select
         value={targetDialect}
         onChange={(e) => setTargetDialect(e.target.value as TargetDialect)}
-        className="bg-transparent font-medium focus:outline-none cursor-pointer pr-1 max-w-[200px] truncate text-[var(--text-main)]"
+        className={`bg-transparent font-medium focus:outline-none cursor-pointer pr-1 max-w-[190px] truncate rounded-none shrink-0 ${
+          isAuto && !isDark ? 'text-white' : 'text-[var(--text-main)]'
+        }`}
       >
         {DIALECT_CATEGORIES.map((cat) => (
           <optgroup
             key={cat.category}
             label={cat.category}
-            className="bg-[var(--bg-card-header)] text-[var(--text-secondary)] font-semibold"
+            className={isDark ? 'bg-[#14141C] text-white font-semibold' : 'bg-[#FFFFFF] text-[#111111] font-semibold'}
           >
             {cat.options.map((opt) => (
               <option
                 key={opt.id}
                 value={opt.id}
-                className="bg-[var(--bg-card)] text-[var(--text-main)] font-normal"
+                className={isDark ? 'bg-[#1B1B24] text-white font-normal' : 'bg-white text-[#111111] font-normal'}
               >
                 {opt.label}
               </option>

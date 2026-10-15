@@ -1,11 +1,13 @@
 // src/shared/ApprovalModal.tsx — Functional Human Approval Gate Popup
 import React from 'react';
-import { X, ShieldAlert, Database, GitCompare, ExternalLink } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { X, ShieldAlert, Database } from 'lucide-react';
 import { RiskBadge } from './RiskBadge';
 import { SqlViewPanel } from '../modules/approval_gate/SqlViewPanel';
 import { DiffPanel } from '../modules/approval_gate/DiffPanel';
 import { TelemetryPanel } from '../modules/approval_gate/TelemetryPanel';
 import { ApprovalActions } from '../modules/approval_gate/ApprovalActions';
+import { useAppStore } from '../store/useAppStore';
 import type { ApprovalPayload } from '../types/approval';
 
 interface ApprovalModalProps {
@@ -21,15 +23,30 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
   payload,
   onViewERDiagram,
 }) => {
+  const theme = useAppStore((s) => s.theme);
+  const isDark = theme === 'dark';
+
   if (!isOpen || !payload) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-5xl h-[88vh] border rounded-2xl shadow-2xl flex flex-col overflow-hidden bg-[var(--bg-card)] border-[var(--border-main)]">
+  return createPortal(
+    <div className="modal-overlay bg-black/80 backdrop-blur-md animate-fade-in">
+      <div
+        className="w-full max-w-5xl h-[min(88vh,calc(100vh-48px))] max-h-[calc(100vh-48px)] rounded-none shadow-2xl flex flex-col overflow-hidden transition-all duration-300 my-auto"
+        style={{
+          backgroundColor: isDark ? '#14141D' : '#FFFFFF',
+          border: isDark ? '1px solid rgba(255,255,255,0.18)' : '1px solid #DDE1E8',
+        }}
+      >
         {/* Header */}
-        <div className="h-13 px-4 border-b flex items-center justify-between shrink-0 bg-[var(--bg-card-header)] border-[var(--border-subtle)]">
+        <div
+          className={`h-14 px-5 border-b flex items-center justify-between shrink-0 ${
+            isDark
+              ? 'bg-[#181822] border-[var(--border-main)]'
+              : 'bg-[#F4F6F9] border-[var(--border-subtle)]'
+          }`}
+        >
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-rose-500/10 text-rose-500 border border-rose-500/30">
+            <div className="w-8 h-8 rounded-none flex items-center justify-center bg-rose-500/10 text-rose-500 border border-rose-500/30">
               <ShieldAlert className="w-4 h-4" />
             </div>
             <div>
@@ -49,7 +66,11 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
             {onViewERDiagram && (
               <button
                 onClick={onViewERDiagram}
-                className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border font-medium cursor-pointer transition-colors bg-[var(--bg-card)] border-[var(--border-subtle)] text-[var(--accent-primary)] hover:bg-[var(--bg-hover)]"
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-none border font-medium cursor-pointer transition-colors ${
+                  isDark
+                    ? 'bg-[var(--bg-card)] border-[var(--border-main)] text-[var(--accent-primary)] hover:bg-[var(--bg-hover)]'
+                    : 'bg-white border-[var(--border-subtle)] text-[#111111] hover:bg-[#EDF0F7]'
+                }`}
                 title="Inspect Impacted ER Schema Graph"
               >
                 <Database className="w-3.5 h-3.5" />
@@ -58,7 +79,7 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
             )}
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg transition-colors cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-hover)]"
+              className="p-1.5 rounded-none transition-colors cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-hover)]"
               title="Close Review Gate"
             >
               <X className="w-4 h-4" />
@@ -67,7 +88,11 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
         </div>
 
         {/* Content Workspace */}
-        <div className="flex-1 min-h-0 p-4 overflow-y-auto space-y-3 bg-[var(--bg-app)]">
+        <div
+          className={`flex-1 min-h-0 p-4 overflow-y-auto space-y-3 ${
+            isDark ? 'bg-[var(--bg-app)]' : 'bg-white'
+          }`}
+        >
           {/* Pending Statement Inspector */}
           <SqlViewPanel sql={payload.generated_sql} dialect={payload.target_dialect} />
 
@@ -84,6 +109,7 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
         {/* Action Bar (Approve & Execute vs Reject) */}
         <ApprovalActions queryId={payload.query_id} riskTier={payload.risk_tier} />
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

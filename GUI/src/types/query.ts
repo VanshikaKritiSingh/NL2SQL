@@ -25,6 +25,7 @@ export interface QueryRequest {
   database_profile?: string;
   dry_run_only?: boolean;
   model_name?: string;
+  thinking_enabled?: boolean | null;
 }
 
 export interface ResultData {

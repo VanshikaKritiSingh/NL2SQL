@@ -11,8 +11,16 @@ interface AppState {
   setTargetDialect: (dialect: TargetDialect) => void;
   databaseProfile: string;
   setDatabaseProfile: (profile: string) => void;
+  isDbConnected: boolean;
+  setIsDbConnected: (connected: boolean) => void;
+  connectedEngine: string | null;
+  setConnectedEngine: (engine: string | null) => void;
+  availableDatabases: string[];
+  setAvailableDatabases: (dbs: string[]) => void;
   selectedModel: string;
   setSelectedModel: (model: string) => void;
+  thinkingEnabled: boolean | null;
+  setThinkingEnabled: (enabled: boolean | null) => void;
   currentView: 'query' | 'approval';
   setCurrentView: (view: 'query' | 'approval') => void;
   theme: AppTheme;
@@ -48,8 +56,16 @@ export const useAppStore = create<AppState>((set) => ({
   setTargetDialect: (dialect) => set({ targetDialect: dialect }),
   databaseProfile: 'test',
   setDatabaseProfile: (profile) => set({ databaseProfile: profile }),
-  selectedModel: 'clef-flash:latest',
+  isDbConnected: false,
+  setIsDbConnected: (connected) => set({ isDbConnected: connected }),
+  connectedEngine: null,
+  setConnectedEngine: (engine) => set({ connectedEngine: engine }),
+  availableDatabases: ['test', 'ecommerce_db', 'master_enterprise'],
+  setAvailableDatabases: (dbs) => set({ availableDatabases: dbs }),
+  selectedModel: 'auto',
   setSelectedModel: (model) => set({ selectedModel: model }),
+  thinkingEnabled: false,
+  setThinkingEnabled: (enabled) => set({ thinkingEnabled: enabled }),
   currentView: 'query',
   setCurrentView: (view) => set({ currentView: view }),
   theme: getStoredTheme(),
