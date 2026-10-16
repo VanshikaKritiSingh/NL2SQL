@@ -42,7 +42,7 @@ class ResultData(BaseModel):
 
 class QueryResponse(BaseModel):
     query_id: str
-    status: Literal["processing", "completed", "approval_required", "error", "rate_limited"]
+    status: Literal["processing", "completed", "approval_required", "error", "rate_limited", "refusal"]
     generated_sql: Optional[str] = None
     result_data: Optional[ResultData] = None
     approval_payload: Optional[Dict[str, Any]] = None  # Full ApprovalPayload dict when status == "approval_required"

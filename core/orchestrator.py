@@ -11,14 +11,14 @@ from dataclasses import dataclass, field
 import json
 import re
 import time
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import sqlglot
 from sqlglot import exp
 
 from core.dialect_converter import DeterministicDialectConverter, TranspilationResult
 from core.paradigm_suggestor import DatabaseParadigm, ParadigmSuggestion, SpeculativeParadigmSuggestor
-from core.schema_linker import LinkedSchemaContext, SchemaLinker, TableMeta
+from core.schema_linker import ColumnMeta, LinkedSchemaContext, SchemaLinker, TableMeta
 from validator.contracts import Issue, Layer, Severity, StatementType, Status, ValidationResult
 from validator.engine import run_validation
 from validator.interfaces import FakeSchemaProvider
@@ -222,6 +222,9 @@ class PipelineExecutionPlan:
     live_query_result: Optional[Any] = None
     tables_touched: List[str] = field(default_factory=list)
     audit_trace: Dict[str, Any] = field(default_factory=dict)
+    model_name: Optional[str] = None
+    thinking_enabled: Optional[bool] = None
+    reasoning_trace: Optional[str] = None
 
 
 class EndToEndNL2SQLOrchestrator:
@@ -284,6 +287,8 @@ class EndToEndNL2SQLOrchestrator:
 
     def _enforce_sql_output(self, raw: str, user_input: str) -> str:
         raw = self._clean_sql(raw)
+        if raw.startswith("-- REFUSAL:") or raw.startswith("-- CANNOT_GENERATE:"):
+            return raw
         refusal = "please enter a valid natural language query"
         if refusal in raw.lower():
             return refusal
@@ -291,35 +296,53 @@ class EndToEndNL2SQLOrchestrator:
             return refusal
         first_token = raw.split()[0].lower() if raw.split() else ""
         sql_starts = ("select", "insert", "update", "delete", "create", "alter", "drop", "with")
-        if first_token not in sql_starts and not raw.startswith("(") and not raw.startswith("with"):
+        if first_token not in sql_starts and not raw.startswith("(") and not raw.startswith("with") and not raw.startswith("--"):
             return refusal
         if first_token in sql_starts and not raw.rstrip().endswith(";"):
             raw = raw.rstrip() + ";"
         return raw
 
-    def _generate_sql_llm(self, query: str, user_id: str = "anonymous", database: str = "test", target_dialect: str = "mysql", model: str = "clef-flash:latest", schema_hint: str = "") -> str:
-        import urllib.request, json
-        system_prompt = SYSTEM_PROMPT
-        prompt = f"Schema: {schema_hint}\nRequest: {query.strip()}" if schema_hint else query.strip()
-        payload = json.dumps({
-            "model": model or "clef-flash:latest",
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt},
-            ],
-            "stream": False,
-            "options": {"temperature": 0.1}
-        })
-        req = urllib.request.Request(
-            "http://127.0.0.1:11434/api/chat",
-            data=payload.encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST"
+    def _generate_sql_llm(
+        self,
+        query: str,
+        user_id: str = "anonymous",
+        database: str = "test",
+        target_dialect: str = "mysql",
+        model: Optional[str] = None,
+        schema_hint: str = "",
+        thinking_enabled: Optional[bool] = None,
+    ) -> Tuple[Optional[str], str, Optional[str]]:
+        """
+        Invokes either native PEFT adapter engine (A2.5C0.5, Q2.5C0.5) or Ollama.
+        Returns (sql_query, model_used, reasoning_trace).
+        """
+        # 1. Native PEFT field-test models (A2.5C0.5, Q2.5C0.5)
+        try:
+            from core.connectors.peft_connector import default_peft_engine
+            if default_peft_engine.is_supported(model):
+                sql_out, used_model, r_trace = default_peft_engine.generate_sql(
+                    query=query,
+                    schema_ddl=schema_hint,
+                    target_dialect=target_dialect,
+                    model_name=model,
+                )
+                if sql_out:
+                    return sql_out, used_model, r_trace
+        except Exception:
+            pass
+
+        # 2. Local Ollama LLM
+        from core.connectors.ollama import default_ollama
+        res = default_ollama.generate_sql(
+            query=query,
+            schema_ddl=schema_hint,
+            target_dialect=target_dialect,
+            model_name=model,
+            thinking_enabled=thinking_enabled,
         )
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode())
-            raw = data.get("message", {}).get("content", "").strip()
-            return self._enforce_sql_output(raw, query)
+        if res.success and res.sql:
+            return res.sql, res.model_used, res.reasoning_trace
+        return None, res.model_used, res.reasoning_trace
 
     def _is_raw_sql(self, q: str) -> bool:
         try:
@@ -337,6 +360,7 @@ class EndToEndNL2SQLOrchestrator:
         user_id: str = "anonymous",
         user_role: str = "viewer",
         model_name: Optional[str] = None,
+        thinking_enabled: Optional[bool] = None,
     ) -> PipelineExecutionPlan:
         """
         OS-engine-gated entry point.
@@ -390,6 +414,7 @@ class EndToEndNL2SQLOrchestrator:
                     mock_llm_generator=mock_llm_generator,
                     user_id=user_id,
                     model_name=model_name,
+                    thinking_enabled=thinking_enabled,
                 )
                 if plan.execution_route == "SANDBOX_REPLICA" and default_registry.is_attached(user_id):
                     connector = default_registry.get(user_id)
@@ -456,6 +481,7 @@ class EndToEndNL2SQLOrchestrator:
         mock_llm_generator: Optional[Callable[[str, Any], str]] = None,
         user_id: str = "anonymous",
         model_name: Optional[str] = None,
+        thinking_enabled: Optional[bool] = None,
     ) -> PipelineExecutionPlan:
         """
         Executes the full 16-stage human-supervised pipeline loop.
@@ -505,26 +531,171 @@ class EndToEndNL2SQLOrchestrator:
                 prompt_ddl="",
             )
 
-        # 3. Stage 6: Generation (Mock / Live LLM with refusal gate / Deterministic Offline Synthesizer)
+        actual_model = model_name or "auto"
+        reasoning_trace = None
+
+        # 3. Stage 6: Generation (Mock / Live Ollama LLM / Architecture / Deterministic Offline Synthesizer)
+        from core.semantic_decomposer import default_decomposer, MODE_REFUSAL, MODE_ARCHITECTURE
+
         if mock_llm_generator is not None:
             canonical_sql = mock_llm_generator(query, linked_ctx)
+            actual_model = "mock_generator"
         elif self._is_raw_sql(query):
             canonical_sql = query.strip()
+            actual_model = "raw_sql_passthrough"
         else:
-            canonical_sql = None
-            try:
-                canonical_sql = self._generate_sql_llm(
-                    query=query,
-                    user_id=user_id,
+            # Check Semantic Intent
+            intent = default_decomposer.classify(query)
+            if intent.mode == MODE_REFUSAL:
+                canonical_sql = intent.refusal_comment
+                actual_model = "semantic_refusal_guard"
+                reasoning_trace = f"Semantic Intent Classifier: {intent.explanation}"
+                transpilation_res = self.dialect_converter.transpile(
+                    sql_or_ast=canonical_sql,
                     target_dialect=resolved_engine,
-                    model=model_name or "clef-flash:latest",
-                    schema_hint=linked_ctx.prompt_ddl if linked_ctx else "",
                 )
-            except Exception:
-                canonical_sql = None
+                elapsed_ms = (time.perf_counter() - start_time) * 1000
+                return PipelineExecutionPlan(
+                    query_id=query_id,
+                    natural_language_query=query,
+                    paradigm_suggestion=suggestion,
+                    linked_context=linked_ctx,
+                    generated_canonical_sql=canonical_sql,
+                    target_dialect=resolved_engine,
+                    transpilation_result=transpilation_res,
+                    validation_issues=[],
+                    is_valid=True,
+                    statement_type=StatementType.READ,
+                    cost_report=CostReport(
+                        decision="ALLOW",
+                        estimated_cost=0.0,
+                        estimated_rows_scanned=0,
+                        estimated_rows_affected=0,
+                        full_table_scans=[],
+                        index_used=True,
+                        reasons=[],
+                        method="refusal",
+                    ),
+                    requires_human_approval=False,
+                    execution_route="REFUSAL",
+                    execution_time_ms=elapsed_ms,
+                    tables_touched=[],
+                    audit_trace={
+                        "timestamp": time.time(),
+                        "duration_ms": elapsed_ms,
+                        "paradigm": suggestion.paradigm.value,
+                        "target_engine": resolved_engine,
+                        "statement_type": "READ",
+                        "validation_status": "VALID",
+                        "cost_decision": "ALLOW",
+                    },
+                    model_name=actual_model,
+                    thinking_enabled=thinking_enabled,
+                    reasoning_trace=reasoning_trace,
+                )
+            elif intent.mode == MODE_ARCHITECTURE:
+                arch_res = default_decomposer.synthesize_architecture(query)
+                canonical_sql = arch_res.canonical_ddl
+                actual_model = "architecture_synthesizer"
+                reasoning_trace = f"Architecture Decomposer: Synthesized {len(arch_res.entities)} entities with rich ER metadata"
 
-            if not canonical_sql:
-                canonical_sql = self.synthesizer.synthesize(query, linked_ctx)
+                # Update live schema catalog dynamically with newly synthesized entities
+                new_tables = dict(self.tables)
+                for ent in arch_res.entities:
+                    c_metas = {}
+                    for c in ent.columns:
+                        fk_tbl, fk_col = None, None
+                        if c.get("fk_ref"):
+                            m = re.match(r"(\w+)\((\w+)\)", c["fk_ref"])
+                            if m:
+                                fk_tbl, fk_col = m.group(1), m.group(2)
+                        c_metas[c["name"]] = ColumnMeta(
+                            name=c["name"],
+                            dtype=c["type"],
+                            is_pk=c.get("pk", False),
+                            is_fk=bool(c.get("fk_ref")),
+                            fk_target_table=fk_tbl,
+                            fk_target_column=fk_col,
+                        )
+                    new_tables[ent.name] = TableMeta(
+                        name=ent.name,
+                        description=f"Synthesized architecture entity {ent.name}",
+                        columns=c_metas,
+                    )
+                self.update_schema(new_tables)
+            else:
+                canonical_sql = None
+                try:
+                    sql_out, used_model, r_trace = self._generate_sql_llm(
+                        query=query,
+                        user_id=user_id,
+                        target_dialect=resolved_engine,
+                        model=model_name,
+                        schema_hint=linked_ctx.prompt_ddl if linked_ctx else "",
+                        thinking_enabled=thinking_enabled,
+                    )
+                    canonical_sql = sql_out
+                    actual_model = used_model
+                    reasoning_trace = r_trace
+                except Exception:
+                    canonical_sql = None
+
+                if not canonical_sql:
+                    canonical_sql = self.synthesizer.synthesize(query, linked_ctx)
+                    if actual_model == "auto" or not actual_model:
+                        actual_model = "offline_synthesizer"
+
+        # Schema Mismatch Guard on generated query (unless raw SQL)
+        if canonical_sql and not self._is_raw_sql(query) and not canonical_sql.startswith("--"):
+            known_tables = {t: list(m.columns.keys()) for t, m in self.tables.items()}
+            if known_tables:
+                mismatch_refusal = default_decomposer.check_schema_mismatch(canonical_sql, known_tables)
+                if mismatch_refusal:
+                    canonical_sql = mismatch_refusal
+                    reasoning_trace = "Schema Mismatch Guard: Query references entity not present in active schema"
+                    transpilation_res = self.dialect_converter.transpile(
+                        sql_or_ast=canonical_sql,
+                        target_dialect=resolved_engine,
+                    )
+                    elapsed_ms = (time.perf_counter() - start_time) * 1000
+                    return PipelineExecutionPlan(
+                        query_id=query_id,
+                        natural_language_query=query,
+                        paradigm_suggestion=suggestion,
+                        linked_context=linked_ctx,
+                        generated_canonical_sql=canonical_sql,
+                        target_dialect=resolved_engine,
+                        transpilation_result=transpilation_res,
+                        validation_issues=[],
+                        is_valid=True,
+                        statement_type=StatementType.READ,
+                        cost_report=CostReport(
+                            decision="ALLOW",
+                            estimated_cost=0.0,
+                            estimated_rows_scanned=0,
+                            estimated_rows_affected=0,
+                            full_table_scans=[],
+                            index_used=True,
+                            reasons=[],
+                            method="schema_mismatch_guard",
+                        ),
+                        requires_human_approval=False,
+                        execution_route="REFUSAL",
+                        execution_time_ms=elapsed_ms,
+                        tables_touched=[],
+                        audit_trace={
+                            "timestamp": time.time(),
+                            "duration_ms": elapsed_ms,
+                            "paradigm": suggestion.paradigm.value,
+                            "target_engine": resolved_engine,
+                            "statement_type": "READ",
+                            "validation_status": "VALID",
+                            "cost_decision": "ALLOW",
+                        },
+                        model_name=actual_model,
+                        thinking_enabled=thinking_enabled,
+                        reasoning_trace=reasoning_trace,
+                    )
 
         # 4. Stage 7: Deterministic Dialect Transpilation (AI/ML & Systems)
         try:
@@ -572,7 +743,10 @@ class EndToEndNL2SQLOrchestrator:
         requires_approval = False
         execution_route = "BLOCKED"
 
-        if is_valid and cost_report.is_allow():
+        if canonical_sql and canonical_sql.startswith("-- REFUSAL:"):
+            execution_route = "REFUSAL"
+            requires_approval = False
+        elif is_valid and cost_report.is_allow():
             if stmt_type == StatementType.READ:
                 execution_route = "SANDBOX_REPLICA"
                 requires_approval = False
@@ -613,5 +787,8 @@ class EndToEndNL2SQLOrchestrator:
                 "statement_type": stmt_type.value,
                 "validation_status": validation_res.status.value,
                 "cost_decision": cost_report.decision,
-            }
+            },
+            model_name=actual_model,
+            thinking_enabled=thinking_enabled,
+            reasoning_trace=reasoning_trace,
         )

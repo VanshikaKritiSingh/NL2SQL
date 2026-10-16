@@ -27,6 +27,8 @@ from core.connectors.neo4j_conn import Neo4jConnector
 from core.connectors.redis_conn import RedisConnector
 from core.connectors.cassandra_conn import CassandraConnector
 from core.connectors.dynamodb_conn import DynamoDBConnector
+from core.connectors.ollama import OllamaConnector, OllamaGenerationResult, default_ollama
+from core.connectors.peft_connector import LocalPEFTEngine, default_peft_engine
 
 __all__ = [
     "BaseDBConnector",
@@ -50,4 +52,9 @@ __all__ = [
     "RedisConnector",
     "CassandraConnector",
     "DynamoDBConnector",
+    "OllamaConnector",
+    "OllamaGenerationResult",
+    "default_ollama",
+    "LocalPEFTEngine",
+    "default_peft_engine",
 ]

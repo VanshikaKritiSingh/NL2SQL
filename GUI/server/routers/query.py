@@ -81,6 +81,42 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
     """Query Intake entry point: Receives natural language or SQL query, compiles via LLM and executes against live DB or orchestrator."""
     from core.connectors import default_registry
 
+    # 0. Sync schema with connected live DBMS if attached
+    if default_registry.is_attached(request.user_id):
+        conn = default_registry.get(request.user_id)
+        if conn and conn.is_connected:
+            try:
+                schema_meta = conn.introspect_schema(force_refresh=False)
+                if schema_meta and schema_meta.tables:
+                    live_tables = {}
+                    for t_name, t_schema in schema_meta.tables.items():
+                        col_metas = {}
+                        for c_name, c_schema in t_schema.columns.items():
+                            fk_tbl, fk_col = None, None
+                            if c_schema.foreign_key_target and "." in c_schema.foreign_key_target:
+                                fk_tbl, fk_col = c_schema.foreign_key_target.split(".", 1)
+                            col_metas[c_name] = ColumnMeta(
+                                name=c_name,
+                                dtype=c_schema.data_type,
+                                is_pk=c_schema.is_primary_key or (c_name in t_schema.primary_keys),
+                                is_fk=c_schema.is_foreign_key,
+                                fk_target_table=fk_tbl,
+                                fk_target_column=fk_col,
+                                categorical_values=c_schema.sample_values or [],
+                            )
+                        live_tables[t_name] = TableMeta(
+                            name=t_name,
+                            description=t_schema.comment or f"Live table {t_name}",
+                            columns=col_metas,
+                        )
+                    if live_tables:
+                        orchestrator.update_schema(live_tables)
+            except Exception:
+                pass
+    else:
+        if orchestrator.tables != DEFAULT_SCHEMA:
+            orchestrator.update_schema(DEFAULT_SCHEMA)
+
     # 1. Run full 16-stage orchestrator pipeline with direct Ollama LLM grounding
     target_engine = request.target_dialect.value if isinstance(request.target_dialect, TargetDialect) else str(request.target_dialect)
     is_auto = (target_engine == "auto")
@@ -104,7 +140,32 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
     is_mutating = plan.requires_human_approval or plan.statement_type in (StatementType.WRITE, StatementType.DDL)
 
     # 2. Build Response based on Execution Route
-    if not plan.is_valid:
+    if plan.execution_route == "REFUSAL" or sql_str.strip().startswith("-- REFUSAL:"):
+        lines = [l.strip() for l in sql_str.splitlines() if l.strip()]
+        expl = ""
+        for l in lines:
+            if "EXPLANATION:" in l:
+                expl = l.split("EXPLANATION:", 1)[1].strip()
+                break
+        if not expl and len(lines) > 1:
+            expl = lines[1].lstrip("- ").strip()
+        if not expl and lines:
+            expl = lines[0].lstrip("- ").strip()
+
+        response = QueryResponse(
+            query_id=plan.query_id,
+            status="refusal",
+            generated_sql=sql_str,
+            result_data=None,
+            approval_payload=None,
+            error_message=expl or "Model or schema guard declined SQL generation for this request.",
+            cache_hit=False,
+            database_profile=request.database_profile or "master_enterprise",
+            is_live_db_connected=False,
+            execution_mode="preview_sandbox",
+            model_name=plan.model_name or request.model_name or "auto",
+        )
+    elif not plan.is_valid:
         error_msgs = [f"[{i.code}] {i.message}" for i in plan.validation_issues if i.severity == Severity.ERROR]
         response = QueryResponse(
             query_id=plan.query_id,
@@ -117,6 +178,7 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
             database_profile=request.database_profile or "master_enterprise",
             is_live_db_connected=False,
             execution_mode="preview_sandbox",
+            model_name=plan.model_name or request.model_name or "auto",
         )
     elif is_mutating and not request.dry_run_only:
         # Generate approval payload for mutating statements

@@ -36,7 +36,7 @@ export interface ResultData {
 
 export interface QueryResponse {
   query_id: string;
-  status: 'processing' | 'completed' | 'approval_required' | 'error' | 'rate_limited';
+  status: 'processing' | 'completed' | 'approval_required' | 'error' | 'rate_limited' | 'refusal';
   generated_sql: string | null;
   result_data: ResultData | null;
   approval_payload: any | null;
@@ -52,7 +52,7 @@ export interface HistoryItem {
   query_text: string;
   generated_sql: string | null;
   target_dialect: string;
-  status: 'processing' | 'completed' | 'approval_required' | 'error' | 'rate_limited';
+  status: 'processing' | 'completed' | 'approval_required' | 'error' | 'rate_limited' | 'refusal';
   timestamp: string;
   is_mutating: boolean;
   database_profile?: string;

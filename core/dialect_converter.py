@@ -535,10 +535,46 @@ class DeterministicDialectConverter:
         start_time = time.perf_counter()
         target_normalized = target_dialect.lower().strip()
 
+        # Handle pure comment refusals gracefully without throwing syntax error
+        if isinstance(sql_or_ast, str) and (
+            sql_or_ast.strip().startswith("-- REFUSAL:")
+            or sql_or_ast.strip().startswith("-- CANNOT_GENERATE:")
+        ):
+            return TranspilationResult(
+                target_dialect=target_normalized,
+                compiled_query=sql_or_ast.strip(),
+                execution_time_ms=0.0,
+                source_ast_type="RefusalComment",
+                is_native_sql=True,
+                metadata={"is_refusal": True},
+            )
+
         # Parse AST if input is string
         if isinstance(sql_or_ast, str):
+            # Check for multi-statement DDL (e.g. multiple CREATE TABLE)
             try:
-                ast = sqlglot.parse_one(sql_or_ast, read=read_dialect)
+                parsed_stmts = [s for s in sqlglot.parse(sql_or_ast, read=read_dialect) if s is not None]
+                if len(parsed_stmts) > 1:
+                    dialect_map = {"postgresql": "postgres", "sqlserver": "tsql"}
+                    res_d = dialect_map.get(target_normalized, target_normalized)
+                    if res_d not in self.SUPPORTED_SQL_DIALECTS:
+                        res_d = "postgres"
+                    compiled_multi = "\n\n".join(
+                        s.sql(dialect=res_d, pretty=True).rstrip(";") + ";" for s in parsed_stmts
+                    )
+                    elapsed = (time.perf_counter() - start_time) * 1000
+                    return TranspilationResult(
+                        target_dialect=res_d,
+                        compiled_query=compiled_multi,
+                        execution_time_ms=elapsed,
+                        source_ast_type="MultiStatementDDL",
+                        is_native_sql=True,
+                        metadata={"sqlglot_dialect": res_d, "statement_count": len(parsed_stmts)},
+                    )
+                elif len(parsed_stmts) == 1:
+                    ast = parsed_stmts[0]
+                else:
+                    ast = None
             except Exception as e:
                 raise InvalidASTSyntaxError(f"Failed to parse source query: {str(e)}") from e
         else:

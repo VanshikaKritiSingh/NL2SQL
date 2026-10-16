@@ -5,9 +5,9 @@
 ### Enterprise Natural Language to Multi-Paradigm Database Compiler
 
 [![Milestone](https://img.shields.io/badge/Milestone-Phase%20I%20%26%20II%20Complete-007acc?style=flat-square)](https://github.com/VanshikaKritiSingh/NL2SQL)
-[![Tests](https://img.shields.io/badge/Tests-17%2F17%20Passing-success?style=flat-square&logo=pytest&logoColor=white)](https://github.com/VanshikaKritiSingh/NL2SQL)
-[![Interactive Spec](https://img.shields.io/badge/Architecture-Interactive%20HTML%20Spec-blueviolet?style=flat-square&logo=html5&logoColor=white)](html/nl2sql.html)
-[![Vector Diagram](https://img.shields.io/badge/Vector%20Blueprint-SVG%20High--Res-ff69b4?style=flat-square&logo=inkscape&logoColor=white)](diagrams/SVG_DIAGRAM.svg)
+[![Tests](https://img.shields.io/badge/Tests-30%2F30%20Passing-success?style=flat-square&logo=pytest&logoColor=white)](https://github.com/VanshikaKritiSingh/NL2SQL)
+[![Interactive Spec](https://img.shields.io/badge/Architecture-Interactive%20HTML%20Spec-blueviolet?style=flat-square&logo=html5&logoColor=white)](docs/html/nl2sql.html)
+[![Vector Diagram](https://img.shields.io/badge/Vector%20Blueprint-SVG%20High--Res-ff69b4?style=flat-square&logo=inkscape&logoColor=white)](docs/diagrams/SVG_DIAGRAM.svg)
 [![Transpiler](https://img.shields.io/badge/Dialects-20%2B%20SQL%20%2B%20Graph%20%2B%20MQL-00bcd4?style=flat-square)](https://github.com/tobymao/sqlglot)
 [![Model](https://img.shields.io/badge/Foundation-Qwen2.5--Coder--7B--Instruct-7952b3?style=flat-square&logo=huggingface&logoColor=white)](https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
@@ -41,9 +41,9 @@ The NL2SQL architecture is specified across interactive web specifications, vect
 
 <div align="center">
 
-[![NL2SQL Master Pipeline Architecture Blueprint](diagrams/pipeline_v2_check.png)](diagrams/SVG_DIAGRAM.svg)
+[![NL2SQL Master Pipeline Architecture Blueprint](docs/diagrams/pipeline_v2_check.png)](docs/diagrams/SVG_DIAGRAM.svg)
 
-<p><em>Click the diagram above to inspect the full 1600x3560 vector SVG master blueprint (<a href="diagrams/SVG_DIAGRAM.svg">diagrams/SVG_DIAGRAM.svg</a>)</em></p>
+<p><em>Click the diagram above to inspect the full 1600x3560 vector SVG master blueprint (<a href="docs/diagrams/SVG_DIAGRAM.svg">docs/diagrams/SVG_DIAGRAM.svg</a>)</em></p>
 
 </div>
 
@@ -51,24 +51,24 @@ The NL2SQL architecture is specified across interactive web specifications, vect
 
 | Asset | Format | Location | Primary Purpose | How to View |
 | :--- | :--- | :--- | :--- | :--- |
-| **Interactive Architecture Spec** | Standalone HTML / SVG | [`html/nl2sql.html`](html/nl2sql.html) | Interactive 16-stage pipeline guide with inlined vector SVG, stage reference table, and academic citations | Open in browser (`open html/nl2sql.html`) or serve via local HTTP server |
-| **Master Architecture Blueprint** | Vector SVG (1600x3560) | [`diagrams/SVG_DIAGRAM.svg`](diagrams/SVG_DIAGRAM.svg) | High-precision vector architecture schematic with exact subsystem boundaries and stage markers | Open in browser, Figma, Miro, or Inkscape |
-| **Pipeline High-Res Render** | 24-bit PNG | [`diagrams/pipeline_v2_check.png`](diagrams/pipeline_v2_check.png) | High-definition raster render for markdown renderers and presentation previews | Native image preview or GitHub file viewer |
-| **Design Companion Template** | HTML / CSS | [`html/template.html`](html/template.html) | Design system typography, layout tokens, and interactive component prototypes | Open in browser (`open html/template.html`) |
-| **Architecture Reference Document** | Markdown | [`NL2SQL-Pipeline-Architecture.md`](NL2SQL-Pipeline-Architecture.md) | Stage-by-stage text specification and companion document to `diagrams/SVG_DIAGRAM.svg` | Markdown viewer or GitHub |
+| **Interactive Architecture Spec** | Standalone HTML / SVG | [`docs/html/nl2sql.html`](docs/html/nl2sql.html) | Interactive 16-stage pipeline guide with inlined vector SVG, stage reference table, and academic citations | Open in browser (`open docs/html/nl2sql.html`) or serve via local HTTP server |
+| **Master Architecture Blueprint** | Vector SVG (1600x3560) | [`docs/diagrams/SVG_DIAGRAM.svg`](docs/diagrams/SVG_DIAGRAM.svg) | High-precision vector architecture schematic with exact subsystem boundaries and stage markers | Open in browser, Figma, Miro, or Inkscape |
+| **Pipeline High-Res Render** | 24-bit PNG | [`docs/diagrams/pipeline_v2_check.png`](docs/diagrams/pipeline_v2_check.png) | High-definition raster render for markdown renderers and presentation previews | Native image preview or GitHub file viewer |
+| **Design Companion Template** | HTML / CSS | [`docs/html/template.html`](docs/html/template.html) | Design system typography, layout tokens, and interactive component prototypes | Open in browser (`open docs/html/template.html`) |
+| **Architecture Reference Document** | Markdown | [`docs/NL2SQL-Pipeline-Architecture.md`](docs/NL2SQL-Pipeline-Architecture.md) | Stage-by-stage text specification and companion document to `docs/diagrams/SVG_DIAGRAM.svg` | Markdown viewer or GitHub |
 
 #### Viewing the Interactive Web Specification Locally
 ```bash
 # Option 1: Direct browser launch
 # Linux
-xdg-open html/nl2sql.html
+xdg-open docs/html/nl2sql.html
 # macOS
-open html/nl2sql.html
+open docs/html/nl2sql.html
 # Windows
-start html\nl2sql.html
+start docs\nl2sql.html
 
 # Option 2: Local HTTP server
-python -m http.server 8080 --directory html/
+python -m http.server 8080 --directory docs/html/
 # Then navigate to http://localhost:8080/nl2sql.html
 ```
 
@@ -228,7 +228,9 @@ NL2SQL/
 |   |-- paradigm_suggestor.py        # CLEF intent drafter & speculative router
 |   |-- schema_linker.py             # Hybrid BM25/Fuzzy RRF retrieval & Steiner join builder
 |   |-- dialect_converter.py         # Deterministic AST transpiler (20+ SQL, Cypher, MQL)
+|   |-- semantic_decomposer.py       # Intent classification, refusal tags & architecture DDL synthesis
 |   |-- orchestrator.py              # Unified pipeline dispatcher & dual-path router
+|   |-- connectors/peft_connector.py # High-speed in-process PEFT engine (A2.5C0.5 & Q2.5C0.5)
 |   `-- README.md                    # Dedicated AI/ML architectural handbook
 |
 |-- validator/                       # Static AST Validator & Policy Guardrails (Software & Security)
@@ -246,18 +248,20 @@ NL2SQL/
 |-- GUI/                             # Native Desktop & Web Interface Studio (Frontend & Systems)
 |   |-- src/                         # React 18, TypeScript, Monaco Editor, React Flow ER Diagrams
 |   |   |-- modules/
-|   |   |   |-- query_intake/        # Query intake, Monaco editor, progress tracker
+|   |   |   |-- query_intake/        # Query intake, Monaco editor, refusal cards, model selector
 |   |   |   `-- approval_gate/       # React Flow ER graph_alter, Monaco diffs, telemetry
 |   |-- electron/                    # Electron container & native OS lifecycle bridge
 |   |-- server/                      # FastAPI bridge server for pipeline integration
 |   `-- README.md                    # Dedicated Desktop/Web Studio handbook
 |
 |-- offline/                         # AI/ML Offline Suite (Isolated from Git Volume)
-|   |-- training/train_qlora.py      # 4-bit NF4 QLoRA fine-tuning script (< 7.5GB VRAM)
-|   |-- training/export_gguf.py      # LoRA merge, GGUF quantizer & Ollama Modelfile exporter
+|   |-- training/train_engine.py     # Unified AdaLoRA & QLoRA fine-tuning engine
 |   |-- training/evaluate.py         # AST Exact Match & Execution Accuracy benchmark runner
-|   |-- training/requirements-train.txt # Isolated ML dependencies (PyTorch, PEFT, TRL)
-|   `-- datasets/prepare_dataset.py  # Multi-schema synthetic fine-tuning dataset generator
+|   |-- training/kfold_eval.py       # Domain-Stratified K-Fold Cross-Validation runner
+|   |-- training/compare_models.py   # Decision matrix model comparison runner
+|   |-- training/export_gguf.py      # LoRA merge, GGUF quantizer & Ollama Modelfile exporter
+|   |-- datasets/generate_1gb_dialects.py # 1GB multi-dialect dataset generator (7 dialects)
+|   `-- datasets/prepare_dataset.py  # Multi-schema dataset generator (10% negative refusal samples)
 |
 |-- scripts/                         # Cross-Platform Environment Setup & Automation
 |   |-- setup_linux.sh               # Linux/macOS automated environment bootstrap
@@ -266,8 +270,8 @@ NL2SQL/
 |   |-- generate_dataset.py          # CLI dataset generation tool
 |   `-- README.md                    # Setup automation documentation
 |
-`-- tests/                           # Comprehensive unit & integration test suite (17/17 passing)
-    `-- test_core_modules.py         # End-to-end multi-paradigm and safety test suite
+`-- tests/                           # Comprehensive unit & integration test suite (30/30 passing)
+    `-- test_core_modules.py         # End-to-end multi-paradigm, refusal, and safety test suite
 ```
 
 ---
@@ -290,8 +294,8 @@ flowchart TD
     ROOT --> SCRIPTS_DOC["scripts/README.md<br/>Cross-Platform Automation Matrix"]:::domain
     ROOT --> MODELS_DOC["offline/models/README.md<br/>Model Weights & Storage Registry"]:::domain
 
-    ROOT --> SPEC_HTML["html/nl2sql.html<br/>Interactive Web Architecture Spec"]:::visual
-    ROOT --> DIAGRAM_SVG["diagrams/SVG_DIAGRAM.svg<br/>1600x3560 Vector Blueprint"]:::visual
+    ROOT --> SPEC_HTML["docs/html/nl2sql.html<br/>Interactive Web Architecture Spec"]:::visual
+    ROOT --> DIAGRAM_SVG["docs/diagrams/SVG_DIAGRAM.svg<br/>1600x3560 Vector Blueprint"]:::visual
 
     CORE <--> GUI_DOC
     CORE <--> SCRIPTS_DOC
@@ -327,17 +331,7 @@ chmod +x scripts/setup_linux.sh
 ./scripts/setup_linux.sh
 ```
 
-#### Windows PowerShell & CMD
-```powershell
-git clone https://github.com/VanshikaKritiSingh/NL2SQL.git
-cd NL2SQL
-
-# PowerShell
-.\scripts\setup_windows.ps1
-
-# Windows Command Prompt
-scripts\setup_windows.bat
-```
+> **Cross-Platform Note:** The scripts/ directory contains only Linux/macOS (`.sh`) and Python (`.py`) scripts after repository cleanup. Windows users can run the scripts on Linux via WSL, Wine, or in a virtual machine.
 
 ---
 
@@ -346,18 +340,12 @@ scripts\setup_windows.bat
 ```bash
 # Linux / macOS
 ./scripts/start_all.sh
-
-# Windows PowerShell
-.\scripts\start_all.ps1
-
-# Windows Command Prompt
-scripts\start_all.bat
 ```
 
 > **Individual Services:**
-> - Backend API Server: `./scripts/start_backend.sh` (or `.\scripts\start_backend.ps1`)
-> - Frontend Studio GUI: `./scripts/start_gui.sh` (or `.\scripts\start_gui.ps1`)
-> - Desktop Electron App: `./scripts/start_gui.sh --desktop` (or `.\scripts\start_gui.ps1 -Desktop`)
+> - Backend API Server: `./scripts/start_backend.sh`
+> - Frontend Studio GUI: `./scripts/start_gui.sh`
+> - Desktop Electron App: `./scripts/start_gui.sh --desktop`
 
 ---
 

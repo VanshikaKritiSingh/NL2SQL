@@ -271,15 +271,20 @@ export const NLQueryInput: React.FC = () => {
             }`}
             title={isOllamaOnline ? `Ollama local models active (${availableModels.length} scanned)` : 'Ollama not detected; using deterministic offline synthesizer'}
           >
-            {isOllamaOnline && availableModels.length > 0 ? (
-              availableModels.map((m) => (
-                <option key={m} value={m} className="bg-[var(--bg-card)] text-[var(--text-main)]">
-                  {m}
-                </option>
-              ))
+            {availableModels.length > 0 ? (
+              availableModels.map((m) => {
+                let label = m;
+                if (m === 'A2.5C0.5') label = 'A2.5C0.5 (AdaLoRA 0.5B)';
+                else if (m === 'Q2.5C0.5') label = 'Q2.5C0.5 (QLoRA 0.5B)';
+                return (
+                  <option key={m} value={m} className="bg-[var(--bg-card)] text-[var(--text-main)]">
+                    {label}
+                  </option>
+                );
+              })
             ) : (
               <option value="offline_synthesizer" className="bg-[var(--bg-card)] text-[var(--text-main)]">
-                Offline Synthesizer (Ollama offline)
+                Offline Synthesizer
               </option>
             )}
           </select>

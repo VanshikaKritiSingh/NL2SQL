@@ -8,8 +8,8 @@
 [![Electron](https://img.shields.io/badge/Electron-Desktop%20Runtime-47848F?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Interactive Spec](https://img.shields.io/badge/Architecture-Interactive%20HTML%20Spec-blueviolet?style=flat-square&logo=html5&logoColor=white)](../html/nl2sql.html)
-[![Vector Blueprint](https://img.shields.io/badge/Vector%20Blueprint-SVG%20High--Res-ff69b4?style=flat-square&logo=inkscape&logoColor=white)](../diagrams/SVG_DIAGRAM.svg)
+[![Interactive Spec](https://img.shields.io/badge/Architecture-Interactive%20HTML%20Spec-blueviolet?style=flat-square&logo=html5&logoColor=white)](../docs/html/nl2sql.html)
+[![Vector Blueprint](https://img.shields.io/badge/Vector%20Blueprint-SVG%20High--Res-ff69b4?style=flat-square&logo=inkscape&logoColor=white)](../docs/diagrams/SVG_DIAGRAM.svg)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Bridge%20Server-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 
 <br />
@@ -18,7 +18,7 @@
 
 <br />
 
-[Root Overview](../README.md) &bull; [Visual Blueprint](../diagrams/SVG_DIAGRAM.svg) &bull; [Interactive Spec](../html/nl2sql.html) &bull; [Core AI/ML Engine](../core/README.md) &bull; [Scripts & Automation](../scripts/README.md) &bull; [Integration Guide](../GUI_INTEGRATION_GUIDE.md)
+[Root Overview](../README.md) &bull; [Visual Blueprint](../docs/diagrams/SVG_DIAGRAM.svg) &bull; [Interactive Spec](../docs/html/nl2sql.html) &bull; [Core AI/ML Engine](../core/README.md) &bull; [Scripts & Automation](../scripts/README.md) &bull; [Integration Guide](../docs/GUI_INTEGRATION_GUIDE.md)
 
 </div>
 
@@ -155,9 +155,9 @@ npm run desktop:dev
 ## Related Subsystem Documentation & Specifications
 
 - **Root Pipeline Overview:** [`../README.md`](../README.md)
-- **GUI Integration Guide & Backend Stubs:** [`../GUI_INTEGRATION_GUIDE.md`](../GUI_INTEGRATION_GUIDE.md)
-- **Interactive Architecture Specification:** [`../html/nl2sql.html`](../html/nl2sql.html)
-- **High-Resolution Master Blueprint:** [`../diagrams/SVG_DIAGRAM.svg`](../diagrams/SVG_DIAGRAM.svg)
+- **GUI Integration Guide & Backend Stubs:** [`../docs/GUI_INTEGRATION_GUIDE.md`](../docs/GUI_INTEGRATION_GUIDE.md)
+- **Interactive Architecture Specification:** [`../docs/html/nl2sql.html`](../docs/html/nl2sql.html)
+- **High-Resolution Master Blueprint:** [`../docs/diagrams/SVG_DIAGRAM.svg`](../docs/diagrams/SVG_DIAGRAM.svg)
 - **Core AI/ML Engine & Transpiler Handbook:** [`../core/README.md`](../core/README.md)
 - **Cross-Platform Scripts & Launchers:** [`../scripts/README.md`](../scripts/README.md)
 

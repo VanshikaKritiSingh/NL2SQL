@@ -23,6 +23,7 @@ __pycache__/
 .Python
 venv/
 .venv/
+.venv*/
 env/
 .pip-cache/
 .pytest_cache/
@@ -48,7 +49,7 @@ offline/datasets/*.jsonl
 offline/datasets/*.parquet
 offline/datasets/raw/
 data/
-datasets/
+/datasets/
 !offline/datasets/.gitkeep
 
 # RLAIF Engine & Local Document Pool (Unfollowed local directory)
@@ -66,7 +67,7 @@ lightning_logs/
 .cache/
 
 # Hide directories from GitHub
-offline/
+offline/datasets/dialects/
 validator/
 test/
 tests/

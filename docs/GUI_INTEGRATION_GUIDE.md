@@ -7,8 +7,8 @@
 [![Guide Status](https://img.shields.io/badge/Status-Complete-brightgreen?style=flat-square)](https://github.com/VanshikaKritiSingh/NL2SQL)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI%20%7C%20WebSocket-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/Frontend-React%2018%20%7C%20Electron-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
-[![Interactive Spec](https://img.shields.io/badge/Architecture-Interactive%20HTML%20Spec-blueviolet?style=flat-square&logo=html5&logoColor=white)](html/nl2sql.html)
-[![Vector Blueprint](https://img.shields.io/badge/Vector%20Blueprint-SVG%20High--Res-ff69b4?style=flat-square&logo=inkscape&logoColor=white)](diagrams/SVG_DIAGRAM.svg)
+[![Interactive Spec](https://img.shields.io/badge/Architecture-Interactive%20HTML%20Spec-blueviolet?style=flat-square&logo=html5&logoColor=white)](docs/html/nl2sql.html)
+[![Vector Blueprint](https://img.shields.io/badge/Vector%20Blueprint-SVG%20High--Res-ff69b4?style=flat-square&logo=inkscape&logoColor=white)](docs/diagrams/SVG_DIAGRAM.svg)
 
 <br />
 
@@ -16,7 +16,7 @@
 
 <br />
 
-[Root Overview](README.md) &bull; [Visual Blueprint](diagrams/SVG_DIAGRAM.svg) &bull; [Interactive Spec](html/nl2sql.html) &bull; [Desktop & Web Studio](GUI/README.md) &bull; [Core AI/ML Engine](core/README.md) &bull; [Scripts](scripts/README.md)
+[Root Overview](README.md) &bull; [Visual Blueprint](docs/diagrams/SVG_DIAGRAM.svg) &bull; [Interactive Spec](docs/html/nl2sql.html) &bull; [Desktop & Web Studio](GUI/README.md) &bull; [Core AI/ML Engine](core/README.md) &bull; [Scripts](scripts/README.md)
 
 </div>
 

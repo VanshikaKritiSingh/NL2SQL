@@ -343,56 +343,45 @@ async def check_connector_dependencies(connector_type: str):
 
 @router.get("/models")
 async def list_available_models():
-    """Lists available local LLM models dynamically from local Ollama daemon, including thinking capabilities."""
-    import urllib.request
-    import json
-    try:
-        req = urllib.request.Request("http://127.0.0.1:11434/api/tags", headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=3.0) as resp:
-            data = json.loads(resp.read().decode())
-            models = []
-            model_details = []
-            for m in data.get("models", []):
-                name = m.get("name")
-                if not name:
-                    continue
-                models.append(name)
-                caps = m.get("capabilities", [])
-                model_details.append({
-                    "name": name,
-                    "family": m.get("details", {}).get("family", ""),
-                    "parameter_size": m.get("details", {}).get("parameter_size", ""),
-                    "supports_thinking": "thinking" in caps,
-                })
-            
-            # Intelligently pick best default model from installed models
-            best_default = None
-            if models:
-                preferred_keywords = ["coder", "sql", "llama3.2", "qwen2.5", "qwen3", "mistral", "gemma"]
-                for kw in preferred_keywords:
-                    match = next((m for m in models if kw in m.lower()), None)
-                    if match:
-                        best_default = match
-                        break
-                if not best_default:
-                    best_default = models[0]
+    """Lists available local LLM models dynamically from local PEFT engine (A2.5C0.5, Q2.5C0.5) and the Ollama daemon."""
+    from core.connectors.ollama import default_ollama
+    from core.connectors.peft_connector import default_peft_engine
 
-            return {
-                "ok": True,
-                "online": True,
-                "models": models,
-                "model_details": model_details,
-                "default": best_default or "offline_synthesizer",
-            }
-    except Exception as e:
-        return {
-            "ok": True,
-            "online": False,
-            "models": [],
-            "model_details": [],
-            "default": "offline_synthesizer",
-            "error": str(e),
-        }
+    models = []
+    model_details = []
+
+    # 1. Native PEFT field-test models (A2.5C0.5, Q2.5C0.5)
+    try:
+        peft_models = default_peft_engine.list_available_models()
+        for pm in peft_models:
+            models.append(pm["name"])
+            model_details.append(pm)
+    except Exception:
+        pass
+
+    # 2. Local Ollama models
+    ollama_online = False
+    try:
+        if default_ollama.is_online():
+            ollama_online = True
+            all_models = default_ollama.list_models()
+            chat_models = [m for m in all_models if m.get("is_generative", True)]
+            for cm in chat_models:
+                if cm["name"] not in models:
+                    models.append(cm["name"])
+                    model_details.append(cm)
+    except Exception:
+        pass
+
+    default_model = "A2.5C0.5" if "A2.5C0.5" in models else (models[0] if models else "offline_synthesizer")
+
+    return {
+        "ok": True,
+        "online": (ollama_online or len(models) > 0),
+        "models": models,
+        "model_details": model_details,
+        "default": default_model,
+    }
 
 
 @router.get("/status/{user_id}")

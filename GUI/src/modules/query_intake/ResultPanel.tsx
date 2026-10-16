@@ -36,6 +36,68 @@ export const ResultPanel: React.FC = () => {
     );
   }
 
+  // Refusal State (Non-SQL query or Schema Mismatch Guard)
+  if (lastResponse.status === 'refusal') {
+    const isSchemaMismatch = lastResponse.generated_sql?.includes('SCHEMA_MISMATCH');
+    return (
+      <div
+        className="flex flex-col h-full overflow-hidden shadow-lg p-6 justify-center items-center text-center transition-all duration-300 bento-card rounded-none"
+      >
+        <div className={`w-12 h-12 rounded-none flex items-center justify-center mb-3 ${
+          isSchemaMismatch
+            ? 'bg-amber-500/10 border border-amber-500/30 text-amber-500'
+            : 'bg-indigo-500/10 border border-indigo-500/30 text-indigo-500'
+        }`}>
+          {isSchemaMismatch ? <Database className="w-6 h-6" /> : <Server className="w-6 h-6" />}
+        </div>
+        <div className="flex items-center gap-2 mb-1">
+          <span className={`text-[10px] font-mono px-2 py-0.5 uppercase tracking-wider font-semibold border ${
+            isSchemaMismatch
+              ? 'bg-amber-500/10 border-amber-500/30 text-amber-500'
+              : 'bg-indigo-500/10 border-indigo-500/30 text-indigo-500'
+          }`}>
+            {isSchemaMismatch ? 'Schema Grounding Notice' : 'Non-Database Query Notice'}
+          </span>
+        </div>
+        <h3 className={`text-base font-semibold mb-2 ${
+          isSchemaMismatch ? 'text-amber-500' : 'text-indigo-400'
+        }`}>
+          {isSchemaMismatch ? 'Entity Not Found in Active Schema' : 'Conversational Input Detected'}
+        </h3>
+        <p className={`text-xs max-w-lg p-3 rounded-none border text-left leading-relaxed mb-4 ${
+          isDark
+            ? isSchemaMismatch
+              ? 'text-amber-300/90 bg-amber-500/10 border-amber-500/20'
+              : 'text-indigo-300/90 bg-indigo-500/10 border-indigo-500/20'
+            : isSchemaMismatch
+              ? 'text-amber-900 bg-amber-50 border-amber-200'
+              : 'text-indigo-900 bg-indigo-50 border-indigo-200'
+        }`}>
+          {lastResponse.error_message}
+        </p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsERDiagramOpen(true)}
+            className={`px-3 py-1.5 text-xs font-medium border flex items-center gap-1.5 transition-all ${
+              isDark
+                ? 'bg-neutral-800 border-neutral-700 text-neutral-300 hover:bg-neutral-700'
+                : 'bg-white border-neutral-300 text-neutral-700 hover:bg-neutral-100'
+            }`}
+          >
+            <Database className="w-3.5 h-3.5" />
+            Explore Connected Schema (ER Diagram)
+          </button>
+        </div>
+        <ERDiagramModal
+          isOpen={isERDiagramOpen}
+          onClose={() => setIsERDiagramOpen(false)}
+          schema={schema}
+          impactedTables={[]}
+        />
+      </div>
+    );
+  }
+
   // Error State
   if (lastResponse.status === 'error') {
     return (

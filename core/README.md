@@ -5,12 +5,12 @@
 ### Multi-Paradigm Intent Routing, Semantic Schema Context Pruning, and Deterministic Transpilation
 
 [![Package Status](https://img.shields.io/badge/Status-Complete-brightgreen?style=flat-square)](https://github.com/VanshikaKritiSingh/NL2SQL)
-[![Tests](https://img.shields.io/badge/Tests-17%2F17%20Passing-success?style=flat-square&logo=pytest&logoColor=white)](https://github.com/VanshikaKritiSingh/NL2SQL)
-[![Interactive Spec](https://img.shields.io/badge/Architecture-Interactive%20HTML%20Spec-blueviolet?style=flat-square&logo=html5&logoColor=white)](../html/nl2sql.html)
-[![Vector Blueprint](https://img.shields.io/badge/Vector%20Blueprint-SVG%20High--Res-ff69b4?style=flat-square&logo=inkscape&logoColor=white)](../diagrams/SVG_DIAGRAM.svg)
+[![Tests](https://img.shields.io/badge/Tests-30%2F30%20Passing-success?style=flat-square&logo=pytest&logoColor=white)](https://github.com/VanshikaKritiSingh/NL2SQL)
+[![Interactive Spec](https://img.shields.io/badge/Architecture-Interactive%20HTML%20Spec-blueviolet?style=flat-square&logo=html5&logoColor=white)](../docs/html/nl2sql.html)
+[![Vector Blueprint](https://img.shields.io/badge/Vector%20Blueprint-SVG%20High--Res-ff69b4?style=flat-square&logo=inkscape&logoColor=white)](../docs/diagrams/SVG_DIAGRAM.svg)
 [![Latency](https://img.shields.io/badge/Latency-%3C%205ms%20AST%20Transpile-blue?style=flat-square)](https://github.com/VanshikaKritiSingh/NL2SQL)
 [![Engine](https://img.shields.io/badge/AST%20Engine-sqlglot%20%7C%20NetworkX-00bcd4?style=flat-square)](https://github.com/tobymao/sqlglot)
-[![Fine-Tuning](https://img.shields.io/badge/Training-QLoRA%204--bit%20NF4-7952b3?style=flat-square&logo=huggingface&logoColor=white)](https://huggingface.co/)
+[![PEFT](https://img.shields.io/badge/Adapters-AdaLoRA%20%7C%20QLoRA-7952b3?style=flat-square&logo=huggingface&logoColor=white)](https://huggingface.co/)
 
 <br />
 
@@ -18,7 +18,7 @@
 
 <br />
 
-[Root Overview](../README.md) &bull; [Visual Blueprint](../diagrams/SVG_DIAGRAM.svg) &bull; [Interactive Spec](../html/nl2sql.html) &bull; [Studio GUI](../GUI/README.md) &bull; [Scripts & Automation](../scripts/README.md) &bull; [Offline Models](../offline/models/README.md)
+[Root Overview](../README.md) &bull; [Visual Blueprint](../docs/diagrams/SVG_DIAGRAM.svg) &bull; [Interactive Spec](../docs/html/nl2sql.html) &bull; [Studio GUI](../GUI/README.md) &bull; [Scripts & Automation](../scripts/README.md) &bull; [Offline Models](../offline/models/README.md)
 
 </div>
 
@@ -209,23 +209,28 @@ classDiagram
 flowchart LR
     classDef stage fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#f8fafc;
     classDef artifact fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#f8fafc;
+    classDef guard fill:#7f1d1d,stroke:#f87171,stroke-width:2px,color:#f8fafc;
 
-    DS["prepare_dataset.py<br/>Synthetic Multi-Schema Generator"]:::stage --> DATA["train.jsonl & eval.jsonl<br/>(ChatML SFT Formatted)"]:::artifact
-    
-    DATA --> SFT["train_qlora.py<br/>4-bit NF4 QLoRA Fine-Tuning"]:::stage
-    
-    SFT --> LORA["LoRA Checkpoints<br/>(Fits < 7.5GB VRAM on RTX 4060)"]:::artifact
-    
-    LORA --> EXP["export_gguf.py<br/>Merge LoRA + Quantize to GGUF"]:::stage
-    
-    EXP --> GGUF["model-q4_k_m.gguf + Modelfile<br/>(~4.3GB RAM on CPU / Ollama)"]:::artifact
-    
-    GGUF --> EVAL["evaluate.py<br/>AST Exact Match & Execution Benchmark"]:::stage
+    DS["prepare_dataset.py<br/>Synthetic Multi-Schema Generator<br/>(90% SQL + 10% Refusal Negatives)"]:::stage --> DATA["train.jsonl & eval.jsonl<br/>(ChatML SFT Formatted)"]:::artifact
+
+    DATA --> ENG["train_engine.py<br/>Unified QLoRA / AdaLoRA Engine"]:::stage
+
+    ENG --> Q["smoke-test-qlora/<br/>Q2.5C0.5 — QLoRA 4-bit"]:::artifact
+    ENG --> A["smoke-test-adalora/<br/>A2.5C0.5 — AdaLoRA SVD"]:::artifact
+
+    Q --> EVAL["evaluate.py / kfold_eval.py<br/>AST Exact Match & K-Fold CV"]:::stage
+    A --> EVAL
+
+    EVAL --> CMP["compare_models.py<br/>Decision Matrix"]:::stage
+
+    Q --> PEFT["peft_connector.py<br/>Native In-Process Inference"]:::guard
+    A --> PEFT
 ```
 
-- **Base Foundation:** `Qwen/Qwen2.5-Coder-7B-Instruct` or `DeepSeek-Coder-V2-Lite`.
-- **Target Hardware:** Consumer GPUs (RTX 4060 8GB / RTX 3060 12GB) for training; standard CPU (4.3GB RAM at Q4_K_M) for production inference.
-- **Evaluation Metrics:** AST Exact Match (EM) via `sqlglot` AST equality and Live Execution Accuracy (EX) on sandboxed databases.
+- **Base Foundation:** `Qwen/Qwen2.5-Coder-0.5B-Instruct` (field-test) → `Qwen2.5-Coder-7B-Instruct` (production).
+- **Fine-Tuning Methods:** QLoRA (4-bit NF4, fixed rank) and AdaLoRA (adaptive SVD rank allocation).
+- **Negative Sample Training (10%):** Dataset includes 5% non-SQL chit-chat refusals and 5% schema-mismatch traps to teach the model when _not_ to generate SQL.
+- **Field-Testing Models:** `A2.5C0.5` (AdaLoRA) and `Q2.5C0.5` (QLoRA) are directly available as selectable models in the Web GUI.
 - **Git Cleanliness:** Checkpoint files (`*.safetensors`, `*.gguf`) and datasets are strictly excluded from git tracking.
 
 ---
@@ -237,7 +242,7 @@ PYTHONPATH=. ./.venv/bin/pytest tests/ -v
 ```
 
 ```
-============================== 17 passed in 0.17s ==============================
+============================== 30 passed in 1.87s ==============================
 - CLEF Drafter Intent Routing (Graph, Document, KV, OLAP): PASSED
 - Paradigm Suggestor Auto Mode & Manual Guardrails: PASSED
 - Dialect Transpilation (PostgreSQL, MySQL, SQLite, Cypher, MQL): PASSED
@@ -246,6 +251,9 @@ PYTHONPATH=. ./.venv/bin/pytest tests/ -v
 - 6-Layer Static AST Validator (Layers 1-6 & Anti-Patterns): PASSED
 - Heuristic Cost & Execution Plan Estimator: PASSED
 - End-to-End Pipeline Orchestration & Dual-Path Routing: PASSED
+- Non-SQL Query Refusal (greetings, trivia, general knowledge): PASSED
+- Schema Mismatch Guard (out-of-domain entity rejection): PASSED
+- Architecture Synthesis (multi-entity NL → multi-table DDL + ER metadata): PASSED
 ```
 
 ---
@@ -253,8 +261,8 @@ PYTHONPATH=. ./.venv/bin/pytest tests/ -v
 ## Related Subsystem Documentation & Specifications
 
 - **Root Pipeline Overview:** [`../README.md`](../README.md)
-- **Interactive Architecture Specification:** [`../html/nl2sql.html`](../html/nl2sql.html)
-- **High-Resolution Master Blueprint:** [`../diagrams/SVG_DIAGRAM.svg`](../diagrams/SVG_DIAGRAM.svg)
+- **Interactive Architecture Specification:** [`../docs/html/nl2sql.html`](../docs/html/nl2sql.html)
+- **High-Resolution Master Blueprint:** [`../docs/diagrams/SVG_DIAGRAM.svg`](../docs/diagrams/SVG_DIAGRAM.svg)
 - **Desktop & Web Studio Handbook:** [`../GUI/README.md`](../GUI/README.md)
 - **Cross-Platform Script Automation:** [`../scripts/README.md`](../scripts/README.md)
 - **Offline Model Checkpoint Registry:** [`../offline/models/README.md`](../offline/models/README.md)

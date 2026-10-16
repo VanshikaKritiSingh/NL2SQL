@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NL2SQL — Compact Architecture</title>
+<style>
+body{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:#e2e8f0;margin:0;padding:20px;line-height:1.35}
+h1{font-size:1.6rem;margin-bottom:.25rem}
+.subtitle{color:#94a3b8;font-size:.9rem;margin-bottom:1rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;max-width:1200px}
+.card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;box-shadow:0 4px 6px rgba(0,0,0,.25)}
+.card h3{margin:0 0 6px;font-size:.95rem;color:#f8fafc;border-bottom:1px solid #334155;padding-bottom:6px}
+.card p{margin:3px 0;font-size:.82rem;color:#cbd5e1}
+.tag{display:inline-block;font-size:.7rem;padding:2px 6px;border-radius:99px;background:#334155;color:#f1f5f9;margin-right:4px}
+.badge{font-size:.7rem;padding:2px 6px;border-radius:4px;background:#0ea5e9;color:#fff;margin-top:6px;display:inline-block}
+</style>
+</head>
+<body>
+<h1>NL2SQL — Minimal Pipeline View</h1>
+<div class="subtitle">Compressed horizontal layout · All key stages · No scroll required</div>
+
+<div class="grid">
+  <div class="card">
+    <h3>1 · Intake</h3>
+    <p><span class="tag">CLEF</span> <span class="tag">DSpark</span></p>
+    <p>Natural language → Speculative router → Auto / Manual mode</p>
+    <span class="badge">2ms</span>
+  </div>
+
+  <div class="card">
+    <h3>2 · Schema Grounding</h3>
+    <p><span class="tag">BM25</span> <span class="tag">RRF</span> <span class="tag">Trie</span></p>
+    <p>Hybrid retrieval + Steiner tree FK bridge injection</p>
+    <span class="badge">Sub-ms</span>
+  </div>
+
+  <div class="card">
+    <h3>3 · Synthesis</h3>
+    <p><span class="tag">AST</span> <span class="tag">Qwen 7B</span></p>
+    <p>Canonical ANSI/PostgreSQL AST generation</p>
+    <span class="badge">&lt;5ms transpile</span>
+  </div>
+
+  <div class="card">
+    <h3>4 · Dialect</h3>
+    <p><span class="tag">sqlglot</span> <span class="tag">Cypher</span> <span class="tag">MQL</span></p>
+    <p>20+ SQL + Graph + Document targets</p>
+    <span class="badge">Deterministic</span>
+  </div>
+
+  <div class="card">
+    <h3>5 · Validation</h3>
+    <p><span class="tag">PARSE</span> <span class="tag">POLICY</span> <span class="tag">SCHEMA</span></p>
+    <p>6-layer static AST validator + anti-patterns</p>
+    <span class="badge">100% pass</span>
+  </div>
+
+  <div class="card">
+    <h3>6 · Cost & Gate</h3>
+    <p><span class="tag">Heuristic</span> <span class="tag">EXPLAIN</span></p>
+    <p>Scan estimation + blast radius → Read / Mutating split</p>
+    <span class="badge">Tiered risk</span>
+  </div>
+
+  <div class="card">
+    <h3>7 · Execution</h3>
+    <p><span class="tag">Sandbox</span> <span class="tag">Approval</span> <span class="tag">DOLT</span></p>
+    <p>Dual-path router: Sandbox (SELECT) / Human Gate (DDL/DML) / Checkpoint commit</p>
+    <span class="badge">Transaction-safe</span>
+  </div>
+</div>
+
+<div style="margin-top:12px;color:#94a3b8;font-size:.82rem">
+  Source: <a href="SVG_DIAGRAM.svg" style="color:#38bdf8">SVG master</a> · <a href="pipeline_v2_check.png" style="color:#38bdf8">PNG render</a> · All paths now point to <code>docs/</code>
+</div>
+</body>
+</html>
