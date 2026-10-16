@@ -22,7 +22,7 @@
 
 ---
 
-## Executive Summary
+## Executive Summary.
 
 The **NL2SQL Production Pipeline** is an enterprise-grade compilation framework that transforms natural language requests into deterministic, semantically validated, and cost-controlled queries across **6 database paradigms** and **20+ dialects**.
 
