@@ -7,6 +7,9 @@ import { usePipelineStore } from '../store/usePipelineStore';
 import { DialectSelector } from './DialectSelector';
 import { ConnectionModal } from './ConnectionModal';
 import { AuditLogModal } from './AuditLogModal';
+import { ERDiagramModal } from './ERDiagramModal';
+import { useSchemaStore } from '../store/useSchemaStore';
+import { getLiveSchema } from '../api/schemaApi';
 import { MOCK_UPDATE_APPROVAL } from '../mock/mockData';
 import { apiFetch } from '../api/client';
 
@@ -29,7 +32,18 @@ export const TopBar: React.FC = () => {
   const [tempUserName, setTempUserName] = useState(userId);
   const [isConnectOpen, setIsConnectOpen] = useState(false);
   const [isAuditOpen, setIsAuditOpen] = useState(false);
+  const [isEROpen, setIsEROpen] = useState(false);
   const [dbStatus, setDbStatus] = useState<{ connected: boolean; database?: string; connector_type?: string } | null>(null);
+
+  const schema = useSchemaStore((s) => s.schema);
+  const schemaVersion = useSchemaStore((s) => s.schemaVersion);
+  const updateSchema = useSchemaStore((s) => s.updateSchema);
+  const targetDialect = useAppStore((s) => s.targetDialect);
+
+  useEffect(() => {
+    const dialect = dbStatus?.connector_type || (targetDialect === 'auto' ? 'mysql' : targetDialect);
+    getLiveSchema(userId, dialect).then(updateSchema).catch(() => {});
+  }, [userId, schemaVersion, dbStatus?.connected, dbStatus?.connector_type, targetDialect]);
 
   const checkDbStatus = async () => {
     try {
@@ -227,6 +241,27 @@ export const TopBar: React.FC = () => {
           </button>
         )}
 
+        {/* ER Diagram Modal Toggle */}
+        <button
+          onClick={() => setIsEROpen(true)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-none text-xs font-medium cursor-pointer transition-all shrink-0 whitespace-nowrap ${
+            isDark
+              ? 'bg-[var(--bg-card)] border border-[var(--border-main)] text-[var(--accent-primary)] hover:bg-[var(--bg-hover)]'
+              : 'bg-[var(--bg-card)] border border-[var(--border-subtle)] text-[var(--accent-primary)] hover:bg-[var(--bg-hover)]'
+          }`}
+          title="Open Database ER Schema Diagram"
+        >
+          <Database className="w-3.5 h-3.5 shrink-0" />
+          <span className="hidden sm:inline whitespace-nowrap">ER Diagram</span>
+          {schema && schema.tables.length > 0 && (
+            <span className={`text-[10px] px-1 py-0.2 rounded-none font-mono ${
+              isDark ? 'bg-white/10 text-slate-300' : 'bg-slate-200 text-slate-700'
+            }`}>
+              {schema.tables.length}
+            </span>
+          )}
+        </button>
+
         {/* Audit Log Modal Toggle */}
         <button
           onClick={() => setIsAuditOpen(true)}
@@ -277,6 +312,18 @@ export const TopBar: React.FC = () => {
 
       {/* OS Concurrency & Pipeline Audit Log Modal */}
       <AuditLogModal isOpen={isAuditOpen} onClose={() => setIsAuditOpen(false)} />
+
+      {/* Global ER Diagram Modal */}
+      <ERDiagramModal
+        isOpen={isEROpen}
+        onClose={() => setIsEROpen(false)}
+        schema={schema}
+        title={
+          schema && schema.tables.length > 0
+            ? `Database ER Schema: ${schema.database_name} (${schema.tables.length} tables)`
+            : 'Database ER Schema Graph'
+        }
+      />
     </>
   );
 };

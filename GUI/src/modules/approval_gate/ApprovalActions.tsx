@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { CheckCircle2, XCircle, ArrowLeft } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { useQueryStore } from '../../store/useQueryStore';
+import { useSchemaStore } from '../../store/useSchemaStore';
 import { submitApproval } from '../../api/approvalApi';
 import { LoadingSpinner } from '../../shared/LoadingSpinner';
 import { RiskBadge } from '../../shared/RiskBadge';
@@ -23,6 +24,7 @@ export const ApprovalActions: React.FC<ApprovalActionsProps> = ({ queryId, riskT
   const setCurrentView = useAppStore((s) => s.setCurrentView);
   const theme = useAppStore((s) => s.theme);
   const setApprovalPayload = useQueryStore((s) => s.setApprovalPayload);
+  const bumpSchemaVersion = useSchemaStore((s) => s.bumpSchemaVersion);
 
   const isDark = theme === 'dark';
 
@@ -61,6 +63,8 @@ export const ApprovalActions: React.FC<ApprovalActionsProps> = ({ queryId, riskT
             },
           });
         }
+        // Refresh ER diagram after approval commits mutation
+        bumpSchemaVersion();
       } else {
         const msg = `Rejected! Feedback saved: "${feedback.trim() || 'Manual reject'}" and routed back for query adjustment.`;
         setSettledResult({

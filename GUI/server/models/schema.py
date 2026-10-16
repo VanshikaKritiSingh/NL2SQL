@@ -1,6 +1,6 @@
 # models/schema.py
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Any
 
 
 class ColumnInfo(BaseModel):
@@ -10,11 +10,14 @@ class ColumnInfo(BaseModel):
     is_foreign_key: bool = False
     fk_references: Optional[str] = None   # "table.column"
     nullable: bool = True
+    sample_values: Optional[List[Any]] = Field(default_factory=list)
+    default_value: Optional[str] = None
 
 
 class TableInfo(BaseModel):
     name: str
     columns: List[ColumnInfo]
+    row_count: Optional[int] = None
 
 
 class ForeignKey(BaseModel):
@@ -29,3 +32,5 @@ class SchemaInfo(BaseModel):
     database_name: str
     tables: List[TableInfo]
     foreign_keys: List[ForeignKey]
+    total_tables: Optional[int] = None
+    total_columns: Optional[int] = None

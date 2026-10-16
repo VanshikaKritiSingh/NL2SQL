@@ -142,12 +142,17 @@ class MySQLConnector(BaseDBConnector):
         cursor = self._conn.cursor()
         db_name = self.config.database
 
-        # 1. Tables
-        cursor.execute(f"SELECT TABLE_NAME, TABLE_TYPE FROM information_schema.TABLES WHERE TABLE_SCHEMA = '{db_name}';")
+        # 1. Tables & Row counts
+        cursor.execute(f"SELECT TABLE_NAME, TABLE_TYPE, TABLE_ROWS FROM information_schema.TABLES WHERE TABLE_SCHEMA = '{db_name}';")
         for r in cursor.fetchall():
             tbl_name = r["TABLE_NAME"] if isinstance(r, dict) else r[0]
             tbl_type = r["TABLE_TYPE"] if isinstance(r, dict) else r[1]
-            tables_map[tbl_name] = TableSchema(name=tbl_name, table_type=tbl_type)
+            row_cnt = r["TABLE_ROWS"] if isinstance(r, dict) else (r[2] if len(r) > 2 else None)
+            tables_map[tbl_name] = TableSchema(
+                name=tbl_name,
+                table_type=tbl_type,
+                row_count_estimate=int(row_cnt) if row_cnt is not None else None,
+            )
 
         # 2. Columns & PKs
         cursor.execute(f"SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_KEY, COLUMN_DEFAULT FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '{db_name}';")
@@ -190,6 +195,16 @@ class MySQLConnector(BaseDBConnector):
                 fk_info = {"from_table": from_t, "from_column": from_c, "to_table": to_t, "to_column": to_c}
                 tables_map[from_t].foreign_keys.append(fk_info)
                 relationships.append(fk_info)
+
+        # 4. Fetch small distinct samples for string/categorical columns (first few tables)
+        for tbl_name, tbl_meta in list(tables_map.items())[:15]:
+            try:
+                for c_name, c_meta in tbl_meta.columns.items():
+                    if any(t in c_meta.data_type for t in ["VARCHAR", "TEXT", "CHAR"]):
+                        cursor.execute(f"SELECT DISTINCT `{c_name}` FROM `{tbl_name}` WHERE `{c_name}` IS NOT NULL LIMIT 5;")
+                        c_meta.sample_values = [str(list(r.values())[0] if isinstance(r, dict) else r[0]) for r in cursor.fetchall()]
+            except Exception:
+                pass
 
         cursor.close()
 

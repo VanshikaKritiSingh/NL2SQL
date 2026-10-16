@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Database, X, CheckCircle2, AlertCircle, RefreshCw, Unlink, Link2, Server, Download, Package, Info, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
+import { useSchemaStore } from '../store/useSchemaStore';
 import { apiFetch } from '../api/client';
 
 interface ConnectionStatus {
@@ -88,6 +89,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
   const setConnectedEngine = useAppStore((s) => s.setConnectedEngine);
   const setDatabaseProfile = useAppStore((s) => s.setDatabaseProfile);
   const setAvailableDatabases = useAppStore((s) => s.setAvailableDatabases);
+  const bumpSchemaVersion = useSchemaStore((s) => s.bumpSchemaVersion);
   const isDark = theme === 'dark';
 
   const [status, setStatus] = useState<ConnectionStatus>({ connected: false });
@@ -180,6 +182,8 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
       if (res && res.ok) {
         setFeedback({ type: 'success', message: `Active database switched to '${newDb}'` });
         await fetchStatus();
+        // Trigger ER diagram refresh on database switch
+        bumpSchemaVersion();
       }
     } catch (e: any) {
       setFeedback({ type: 'error', message: e.message || 'Failed to switch database' });
@@ -202,6 +206,8 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
         const aff = res.is_mutating ? `${res.rows_affected} rows affected` : `${res.row_count} rows returned`;
         setFeedback({ type: 'success', message: `Query executed on '${database}': ${aff} in ${res.execution_time_ms}ms` });
         await fetchSchemaTables();
+        // Trigger ER diagram refresh after any successful SQL execution
+        bumpSchemaVersion();
       } else {
         setFeedback({ type: 'error', message: res.error || 'Direct SQL execution failed' });
       }
@@ -369,6 +375,8 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
       } else {
         setFeedback({ type: 'success', message: res?.message || 'Live database socket attached!' });
         await fetchStatus();
+        // Trigger ER diagram refresh after attaching
+        bumpSchemaVersion();
       }
     } catch (e: any) {
       setFeedback({ type: 'error', message: e.message || 'Failed to attach database socket' });
@@ -458,6 +466,8 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
         message: `✓ All done! Dependencies installed, connection verified, and socket attached to ${connectorType.toUpperCase()} [${database}].`,
       });
       await fetchStatus();
+      // Trigger ER diagram refresh after one-click setup
+      bumpSchemaVersion();
     } catch (e: any) {
       setFeedback({ type: 'error', message: e.message || 'One-click setup failed' });
     } finally {

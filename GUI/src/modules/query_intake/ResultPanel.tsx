@@ -1,26 +1,66 @@
 // src/modules/query_intake/ResultPanel.tsx
-import React, { useState, useEffect } from 'react';
-import { Table, AlertTriangle, ShieldAlert, Zap, Server, Database, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Table, AlertTriangle, ShieldAlert, Zap, Server, Database, CheckCircle, RefreshCw } from 'lucide-react';
 import { useQueryStore } from '../../store/useQueryStore';
 import { useAppStore } from '../../store/useAppStore';
+import { useSchemaStore } from '../../store/useSchemaStore';
 import { EmptyState } from '../../shared/EmptyState';
 import { ApprovalModal } from '../../shared/ApprovalModal';
 import { ERDiagramModal } from '../../shared/ERDiagramModal';
-import { getSchema } from '../../api/schemaApi';
+import { getLiveSchema } from '../../api/schemaApi';
 import type { SchemaInfo } from '../../types/schema';
 
 export const ResultPanel: React.FC = () => {
   const lastResponse = useQueryStore((s) => s.lastResponse);
+  const userId = useAppStore((s) => s.userId);
   const targetDialect = useAppStore((s) => s.targetDialect);
+  const isDbConnected = useAppStore((s) => s.isDbConnected);
+  const connectedEngine = useAppStore((s) => s.connectedEngine);
   const theme = useAppStore((s) => s.theme);
   const isDark = theme === 'dark';
   const [isApprovalOpen, setIsApprovalOpen] = useState(false);
   const [isERDiagramOpen, setIsERDiagramOpen] = useState(false);
-  const [schema, setSchema] = useState<SchemaInfo | null>(null);
 
+  // Centralized schema state
+  const schema = useSchemaStore((s) => s.schema);
+  const schemaVersion = useSchemaStore((s) => s.schemaVersion);
+  const isFetchingSchema = useSchemaStore((s) => s.isFetching);
+  const updateSchema = useSchemaStore((s) => s.updateSchema);
+  const setFetching = useSchemaStore((s) => s.setFetching);
+  const setFetchError = useSchemaStore((s) => s.setFetchError);
+
+  // Fetch schema whenever dialect, userId, connection status, or schemaVersion changes
+  const fetchSchema = useCallback(async () => {
+    setFetching(true);
+    setFetchError(null);
+    try {
+      const dialect = connectedEngine || (targetDialect === 'auto' ? 'mysql' : targetDialect);
+      const fetched = await getLiveSchema(userId, dialect);
+      updateSchema(fetched);
+    } catch (err: any) {
+      setFetchError(err.message || 'Failed to fetch schema');
+    } finally {
+      setFetching(false);
+    }
+  }, [userId, targetDialect, connectedEngine, updateSchema, setFetching, setFetchError]);
+
+  // Refetch schema on mount and when schemaVersion bumps (triggered by SQL execution)
   useEffect(() => {
-    getSchema(targetDialect).then(setSchema).catch(() => {});
-  }, [targetDialect]);
+    fetchSchema();
+  }, [fetchSchema, schemaVersion, isDbConnected]);
+
+  // Auto-bump schema version when a new response arrives (especially for mutating operations)
+  useEffect(() => {
+    if (lastResponse) {
+      const status = lastResponse.status;
+      // After a completed query or after approval, the DB may have changed
+      if (status === 'completed' || status === 'approval_required') {
+        // Small delay to let the DB settle after writes
+        const timer = setTimeout(() => fetchSchema(), 300);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [lastResponse?.query_id]);
 
   if (!lastResponse) {
     return (
@@ -247,6 +287,19 @@ export const ResultPanel: React.FC = () => {
         </div>
         <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
           <button
+            onClick={() => fetchSchema()}
+            disabled={isFetchingSchema}
+            className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-none transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
+              isDark
+                ? 'bg-[var(--bg-card)] border border-[var(--border-main)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-hover)]'
+                : 'bg-white border border-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-hover)]'
+            }`}
+            title="Refresh schema from database"
+          >
+            <RefreshCw className={`w-3 h-3 ${isFetchingSchema ? 'animate-spin' : ''} ${isDark ? 'text-[var(--accent-primary)]' : 'text-[var(--accent-primary)]'}`} />
+            <span>Refresh</span>
+          </button>
+          <button
             onClick={() => setIsERDiagramOpen(true)}
             className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-none transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
               isDark
@@ -312,7 +365,11 @@ export const ResultPanel: React.FC = () => {
         isOpen={isERDiagramOpen}
         onClose={() => setIsERDiagramOpen(false)}
         schema={schema}
-        title="Database ER Schema Graph"
+        title={
+          schema && schema.tables.length > 0
+            ? `Database ER Schema: ${schema.database_name} (${schema.tables.length} tables)`
+            : 'Database ER Schema Graph'
+        }
       />
     </div>
   );

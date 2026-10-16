@@ -78,6 +78,20 @@ export const TableNode = memo(({ data }: TableNodeProps) => {
           >
             {table.name}
           </span>
+          {table.row_count !== undefined && table.row_count !== null && (
+            <span
+              className={`text-[9px] font-mono font-medium px-1.5 py-0.2 rounded-none border ${
+                isPrimaryOrSelected
+                  ? 'bg-white/20 border-white/30 text-white'
+                  : isDark
+                  ? 'bg-white/5 border-white/10 text-slate-300'
+                  : 'bg-black/5 border-black/10 text-slate-600'
+              }`}
+              title={`${table.row_count} rows in table`}
+            >
+              {table.row_count} {table.row_count === 1 ? 'row' : 'rows'}
+            </span>
+          )}
           {operation && (
             <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-none bg-rose-600 text-white shadow-xs">
               {operation}
@@ -228,48 +242,77 @@ export const TableNode = memo(({ data }: TableNodeProps) => {
               {/* Expandable 2-column sub-rows for secondary metadata */}
               {isExpanded && (
                 <div
-                  className={`mt-1 p-2 rounded-none text-[10px] grid grid-cols-2 gap-2 shadow-xs animate-fade-in border ${
+                  className={`mt-1 p-2 rounded-none text-[10px] space-y-2 shadow-xs animate-fade-in border ${
                     isDark
                       ? 'bg-[#14141E] border-white/12 text-slate-300'
                       : 'bg-white border-[#EBE6EE] text-[#555560]'
                   }`}
                 >
-                  <div className="space-y-1">
-                    <div>
-                      <span className={`block text-[9px] uppercase font-bold ${isDark ? 'text-slate-400' : 'text-[#8E8E98]'}`}>
-                        Default:
-                      </span>
-                      <span className={`font-mono font-medium ${isDark ? 'text-slate-100' : 'text-[#1E1E24]'}`}>
-                        {col.is_primary_key ? 'AUTO_INCREMENT' : 'NULL'}
-                      </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <div>
+                        <span className={`block text-[9px] uppercase font-bold ${isDark ? 'text-slate-400' : 'text-[#8E8E98]'}`}>
+                          Default:
+                        </span>
+                        <span className={`font-mono font-medium ${isDark ? 'text-slate-100' : 'text-[#1E1E24]'}`}>
+                          {col.default_value !== undefined && col.default_value !== null
+                            ? col.default_value
+                            : col.is_primary_key
+                            ? 'AUTO_INCREMENT'
+                            : 'NULL'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className={`block text-[9px] uppercase font-bold ${isDark ? 'text-slate-400' : 'text-[#8E8E98]'}`}>
+                          Index:
+                        </span>
+                        <span className={`font-mono font-medium ${isDark ? 'text-slate-100' : 'text-[#1E1E24]'}`}>
+                          {col.is_primary_key ? 'PRIMARY (BTREE)' : col.is_foreign_key ? 'INDEX (FK)' : 'NONE'}
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <span className={`block text-[9px] uppercase font-bold ${isDark ? 'text-slate-400' : 'text-[#8E8E98]'}`}>
-                        Index:
-                      </span>
-                      <span className={`font-mono font-medium ${isDark ? 'text-slate-100' : 'text-[#1E1E24]'}`}>
-                        {col.is_primary_key ? 'PRIMARY (BTREE)' : col.is_foreign_key ? 'INDEX (FK)' : 'NONE'}
-                      </span>
+                    <div className="space-y-1">
+                      <div>
+                        <span className={`block text-[9px] uppercase font-bold ${isDark ? 'text-slate-400' : 'text-[#8E8E98]'}`}>
+                          Nullable:
+                        </span>
+                        <span className={`font-mono font-medium ${isDark ? 'text-slate-100' : 'text-[#1E1E24]'}`}>
+                          {col.nullable ? 'YES' : 'NO'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className={`block text-[9px] uppercase font-bold ${isDark ? 'text-slate-400' : 'text-[#8E8E98]'}`}>
+                          {col.is_foreign_key ? 'References:' : 'Collation:'}
+                        </span>
+                        <span className={`font-mono font-medium truncate block ${isDark ? 'text-slate-100' : 'text-[#1E1E24]'}`}>
+                          {col.is_foreign_key ? col.fk_references || 'FOREIGN KEY' : 'utf8mb4_bin'}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <div>
-                      <span className={`block text-[9px] uppercase font-bold ${isDark ? 'text-slate-400' : 'text-[#8E8E98]'}`}>
-                        Nullable:
+
+                  {/* Sample data values row (if populated by introspection) */}
+                  {col.sample_values && col.sample_values.length > 0 && (
+                    <div className={`pt-1 border-t ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+                      <span className={`block text-[9px] uppercase font-bold mb-0.5 ${isDark ? 'text-slate-400' : 'text-[#8E8E98]'}`}>
+                        Sample Data:
                       </span>
-                      <span className={`font-mono font-medium ${isDark ? 'text-slate-100' : 'text-[#1E1E24]'}`}>
-                        {col.is_primary_key ? 'NO' : 'YES'}
-                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {col.sample_values.map((val, idx) => (
+                          <span
+                            key={idx}
+                            className={`text-[9px] font-mono px-1 py-0.2 rounded-none border ${
+                              isDark
+                                ? 'bg-white/5 border-white/10 text-emerald-300'
+                                : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                            }`}
+                          >
+                            {String(val)}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                    <div>
-                      <span className={`block text-[9px] uppercase font-bold ${isDark ? 'text-slate-400' : 'text-[#8E8E98]'}`}>
-                        Collation:
-                      </span>
-                      <span className={`font-mono font-medium truncate block ${isDark ? 'text-slate-100' : 'text-[#1E1E24]'}`}>
-                        utf8mb4_bin
-                      </span>
-                    </div>
-                  </div>
+                  )}
                 </div>
               )}
             </div>

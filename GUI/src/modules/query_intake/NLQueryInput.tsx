@@ -4,6 +4,7 @@ import { Send, X, Database, Eye, Brain, BrainCircuit } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { useQueryStore } from '../../store/useQueryStore';
 import { usePipelineStore } from '../../store/usePipelineStore';
+import { useSchemaStore } from '../../store/useSchemaStore';
 import { submitQuery } from '../../api/queryApi';
 import { apiFetch } from '../../api/client';
 import { LoadingSpinner } from '../../shared/LoadingSpinner';
@@ -46,6 +47,7 @@ export const NLQueryInput: React.FC = () => {
   const setApprovalPayload = useQueryStore((s) => s.setApprovalPayload);
   const addToHistory = useQueryStore((s) => s.addToHistory);
   const startPipeline = usePipelineStore((s) => s.startPipeline);
+  const bumpSchemaVersion = useSchemaStore((s) => s.bumpSchemaVersion);
 
   // Does the currently selected model support thinking?
   const currentModelDetail = modelDetails.find((d) => d.name === selectedModel);
@@ -102,6 +104,7 @@ export const NLQueryInput: React.FC = () => {
           method: 'POST',
           body: JSON.stringify({ user_id: userId, database: newDb }),
         });
+        bumpSchemaVersion();
       } catch {
         /* ignore offline/error */
       }

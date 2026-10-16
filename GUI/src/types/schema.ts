@@ -6,11 +6,14 @@ export interface ColumnInfo {
   is_foreign_key: boolean;
   fk_references: string | null;
   nullable: boolean;
+  sample_values?: any[];
+  default_value?: string | null;
 }
 
 export interface TableInfo {
   name: string;
   columns: ColumnInfo[];
+  row_count?: number | null;
 }
 
 export interface ForeignKey {
@@ -25,4 +28,6 @@ export interface SchemaInfo {
   database_name: string;
   tables: TableInfo[];
   foreign_keys: ForeignKey[];
+  total_tables?: number;
+  total_columns?: number;
 }
