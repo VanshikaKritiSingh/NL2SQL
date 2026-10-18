@@ -606,7 +606,10 @@ class DeterministicDialectConverter:
         if isinstance(sql_or_ast, str):
             # Check for multi-statement DDL (e.g. multiple CREATE TABLE)
             try:
-                parsed_stmts = [s for s in sqlglot.parse(sql_or_ast, read=read_dialect) if s is not None]
+                read_d = read_dialect
+                if "`" in sql_or_ast or re.search(r"\bUSE\s+", sql_or_ast, re.IGNORECASE) or "AUTO_INCREMENT" in sql_or_ast.upper():
+                    read_d = "mysql"
+                parsed_stmts = [s for s in sqlglot.parse(sql_or_ast, read=read_d) if s is not None]
                 if len(parsed_stmts) > 1:
                     dialect_map = {"postgresql": "postgres", "sqlserver": "tsql", "mariadb": "mysql"}
                     res_d = dialect_map.get(target_normalized, target_normalized)
