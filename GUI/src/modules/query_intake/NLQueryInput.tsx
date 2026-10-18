@@ -48,6 +48,7 @@ export const NLQueryInput: React.FC = () => {
   const addToHistory = useQueryStore((s) => s.addToHistory);
   const startPipeline = usePipelineStore((s) => s.startPipeline);
   const bumpSchemaVersion = useSchemaStore((s) => s.bumpSchemaVersion);
+  const schemaVersion = useSchemaStore((s) => s.schemaVersion);
 
   // Does the currently selected model support thinking?
   const currentModelDetail = modelDetails.find((d) => d.name === selectedModel);
@@ -148,7 +149,7 @@ export const NLQueryInput: React.FC = () => {
   useEffect(() => {
     fetchDatabases();
     fetchModels();
-  }, [userId]);
+  }, [userId, schemaVersion]);
 
   const handleSubmit = async (textToSubmit?: string) => {
     const q = (textToSubmit || inputText).trim();

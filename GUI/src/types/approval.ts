@@ -56,4 +56,7 @@ export interface ApprovalResponse {
   query_id: string;
   status: 'approved_executing' | 'rejected_retrying' | 'rejected_final' | 'error';
   message: string;
+  active_database?: string;
+  available_databases?: string[];
+  tables?: string[];
 }

@@ -74,7 +74,7 @@ export const TopBar: React.FC = () => {
 
   useEffect(() => {
     checkDbStatus();
-  }, [userId, isConnectOpen]);
+  }, [userId, isConnectOpen, schemaVersion]);
 
   const handleDetachDirect = async (e: React.MouseEvent) => {
     e.stopPropagation();

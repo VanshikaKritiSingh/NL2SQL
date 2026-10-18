@@ -91,7 +91,13 @@ export const ApprovalActions: React.FC<ApprovalActionsProps> = ({ queryId, riskT
               },
             });
           }
-          // Refresh ER diagram after approval commits mutation
+          // Refresh store and ER diagram after approval commits mutation
+          if (res.active_database) {
+            useAppStore.getState().setDatabaseProfile(res.active_database);
+          }
+          if (res.available_databases && res.available_databases.length > 0) {
+            useAppStore.getState().setAvailableDatabases(res.available_databases);
+          }
           bumpSchemaVersion();
         }
       } else {
