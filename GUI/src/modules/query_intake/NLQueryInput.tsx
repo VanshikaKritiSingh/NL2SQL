@@ -279,6 +279,8 @@ export const NLQueryInput: React.FC = () => {
                 let label = m;
                 if (m === 'A2.5C0.5') label = 'A2.5C0.5 (AdaLoRA 0.5B)';
                 else if (m === 'Q2.5C0.5') label = 'Q2.5C0.5 (QLoRA 0.5B)';
+                else if (m === 'A2.5C1.5') label = 'A2.5C1.5 (AdaLoRA 1.5B Consumer CPU)';
+                else if (m === 'Q2.5C1.5') label = 'Q2.5C1.5 (QLoRA 1.5B Consumer CPU)';
                 return (
                   <option key={m} value={m} className="bg-[var(--bg-card)] text-[var(--text-main)]">
                     {label}

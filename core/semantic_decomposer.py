@@ -93,12 +93,9 @@ class ArchitectureResult:
 
 # Greetings / chit-chat patterns
 _CHITCHAT_PATTERNS = re.compile(
-    r"^(hi|hello|hey|sup|howdy|greetings|what(?:'s| is) up|good (morning|afternoon|evening)|"
-    r"how are you|who are you|what are you|tell me about yourself|"
-    r"who (?:is|was) (?:the )?(?:president|prime minister|ceo|founder)|"
-    r"what (?:is|was) (?:the )?(?:capital of|population of|currency of)|"
-    r"do you (?:know|like|think)|can you (?:help|explain|tell)|"
-    r"(?:thanks|thank you|bye|goodbye|see you))[?!., ]*$",
+    r"^(?:hi|hello|hey|sup|howdy|greetings|what(?:'s| is) up|good (?:morning|afternoon|evening)|"
+    r"how are you(?: doing)?|who are you|what are you|tell me about yourself|"
+    r"thanks|thank you|bye|goodbye|see you)(?:\s+(?:there|all|assistant|friend|everyone))?[?!., ]*$",
     re.IGNORECASE,
 )
 
@@ -142,49 +139,20 @@ class SemanticIntentClassifier:
         q = query.strip()
         q_lower = q.lower()
 
-        # Very short inputs with no SQL nouns → chit-chat
-        if len(q.split()) <= 3:
-            if not _SQL_VERB_PATTERNS.search(q):
-                return IntentResult(
-                    mode=MODE_REFUSAL,
-                    refusal_tag=REFUSAL_NON_SQL,
-                    refusal_comment=self._make_comment(
-                        REFUSAL_NON_SQL,
-                        "Input is too short and contains no SQL-relevant vocabulary.",
-                    ),
-                    explanation="Short chit-chat input.",
-                    confidence=0.95,
-                )
-
-        # Architecture intent takes priority
-        if _ARCH_PATTERNS.search(q) and len(q.split()) > 6:
-            # Only classify as architecture if the user does NOT already have
-            # a strong DML/SELECT verb (which implies a query, not a design request)
-            has_select = bool(re.search(r"\b(select|from|where|show|list|find)\b", q_lower))
-            has_create = bool(re.search(r"\bcreate\s+table\b", q_lower))
-            if not (has_select and not has_create):
-                return IntentResult(
-                    mode=MODE_ARCHITECTURE,
-                    refusal_tag=None,
-                    refusal_comment="",
-                    explanation="Architecture design intent detected.",
-                    confidence=0.88,
-                )
-
-        # Chit-chat greeting check
-        if _CHITCHAT_PATTERNS.match(q):
+        # 1. Direct chit-chat & greeting check
+        if _CHITCHAT_PATTERNS.match(q) or q_lower in ("hi", "hello", "hey", "test", "asdf", "ping"):
             return IntentResult(
                 mode=MODE_REFUSAL,
                 refusal_tag=REFUSAL_NON_SQL,
                 refusal_comment=self._make_comment(
                     REFUSAL_NON_SQL,
-                    "Input is a conversational greeting, not a database query.",
+                    "Input is a conversational greeting or non-database prompt.",
                 ),
                 explanation="Greeting / chit-chat input.",
-                confidence=0.97,
+                confidence=0.98,
             )
 
-        # General knowledge question with NO SQL verbs
+        # 2. General knowledge question with NO SQL verbs
         if _GENERAL_KN_PATTERNS.search(q) and not _SQL_VERB_PATTERNS.search(q):
             return IntentResult(
                 mode=MODE_REFUSAL,
@@ -197,7 +165,20 @@ class SemanticIntentClassifier:
                 confidence=0.90,
             )
 
-        # Default: treat as SQL query
+        # 3. Architecture intent (requires explicit schema design vocabulary)
+        if _ARCH_PATTERNS.search(q) and len(q.split()) > 6:
+            has_select = bool(re.search(r"\b(select|from|where|show|list|find)\b", q_lower))
+            has_create = bool(re.search(r"\bcreate\s+table\b", q_lower))
+            if not (has_select and not has_create):
+                return IntentResult(
+                    mode=MODE_ARCHITECTURE,
+                    refusal_tag=None,
+                    refusal_comment="",
+                    explanation="Architecture design intent detected.",
+                    confidence=0.88,
+                )
+
+        # 4. Default: treat as SQL query (allows short queries like 'active users', 'order counts')
         return IntentResult(
             mode=MODE_SQL_QUERY,
             refusal_tag=None,
@@ -247,13 +228,20 @@ class SchemaMismatchGuard:
         if isinstance(ast, exp.Create):
             return ""
 
+        # Collect CTE names to avoid false positive schema mismatches
+        cte_names = set()
+        for cte in ast.find_all(exp.CTE):
+            c_alias = (cte.alias or getattr(cte, "name", "")).lower()
+            if c_alias:
+                cte_names.add(c_alias)
+
         # Collect all referenced tables
         unknown_tables: List[str] = []
         table_alias_map: Dict[str, str] = {}     # alias → real_table
 
         for tbl in ast.find_all(exp.Table):
             t_name = tbl.name.lower()
-            if not t_name:
+            if not t_name or t_name in cte_names:
                 continue
             alias = (tbl.alias or t_name).lower()
             table_alias_map[alias] = t_name

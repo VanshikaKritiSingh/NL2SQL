@@ -50,10 +50,13 @@ core_modules:
   - core/paradigm_suggestor.py (CLEF intent drafter, confidence scheduler, Auto Mode router, divergence guardrail)
   - core/dialect_converter.py (deterministic AST transpiler for 20+ SQL dialects, openCypher for Neo4j/Neptune, Mongo MQL)
   - core/schema_linker.py (hybrid BM25/Dense RRF, Steiner tree FK join injection, categorical Trie grounding)
+  - core/semantic_decomposer.py (model-first semantic intent router, multi-statement DDL synthesis, schema mismatch detection)
+  - core/connectors/peft_connector.py (in-process multi-threaded CPU/GPU engine for A2.5C1.5, Q2.5C1.5, A2.5C0.5, Q2.5C0.5)
 offline_training:
-  - offline/training/train_qlora.py (4-bit NF4 QLoRA fine-tuning for RTX 4060 / 3060)
+  - offline/training/train_engine.py (unified SFT trainer supporting AdaLoRA and QLoRA for 0.5B and 1.5B models on CPU/CUDA)
   - offline/training/export_gguf.py (LoRA merge, GGUF Q4_K_M quantizer, Ollama Modelfile)
-  - offline/training/evaluate.py (AST Exact Match & Execution Accuracy benchmark runner)
+  - offline/training/evaluate.py (AST Exact Match, Execution Accuracy, and 7-Dialect Transpilation benchmark suite)
+  - offline/datasets/prepare_dataset.py (dataset synthesis with 10% negative refusal pairs and 5% multi-statement architecture DDL)
 context_index: context.md
 out_of_pipeline_scope:
   - schema-design-phase tools

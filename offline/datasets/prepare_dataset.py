@@ -503,6 +503,206 @@ DATASET_TEMPLATES = [
 ]
 
 
+# -----------------------------------------------------------------------------
+# Architecture DDL Synthesis Templates (Multi-Statement ANSI DDL with Segregated Comments)
+# -----------------------------------------------------------------------------
+
+ARCHITECTURE_TEMPLATES = [
+    {
+        "question": "Design a complete database schema for an e-commerce store with customers, product categories, products, customer orders, and order items.",
+        "sql": """-- Entity: customers
+CREATE TABLE customers (
+    customer_id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    country VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Entity: categories
+CREATE TABLE categories (
+    category_id SERIAL PRIMARY KEY,
+    category_name VARCHAR(100) NOT NULL,
+    description TEXT
+);
+
+-- Entity: products
+CREATE TABLE products (
+    product_id SERIAL PRIMARY KEY,
+    category_id INT REFERENCES categories(category_id),
+    name VARCHAR(255) NOT NULL,
+    price DECIMAL(10, 2) NOT NULL,
+    stock_quantity INT NOT NULL,
+    status VARCHAR(50) DEFAULT 'active'
+);
+
+-- Entity: orders
+CREATE TABLE orders (
+    order_id SERIAL PRIMARY KEY,
+    customer_id INT REFERENCES customers(customer_id),
+    order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    total_amount DECIMAL(10, 2) NOT NULL,
+    status VARCHAR(50) NOT NULL
+);
+
+-- Entity: order_items
+CREATE TABLE order_items (
+    item_id SERIAL PRIMARY KEY,
+    order_id INT REFERENCES orders(order_id) ON DELETE CASCADE,
+    product_id INT REFERENCES products(product_id),
+    quantity INT NOT NULL,
+    unit_price DECIMAL(10, 2) NOT NULL
+);"""
+    },
+    {
+        "question": "Architect a multi-table database schema for a university management system with academic departments, instructors, courses, students, and course enrollments.",
+        "sql": """-- Entity: departments
+CREATE TABLE departments (
+    dept_id SERIAL PRIMARY KEY,
+    dept_name VARCHAR(100) NOT NULL,
+    building VARCHAR(100) NOT NULL
+);
+
+-- Entity: instructors
+CREATE TABLE instructors (
+    instructor_id SERIAL PRIMARY KEY,
+    dept_id INT REFERENCES departments(dept_id),
+    name VARCHAR(255) NOT NULL,
+    salary DECIMAL(10, 2) NOT NULL
+);
+
+-- Entity: courses
+CREATE TABLE courses (
+    course_id SERIAL PRIMARY KEY,
+    dept_id INT REFERENCES departments(dept_id),
+    course_code VARCHAR(20) UNIQUE NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    credits INT NOT NULL
+);
+
+-- Entity: students
+CREATE TABLE students (
+    student_id SERIAL PRIMARY KEY,
+    major_dept_id INT REFERENCES departments(dept_id),
+    name VARCHAR(255) NOT NULL,
+    gpa DECIMAL(3, 2) NOT NULL,
+    enrollment_year INT NOT NULL
+);
+
+-- Entity: enrollments
+CREATE TABLE enrollments (
+    enrollment_id SERIAL PRIMARY KEY,
+    student_id INT REFERENCES students(student_id),
+    course_id INT REFERENCES courses(course_id),
+    semester VARCHAR(20) NOT NULL,
+    year INT NOT NULL
+);"""
+    },
+    {
+        "question": "Design a relational database architecture for a hospital clinic tracking departments, physicians, registered patients, and scheduled appointments.",
+        "sql": """-- Entity: departments
+CREATE TABLE departments (
+    dept_id SERIAL PRIMARY KEY,
+    dept_name VARCHAR(100) NOT NULL,
+    floor_number INT NOT NULL
+);
+
+-- Entity: doctors
+CREATE TABLE doctors (
+    doctor_id SERIAL PRIMARY KEY,
+    dept_id INT REFERENCES departments(dept_id),
+    name VARCHAR(255) NOT NULL,
+    specialization VARCHAR(100) NOT NULL,
+    years_experience INT NOT NULL
+);
+
+-- Entity: patients
+CREATE TABLE patients (
+    patient_id SERIAL PRIMARY KEY,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    date_of_birth DATE NOT NULL,
+    blood_group VARCHAR(10) NOT NULL
+);
+
+-- Entity: appointments
+CREATE TABLE appointments (
+    appointment_id SERIAL PRIMARY KEY,
+    patient_id INT REFERENCES patients(patient_id),
+    doctor_id INT REFERENCES doctors(doctor_id),
+    appointment_date TIMESTAMP NOT NULL,
+    status VARCHAR(50) NOT NULL
+);"""
+    },
+    {
+        "question": "Model a multi-table database for an IoT fleet telemetry platform monitoring connected devices, time-series sensor readings, and anomaly alerts.",
+        "sql": """-- Entity: devices
+CREATE TABLE devices (
+    device_id SERIAL PRIMARY KEY,
+    serial_number VARCHAR(100) UNIQUE NOT NULL,
+    firmware_version VARCHAR(50) NOT NULL,
+    status VARCHAR(50) DEFAULT 'online'
+);
+
+-- Entity: sensor_readings
+CREATE TABLE sensor_readings (
+    reading_id SERIAL PRIMARY KEY,
+    device_id INT REFERENCES devices(device_id),
+    recorded_at TIMESTAMP NOT NULL,
+    temperature DECIMAL(5, 2) NOT NULL,
+    battery_level DECIMAL(5, 2) NOT NULL
+);
+
+-- Entity: telemetry_alerts
+CREATE TABLE telemetry_alerts (
+    alert_id SERIAL PRIMARY KEY,
+    device_id INT REFERENCES devices(device_id),
+    severity VARCHAR(50) NOT NULL,
+    message TEXT NOT NULL,
+    triggered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);"""
+    },
+    {
+        "question": "Architect a subscription SaaS platform database schema with tenant organizations, user accounts, active subscriptions, and security audit logs.",
+        "sql": """-- Entity: organizations
+CREATE TABLE organizations (
+    org_id SERIAL PRIMARY KEY,
+    org_name VARCHAR(255) NOT NULL,
+    plan_tier VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Entity: users
+CREATE TABLE users (
+    user_id SERIAL PRIMARY KEY,
+    org_id INT REFERENCES organizations(org_id),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    role VARCHAR(50) NOT NULL,
+    last_login TIMESTAMP
+);
+
+-- Entity: subscriptions
+CREATE TABLE subscriptions (
+    subscription_id SERIAL PRIMARY KEY,
+    org_id INT REFERENCES organizations(org_id),
+    monthly_rate DECIMAL(10, 2) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    renews_at DATE NOT NULL
+);
+
+-- Entity: audit_logs
+CREATE TABLE audit_logs (
+    log_id SERIAL PRIMARY KEY,
+    org_id INT REFERENCES organizations(org_id),
+    user_id INT REFERENCES users(user_id),
+    action VARCHAR(100) NOT NULL,
+    ip_address VARCHAR(45) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);"""
+    }
+]
+
+
 def _make_refusal_sample(schema_key: str, schema_text: str, question: str, refusal_tag: str, explanation: str) -> Dict[str, Any]:
     """Build a ChatML sample where the model should refuse to generate SQL."""
     refusal_output = (
@@ -524,58 +724,175 @@ def _make_refusal_sample(schema_key: str, schema_text: str, question: str, refus
     }
 
 
+# Domain-specific cross-schema mismatch knowledge catalog
+SCHEMA_MISMATCH_CATALOG = {
+    "ecommerce": [
+        ("Calculate average patient age by department", "patients", "Requested medical patient entity is not present in e-commerce schema."),
+        ("List all delayed shipments by carrier name", "shipments", "Entity 'shipments' does not exist in the connected e-commerce catalog."),
+        ("Find all sensor battery levels below 15%", "sensors", "Telemetry sensors are not defined in the e-commerce database."),
+        ("Show total enrollment count per university course", "enrollments", "Course enrollment tables are not in the current schema."),
+        ("Find fraudulent financial transactions over $10,000", "fraud_alerts", "Fraud alert tables belong to financial domain, absent here."),
+    ],
+    "saas_platform": [
+        ("Show top 5 products by retail price", "products", "Entity 'products' does not exist in SaaS tenant schema."),
+        ("Find patient medical records with blood group O+", "medical_records", "Healthcare entities do not exist in SaaS schema."),
+        ("List warehouses with inventory quantity under 50", "warehouses", "Supply chain warehouses are absent from SaaS schema."),
+        ("Retrieve all flight departures for terminal 2", "flights", "Airline flight tables do not exist in SaaS schema."),
+        ("Calculate average student GPA per department", "students", "University student entities do not exist in SaaS schema."),
+    ],
+    "healthcare": [
+        ("Show top 5 products by sales volume", "products", "Products table is not part of healthcare clinic database."),
+        ("List all shipments currently in transit", "shipments", "Shipment logistics tables are absent from hospital schema."),
+        ("Find accounts with negative balance in bank", "accounts", "Banking account entities do not exist in healthcare schema."),
+        ("Show courses taught by instructor Dr. Alan", "courses", "Academic courses are not in the clinical database schema."),
+        ("Retrieve subscription renewal dates for pro tier", "subscriptions", "SaaS subscription entities are absent from medical database."),
+    ],
+    "iot_telemetry": [
+        ("Find all completed doctor appointments this week", "appointments", "Doctor appointment entities do not exist in IoT telemetry schema."),
+        ("Show total purchase revenue per customer", "orders", "E-commerce customer orders are not part of IoT device schema."),
+        ("List all enrolled students with GPA above 3.5", "students", "Academic student tables do not exist in IoT schema."),
+        ("Find all employee payroll salary records", "payroll", "HR payroll tables do not exist in IoT device schema."),
+    ],
+    "fintech": [
+        ("Show inventory items on hand in warehouse 3", "inventory", "Warehouse inventory entities do not exist in fintech schema."),
+        ("List all medical diagnoses for patient 42", "medical_records", "Medical records do not exist in banking schema."),
+        ("Find courses with credits equal to 4", "courses", "University course entities do not exist in financial schema."),
+        ("Show IoT sensor readings with temperature > 80", "sensor_readings", "IoT sensor entities do not exist in banking schema."),
+    ],
+    "supply_chain": [
+        ("Find all patients admitted to the ICU", "patients", "Hospital patient records do not exist in supply chain database."),
+        ("Show total likes and comments on post 100", "posts", "Social network post entities do not exist in supply chain schema."),
+        ("List user subscription renewal dates", "subscriptions", "SaaS subscription records do not exist in supply chain schema."),
+        ("Find student enrollment year and major department", "students", "University student tables do not exist in supply chain schema."),
+    ],
+    "social_network": [
+        ("List all delayed supply chain shipments", "shipments", "Supply chain shipment tables do not exist in social network schema."),
+        ("Calculate average patient blood pressure", "patients", "Medical patient entities do not exist in social network schema."),
+        ("Show warehouse inventory reorder thresholds", "inventory", "Warehouse inventory tables do not exist in social network schema."),
+        ("Find banking accounts flagged for AML violation", "accounts", "Banking accounts do not exist in social network schema."),
+    ],
+    "university": [
+        ("Show customer orders with total amount > $500", "orders", "E-commerce orders do not exist in university academic schema."),
+        ("List all telemetry alerts with severity critical", "telemetry_alerts", "IoT telemetry alerts do not exist in university schema."),
+        ("Find banking accounts with overdraft protection", "accounts", "Banking accounts do not exist in university schema."),
+        ("Show supplier ratings and carrier contracts", "suppliers", "Supply chain supplier tables do not exist in university schema."),
+    ],
+    "graph_network": [
+        ("List top 5 products by customer review rating", "products", "Product and review entities do not exist in graph network schema."),
+        ("Show doctor appointments for patient ID 88", "appointments", "Hospital appointment records do not exist in graph network schema."),
+        ("Find student GPA and enrollment semester", "students", "University student records do not exist in graph network schema."),
+    ]
+}
+
+
 def _make_schema_mismatch_sample(schema_key: str, schema_text: str) -> Dict[str, Any]:
     """Build a sample asking for a table/column that doesn't exist in the schema."""
-    bogus_pairs = [
-        ("Show top 5 products by price", "products", "SCHEMA_MISMATCH"),
-        ("List all shipments in the last 30 days", "shipments", "SCHEMA_MISMATCH"),
-        ("Count the total inventory items in warehouse_id 7", "inventory", "SCHEMA_MISMATCH"),
-        ("Get all invoices with amount > 500", "invoices", "SCHEMA_MISMATCH"),
-        ("Find employees in the HR department", "employees", "SCHEMA_MISMATCH"),
-        ("Show customer_reviews rated above 4", "customer_reviews", "SCHEMA_MISMATCH"),
-        ("List all contracts signed after 2023", "contracts", "SCHEMA_MISMATCH"),
-        ("Count how many vehicles are in fleet", "fleet", "SCHEMA_MISMATCH"),
-    ]
-    question, missing_entity, tag = random.choice(bogus_pairs)
-    expl = f"Entity '{missing_entity}' does not exist in the provided database schema."
-    return _make_refusal_sample(schema_key, schema_text, question, tag, expl)
+    catalog = SCHEMA_MISMATCH_CATALOG.get(schema_key)
+    if catalog:
+        question, missing_entity, expl = random.choice(catalog)
+    else:
+        bogus_pairs = [
+            ("Show top 5 products by price", "products", "SCHEMA_MISMATCH"),
+            ("List all shipments in the last 30 days", "shipments", "SCHEMA_MISMATCH"),
+            ("Count the total inventory items in warehouse_id 7", "inventory", "SCHEMA_MISMATCH"),
+        ]
+        question, missing_entity, _ = random.choice(bogus_pairs)
+        expl = f"Entity '{missing_entity}' does not exist in the provided database schema."
+
+    refusal_output = (
+        f"-- REFUSAL: [SCHEMA_MISMATCH] - Table/field '{missing_entity}' does not exist in the active schema context.\n"
+        f"-- EXPLANATION: {expl}"
+    )
+    user_prompt = f"### Database Schema:\n{schema_text}\n\n### User Question:\n{question}"
+    return {
+        "id": None,
+        "schema_key": schema_key,
+        "schema": schema_text,
+        "question": question,
+        "sql": refusal_output,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user",   "content": user_prompt},
+            {"role": "assistant", "content": refusal_output},
+        ],
+    }
 
 
-# Non-SQL chit-chat / general knowledge samples (no schema dependency)
+# Non-SQL chit-chat / general knowledge / code assistance samples (no schema dependency)
 _CHITCHAT_SAMPLES = [
+    # Conversational Greetings & Closings
     ("hi", "NON_SQL_QUERY", "Input is a conversational greeting, not a database query."),
     ("hello", "NON_SQL_QUERY", "Input is a conversational greeting, not a database query."),
-    ("what's up?", "NON_SQL_QUERY", "Input is a conversational greeting, not a database query."),
-    ("who is the president of india", "GENERAL_KNOWLEDGE", "Input is a general knowledge question, not a database query."),
-    ("what is the capital of france", "GENERAL_KNOWLEDGE", "Input is a general knowledge question, not a database query."),
-    ("who founded microsoft", "GENERAL_KNOWLEDGE", "Input is a general knowledge question, not a database query."),
-    ("what is machine learning", "GENERAL_KNOWLEDGE", "Input is a general knowledge question, not a database query."),
-    ("explain the difference between SQL and NoSQL", "GENERAL_KNOWLEDGE", "Input requests an explanation, not a database query."),
-    ("can you write me a Python script", "NON_SQL_QUERY", "Input requests Python code, not a database query."),
-    ("generate a JavaScript function for sorting", "NON_SQL_QUERY", "Input requests programming code, not a database query."),
-    ("thanks", "NON_SQL_QUERY", "Input is a conversational closing, not a database query."),
+    ("hey there", "NON_SQL_QUERY", "Input is a conversational greeting, not a database query."),
+    ("good morning", "NON_SQL_QUERY", "Input is a conversational greeting, not a database query."),
+    ("good afternoon", "NON_SQL_QUERY", "Input is a conversational greeting, not a database query."),
+    ("how are you doing today?", "NON_SQL_QUERY", "Input is conversational chit-chat, not a database query."),
+    ("who are you?", "NON_SQL_QUERY", "Input asks for identity description, not a database query."),
+    ("what can you do?", "NON_SQL_QUERY", "Input asks for capability overview, not a database query."),
+    ("thanks a lot!", "NON_SQL_QUERY", "Input is a conversational closing, not a database query."),
+    ("thank you very much", "NON_SQL_QUERY", "Input is a conversational closing, not a database query."),
+    ("bye", "NON_SQL_QUERY", "Input is a conversational closing, not a database query."),
     ("goodbye", "NON_SQL_QUERY", "Input is a conversational closing, not a database query."),
-    ("how does indexing work in databases", "GENERAL_KNOWLEDGE", "Input is a conceptual question about databases, not an actionable query."),
-    ("tell me a joke", "NON_SQL_QUERY", "Input is a casual entertainment request, not a database query."),
-    ("what time is it in Tokyo", "GENERAL_KNOWLEDGE", "Input is a general world-knowledge question, not a database query."),
-    ("list all the countries in Asia", "GENERAL_KNOWLEDGE", "Input asks for world-knowledge data, not a schema-grounded query."),
-    ("write documentation for a REST API", "NON_SQL_QUERY", "Input requests documentation writing, not a database query."),
-    ("I need to build a login system", "NON_SQL_QUERY", "Input describes a system design request, not a database query."),
+    ("see you later", "NON_SQL_QUERY", "Input is a conversational closing, not a database query."),
+
+    # World Trivia & General Knowledge
+    ("who is the president of india", "GENERAL_KNOWLEDGE", "Input is a general knowledge question about world politics, not a database query."),
+    ("what is the capital of france", "GENERAL_KNOWLEDGE", "Input is a geography question, not a database query."),
+    ("who founded microsoft", "GENERAL_KNOWLEDGE", "Input is a corporate history question, not a database query."),
+    ("what is the speed of light in vacuum", "GENERAL_KNOWLEDGE", "Input is a physics question, not a database query."),
+    ("who wrote hamlet", "GENERAL_KNOWLEDGE", "Input is a literature question, not a database query."),
+    ("how many continents are on earth", "GENERAL_KNOWLEDGE", "Input is a geography question, not a database query."),
+    ("what is photosynthesis", "GENERAL_KNOWLEDGE", "Input is a biological science question, not a database query."),
+    ("who was the first person on the moon", "GENERAL_KNOWLEDGE", "Input is a historical trivia question, not a database query."),
+    ("what is the currency of japan", "GENERAL_KNOWLEDGE", "Input is an international finance question, not a database query."),
+    ("what is machine learning", "GENERAL_KNOWLEDGE", "Input is an educational question, not a database query."),
+    ("what time is it in Tokyo", "GENERAL_KNOWLEDGE", "Input is a world clock question, not a schema-grounded query."),
+    ("list all the countries in Asia", "GENERAL_KNOWLEDGE", "Input asks for general world knowledge, not a database query."),
+
+    # Programming & Code Generation (Non-SQL)
+    ("can you write me a Python script to scrape a website", "NON_SQL_QUERY", "Input requests Python script development, not a database query."),
+    ("generate a JavaScript function for binary search", "NON_SQL_QUERY", "Input requests JavaScript programming code, not a database query."),
+    ("write a Dockerfile for a Node.js application", "NON_SQL_QUERY", "Input requests Docker container configuration, not a database query."),
+    ("how do I configure Nginx for reverse proxy", "NON_SQL_QUERY", "Input requests server administration instructions, not a database query."),
+    ("explain the difference between TCP and UDP", "GENERAL_KNOWLEDGE", "Input is a computer networking conceptual question, not a database query."),
+    ("write documentation for a REST API", "NON_SQL_QUERY", "Input requests technical documentation writing, not a database query."),
+    ("help me debug this C++ segmentation fault", "NON_SQL_QUERY", "Input requests C++ debugging assistance, not a database query."),
+
+    # Creative / Entertainment
+    ("tell me a funny programmer joke", "NON_SQL_QUERY", "Input is a casual entertainment request, not a database query."),
+    ("write a poem about databases and SQL", "NON_SQL_QUERY", "Input is a creative writing request, not an executable database query."),
+
+    # Ambiguous / Inactionable
+    ("do the thing", "AMBIGUOUS_QUERY", "Input is completely underspecified and lacks semantic intent."),
+    ("process it now", "AMBIGUOUS_QUERY", "Input does not specify an operation or target entity."),
+    ("asdfghjkl", "NON_SQL_QUERY", "Input is keyboard mash with no meaningful query semantics."),
+    ("12345678", "NON_SQL_QUERY", "Input is bare numbers with no query context."),
 ]
 
 
-def generate_synthetic_samples(count: int = 200, negative_ratio: float = 0.10) -> List[Dict[str, Any]]:
+def generate_synthetic_samples(count: int = 200, negative_ratio: float = 0.10, arch_ratio: float = 0.05) -> List[Dict[str, Any]]:
     """
     Expands base templates into diverse, parameterized instruction samples.
-    negative_ratio: fraction of total samples that will be refusal/schema-mismatch negatives.
+
+    Composition:
+      - arch_ratio:     5% multi-statement DDL architecture synthesis samples.
+      - negative_ratio: 10% negative guard samples (5% chit-chat/trivia, 5% schema mismatch).
+      - remainder:      standard positive SQL query/DML/CTE/window-fn samples.
+
+    The architecture samples teach the model to respond to full DB design requests with
+    multi-statement CREATE TABLE DDL using `-- Entity:` comment separators — identical
+    to what the NLArchitectureParser synthesizer emits — so the model itself can cover
+    this case without needing a deterministic pre-classifier.
     """
     samples = []
     base_len = len(DATASET_TEMPLATES)
+    arch_len = len(ARCHITECTURE_TEMPLATES)
     schema_keys = list(SCHEMAS.keys())
 
     total = count
+    n_arch = max(1, int(total * arch_ratio))
     n_negatives = max(1, int(total * negative_ratio))
-    n_positives = total - n_negatives
+    n_positives = total - n_negatives - n_arch
 
     # --- Positive SQL samples ---
     for i in range(n_positives):
@@ -614,7 +931,30 @@ def generate_synthetic_samples(count: int = 200, negative_ratio: float = 0.10) -
             "messages": chatml_messages,
         })
 
-    # --- Negative samples: 50% chit-chat, 50% schema-mismatch ---
+    # --- Architecture DDL synthesis samples (multi-statement CREATE TABLE) ---
+    for a in range(n_arch):
+        arch_tmpl = ARCHITECTURE_TEMPLATES[a % arch_len]
+        question = arch_tmpl["question"]
+        ddl = arch_tmpl["sql"]
+        user_prompt = (
+            "### Database Schema:\n(none — schema is being designed by this request)\n\n"
+            f"### User Question:\n{question}"
+        )
+        chatml_messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user",   "content": user_prompt},
+            {"role": "assistant", "content": ddl},
+        ]
+        samples.append({
+            "id": f"arch_{a+1:04d}",
+            "schema_key": "architecture",
+            "schema": "(none — schema is being designed by this request)",
+            "question": question,
+            "sql": ddl,
+            "messages": chatml_messages,
+        })
+
+    # --- Negative samples: 50% chit-chat/trivia, 50% schema-mismatch ---
     n_chitchat = n_negatives // 2
     n_mismatch = n_negatives - n_chitchat
 

@@ -343,14 +343,14 @@ async def check_connector_dependencies(connector_type: str):
 
 @router.get("/models")
 async def list_available_models():
-    """Lists available local LLM models dynamically from local PEFT engine (A2.5C0.5, Q2.5C0.5) and the Ollama daemon."""
+    """Lists available local LLM models dynamically from local PEFT engine (A2.5C0.5, Q2.5C0.5, A2.5C1.5, Q2.5C1.5) and the Ollama daemon."""
     from core.connectors.ollama import default_ollama
     from core.connectors.peft_connector import default_peft_engine
 
     models = []
     model_details = []
 
-    # 1. Native PEFT field-test models (A2.5C0.5, Q2.5C0.5)
+    # 1. Native PEFT field-test models (all sizes: 0.5B and 1.5B)
     try:
         peft_models = default_peft_engine.list_available_models()
         for pm in peft_models:
@@ -373,7 +373,9 @@ async def list_available_models():
     except Exception:
         pass
 
-    default_model = "A2.5C0.5" if "A2.5C0.5" in models else (models[0] if models else "offline_synthesizer")
+    # Prefer 1.5B AdaLoRA as default when available (better quality, still consumer CPU)
+    preferred = ["A2.5C1.5", "Q2.5C1.5", "A2.5C0.5", "Q2.5C0.5"]
+    default_model = next((m for m in preferred if m in models), models[0] if models else "offline_synthesizer")
 
     return {
         "ok": True,

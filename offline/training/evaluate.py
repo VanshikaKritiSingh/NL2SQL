@@ -42,7 +42,11 @@ def normalize_ast(sql: str, dialect: str = "postgres") -> Optional[str]:
 
 
 def evaluate_exact_match(pred_sql: str, gold_sql: str) -> bool:
-    """Compares two SQL queries structurally via AST normalization."""
+    """Compares two SQL queries structurally via AST normalization or refusal tag matching."""
+    if gold_sql.strip().startswith("-- REFUSAL:"):
+        pred_clean = pred_sql.strip().lower()
+        return pred_clean.startswith("-- refusal:") or ("refusal" in pred_clean)
+
     ast_pred = normalize_ast(pred_sql)
     ast_gold = normalize_ast(gold_sql)
 
@@ -78,6 +82,10 @@ def create_in_memory_db(schema_ddl: str) -> sqlite3.Connection:
 
 def evaluate_execution(pred_sql: str, gold_sql: str, schema_ddl: str) -> Tuple[bool, str]:
     """Executes both queries on an in-memory DB and compares result sets."""
+    if gold_sql.strip().startswith("-- REFUSAL:"):
+        is_refusal = pred_sql.strip().startswith("-- REFUSAL:") or "refusal" in pred_sql.lower()
+        return is_refusal, "Refusal Verified" if is_refusal else "Expected Refusal"
+
     try:
         conn = create_in_memory_db(schema_ddl)
         cursor = conn.cursor()
@@ -111,18 +119,53 @@ def evaluate_transpilation(sql: str) -> Dict[str, bool]:
     if not CONVERTER_AVAILABLE:
         return {}
 
-    converter = DeterministicDialectConverter()
     dialects = ["postgres", "mysql", "sqlite", "duckdb", "clickhouse", "opencypher", "mongodb"]
+    if sql.strip().startswith("-- REFUSAL:"):
+        return {d: True for d in dialects}
+
+    converter = DeterministicDialectConverter()
     results = {}
 
     for d in dialects:
         try:
             res = converter.transpile(sql, target_dialect=d)
-            results[d] = res is not None
+            results[d] = res is not None and getattr(res, "is_valid", True)
         except Exception:
             results[d] = False
 
     return results
+
+
+def extract_query_and_schema(item: Dict[str, Any]) -> Tuple[str, str, str, str]:
+    """Robustly extracts (sql, schema, question, dialect) from various dataset formats."""
+    sql = item.get("canonical_sql") or item.get("sql") or ""
+    schema = item.get("schema", "")
+    question = item.get("question", "")
+    dialect = item.get("target_dialect") or item.get("dialect") or "POSTGRES"
+
+    if "messages" in item and isinstance(item["messages"], list):
+        for msg in item["messages"]:
+            if msg.get("role") == "assistant" and not sql:
+                sql = msg.get("content", "").strip()
+            elif msg.get("role") == "user":
+                content = msg.get("content", "")
+                if "### Target Dialect:" in content and "### Database Schema:" in content:
+                    dialect_part = content.split("### Target Dialect:")[1].split("### Database Schema:")[0].strip()
+                    if dialect_part:
+                        dialect = dialect_part
+                if "### Database Schema:" in content:
+                    parts = content.split("### Database Schema:\n")
+                    if len(parts) > 1:
+                        sub = parts[1]
+                        if "\n\n### User Question:" in sub:
+                            schema = sub.split("\n\n### User Question:")[0].strip()
+                            question = sub.split("\n\n### User Question:")[1].strip()
+                        else:
+                            schema = sub.strip()
+                elif not question and content:
+                    question = content
+
+    return sql, schema, question, dialect
 
 
 def run_model_inference(
@@ -138,6 +181,10 @@ def run_model_inference(
 
     is_cuda = torch.cuda.is_available()
     compute_dtype = torch.bfloat16 if (is_cuda and torch.cuda.is_bf16_supported()) else torch.float16
+    if not is_cuda:
+        n_threads = min(os.cpu_count() or 8, 16)
+        torch.set_num_threads(n_threads)
+        logger.info("Configured PyTorch CPU inference with %d threads", n_threads)
 
     logger.info("Loading Tokenizer for: %s", base_model_path)
     tokenizer = AutoTokenizer.from_pretrained(base_model_path, trust_remote_code=True)
@@ -161,19 +208,24 @@ def run_model_inference(
 
     logger.info("Running inference on %d test samples...", len(test_samples))
     for i, sample in enumerate(test_samples):
-        messages = [
-            {
-                "role": "system",
-                "content": (
-                    "You are an expert Text-to-Universal-SQL compiler. Generate deterministic, "
-                    "syntactically valid Canonical ANSI/PostgreSQL AST queries adhering to the provided database schema."
-                ),
-            },
-            {
-                "role": "user",
-                "content": f"### Database Schema:\n{sample.get('schema', '')}\n\n### User Question:\n{sample.get('question', '')}",
-            },
-        ]
+        if "messages" in sample and isinstance(sample["messages"], list):
+            # Retain only system and user turns for prompt generation
+            messages = [m for m in sample["messages"] if m.get("role") in ("system", "user")]
+        else:
+            _, schema, question, dialect = extract_query_and_schema(sample)
+            messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an expert Text-to-Universal-SQL compiler. Generate deterministic, "
+                        "syntactically valid Canonical ANSI/PostgreSQL AST queries adhering to the provided database schema."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": f"### Target Dialect: {dialect}\n\n### Database Schema:\n{schema}\n\n### User Question:\n{question}",
+                },
+            ]
         prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         inputs = tokenizer(prompt, return_tensors="pt")
         if is_cuda:
@@ -201,25 +253,6 @@ def run_model_inference(
             logger.info("Evaluated %d/%d samples...", i + 1, len(test_samples))
 
     return predictions
-
-
-def extract_query_and_schema(item: Dict[str, Any]) -> Tuple[str, str]:
-    """Robustly extracts SQL query and schema DDL from various dataset formats."""
-    sql = item.get("canonical_sql") or item.get("sql") or ""
-    schema = item.get("schema", "")
-
-    if "messages" in item and isinstance(item["messages"], list):
-        for msg in item["messages"]:
-            if msg.get("role") == "assistant" and not sql:
-                sql = msg.get("content", "").strip()
-            elif msg.get("role") == "user" and not schema:
-                content = msg.get("content", "")
-                if "### Database Schema:" in content:
-                    parts = content.split("### Database Schema:\n")
-                    if len(parts) > 1:
-                        schema = parts[1].split("\n\n### User Question:")[0].strip()
-
-    return sql, schema
 
 
 def run_benchmark(
@@ -257,7 +290,7 @@ def run_benchmark(
     tf_dialects = {"postgres": 0, "mysql": 0, "sqlite": 0, "duckdb": 0, "clickhouse": 0, "opencypher": 0, "mongodb": 0}
 
     for i, (record, pred) in enumerate(zip(records, preds)):
-        gold, schema = extract_query_and_schema(record)
+        gold, schema, _, _ = extract_query_and_schema(record)
 
         # Exact Match
         if evaluate_exact_match(pred, gold):

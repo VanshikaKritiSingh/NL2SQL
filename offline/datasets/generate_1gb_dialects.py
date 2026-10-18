@@ -35,7 +35,13 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from core.dialect_converter import DeterministicDialectConverter
-from offline.datasets.prepare_dataset import SCHEMAS, SYSTEM_PROMPT, _CHITCHAT_SAMPLES, _make_schema_mismatch_sample
+from offline.datasets.prepare_dataset import (
+    SCHEMAS,
+    SYSTEM_PROMPT,
+    _CHITCHAT_SAMPLES,
+    _make_schema_mismatch_sample,
+    ARCHITECTURE_TEMPLATES,
+)
 
 SUPPORTED_DIALECTS = [
     "postgres",
@@ -652,19 +658,35 @@ def generate_dialect_dataset(
                 q, tag, expl = random.choice(_CHITCHAT_SAMPLES)
                 canonical_sql = f"-- REFUSAL: [{tag}] - Request is not a database query.\n-- EXPLANATION: {expl}"
                 domain = random.choice(list(SCHEMAS.keys()))
+                schema_ddl = SCHEMAS[domain]
                 base_q = q
                 complexity = "refusal_chitchat"
                 compiled_target = canonical_sql
             elif roll < 0.10:
                 # 5% Schema Mismatch Refusal
                 domain = random.choice(list(SCHEMAS.keys()))
-                bogus = _make_schema_mismatch_sample(domain, SCHEMAS[domain])
+                schema_ddl = SCHEMAS[domain]
+                bogus = _make_schema_mismatch_sample(domain, schema_ddl)
                 base_q = bogus["question"]
                 canonical_sql = bogus["sql"]
                 complexity = "refusal_schema_mismatch"
                 compiled_target = canonical_sql
+            elif roll < 0.15:
+                # 5% Architecture Multi-Statement DDL Synthesis
+                arch = random.choice(ARCHITECTURE_TEMPLATES)
+                base_q = arch["question"]
+                canonical_sql = arch["sql"]
+                domain = "ecommerce"
+                schema_ddl = "(none — schema is being designed by this request)"
+                complexity = "architecture_ddl"
+                try:
+                    res = converter.transpile(canonical_sql, target_dialect=target_dialect)
+                    compiled_target = res.compiled_query
+                except Exception:
+                    compiled_target = canonical_sql
             else:
                 domain, base_q, canonical_sql, complexity = generator.generate_random_query()
+                schema_ddl = SCHEMAS[domain]
                 # Skip if we already generated this exact SQL string (guarantees 100% uniqueness)
                 if canonical_sql in unique_queries:
                     continue
@@ -675,7 +697,6 @@ def generate_dialect_dataset(
                 except Exception:
                     continue
                 unique_queries.add(canonical_sql)
-            schema_ddl = SCHEMAS[domain]
             
             if isinstance(compiled_target, (dict, list)):
                 assistant_output = json.dumps(compiled_target)
