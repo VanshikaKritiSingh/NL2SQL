@@ -36,12 +36,15 @@ CONNECTOR_MAP = {
 }
 
 
-def create_connector(config: ConnectionConfig) -> BaseDBConnector:
+def instantiateConnectorForConfiguration(config: ConnectionConfig) -> BaseDBConnector:
     """Factory function: instantiates the appropriate connector for the given config."""
     cls = CONNECTOR_MAP.get(config.connector_type)
     if not cls:
         raise ValueError(f"Unsupported connector type: {config.connector_type}")
     return cls(config)
+
+
+create_connector = instantiateConnectorForConfiguration
 
 
 class ConnectorRegistry:
@@ -53,17 +56,17 @@ class ConnectorRegistry:
         self._connections: Dict[str, BaseDBConnector] = {}
         self._lock = threading.Lock()
 
-    def attach(self, user_id: str, config: ConnectionConfig) -> BaseDBConnector:
+    def attachConnectorToUserSession(self, user_id: str, config: ConnectionConfig) -> BaseDBConnector:
         """
         Instantiates connector, verifies connection via test_connection,
         and binds it to user_id. Replaces any existing connection for that user.
         Raises ConnectionError if connection test/verification fails.
         """
-        conn = create_connector(config)
-        conn.connect()
-        ping = conn.test_connection()
+        conn = instantiateConnectorForConfiguration(config)
+        conn.establishDatabaseConnection()
+        ping = conn.verifyDatabaseConnectionStatus()
         if not ping.get("ok"):
-            conn.disconnect()
+            conn.terminateDatabaseConnection()
             raise ConnectionError(
                 f"Connection verification failed for {config.connector_type.value} [{config.database}]: "
                 f"{ping.get('error', 'Ping test failed')}"
@@ -73,56 +76,66 @@ class ConnectorRegistry:
             prev = self._connections.get(user_id)
             if prev:
                 try:
-                    prev.disconnect()
+                    prev.terminateDatabaseConnection()
                 except Exception:
                     pass
             self._connections[user_id] = conn
         return conn
 
-    def detach(self, user_id: str) -> bool:
+    def detachConnectorFromUserSession(self, user_id: str) -> bool:
         """Closes and removes the user's connection."""
         with self._lock:
             conn = self._connections.pop(user_id, None)
         if conn:
             try:
-                conn.disconnect()
+                conn.terminateDatabaseConnection()
             except Exception:
                 pass
             return True
         return False
 
-    def get(self, user_id: str) -> Optional[BaseDBConnector]:
+    def getConnectorForUserSession(self, user_id: str) -> Optional[BaseDBConnector]:
         """Returns the active connector for user_id if present and connected."""
         with self._lock:
             return self._connections.get(user_id)
 
-    def is_attached(self, user_id: str) -> bool:
+    def isConnectorAttachedForUserSession(self, user_id: str) -> bool:
         with self._lock:
             conn = self._connections.get(user_id)
             return conn is not None and conn.is_connected
 
-    def list_attached_users(self) -> List[str]:
+    def listAllAttachedUserSessionIdentifiers(self) -> List[str]:
         with self._lock:
             return list(self._connections.keys())
 
     @staticmethod
-    def test_config(config: ConnectionConfig) -> Dict[str, Any]:
+    def verifyConnectionParametersWithoutSessionRegistration(config: ConnectionConfig) -> Dict[str, Any]:
         """Test connection parameters without registering to a session."""
-        conn = create_connector(config)
+        conn = instantiateConnectorForConfiguration(config)
         try:
-            return conn.test_connection()
+            return conn.verifyDatabaseConnectionStatus()
         finally:
-            conn.disconnect()
+            conn.terminateDatabaseConnection()
 
     @staticmethod
-    def list_databases(config: ConnectionConfig) -> List[str]:
+    def listAccessibleDatabasesForConfiguration(config: ConnectionConfig) -> List[str]:
         """Validates credentials and returns accessible databases for the user."""
-        conn = create_connector(config)
-        conn.connect()
+        conn = instantiateConnectorForConfiguration(config)
+        conn.establishDatabaseConnection()
         try:
-            return conn.list_databases()
+            return conn.listAccessibleDatabaseNames()
         finally:
-            conn.disconnect()
+            conn.terminateDatabaseConnection()
+
+    # Aliases for backward compatibility
+    attach = attachConnectorToUserSession
+    detach = detachConnectorFromUserSession
+    get = getConnectorForUserSession
+    is_attached = isConnectorAttachedForUserSession
+    has_connector = isConnectorAttachedForUserSession
+    list_attached_users = listAllAttachedUserSessionIdentifiers
+    test_config = verifyConnectionParametersWithoutSessionRegistration
+    list_databases = listAccessibleDatabasesForConfiguration
 
 
 # Global singleton instance for the process

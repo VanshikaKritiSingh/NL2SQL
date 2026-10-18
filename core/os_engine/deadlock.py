@@ -37,32 +37,39 @@ class WaitForGraph:
         self._txns: Dict[str, TxnNode] = {}
         self._lock = threading.Lock()
 
-    def register(self, txn_id: str, on_abort: Optional[Callable[[], None]] = None):
+    def registerTransactionInGraph(self, txn_id: str, on_abort: Optional[Callable[[], None]] = None):
         with self._lock:
             if txn_id not in self._txns:
                 self._txns[txn_id] = TxnNode(txn_id=txn_id, on_abort=on_abort)
 
-    def unregister(self, txn_id: str):
+    def unregisterTransactionFromGraph(self, txn_id: str):
         with self._lock:
             self._txns.pop(txn_id, None)
             self._adj.pop(txn_id, None)
             for holders in self._adj.values():
                 holders.discard(txn_id)
 
-    def add_wait(self, waiter_id: str, holder_id: str):
+    def recordTransactionWaitDependency(self, waiter_id: str, holder_id: str):
         """Record that waiter is now blocked on holder."""
         with self._lock:
             self._adj[waiter_id].add(holder_id)
 
-    def remove_wait(self, waiter_id: str, holder_id: str):
+    def removeTransactionWaitDependency(self, waiter_id: str, holder_id: str):
         with self._lock:
             self._adj[waiter_id].discard(holder_id)
 
-    def snapshot(self) -> tuple[Dict[str, Set[str]], Dict[str, TxnNode]]:
+    def captureWaitGraphSnapshot(self) -> tuple[Dict[str, Set[str]], Dict[str, TxnNode]]:
         with self._lock:
             adj_copy = {k: set(v) for k, v in self._adj.items()}
             txns_copy = dict(self._txns)
         return adj_copy, txns_copy
+
+    # Aliases for backward compatibility
+    register = registerTransactionInGraph
+    unregister = unregisterTransactionFromGraph
+    add_wait = recordTransactionWaitDependency
+    remove_wait = removeTransactionWaitDependency
+    snapshot = captureWaitGraphSnapshot
 
 
 def _tarjan_sccs(adj: Dict[str, Set[str]]) -> List[List[str]]:
@@ -126,20 +133,20 @@ class DeadlockDetector:
         self._running = False
         self.abort_log: List[str] = []  # for telemetry / tests
 
-    def start(self):
+    def startPeriodicDetectionLoop(self):
         self._running = True
         self._thread.start()
 
-    def stop(self):
+    def stopPeriodicDetectionLoop(self):
         self._running = False
 
     def _loop(self):
         while self._running:
             time.sleep(self.SWEEP_INTERVAL_S)
-            self._sweep()
+            self.executeDeadlockDetectionSweep()
 
-    def _sweep(self):
-        adj, txns = self._wfg.snapshot()
+    def executeDeadlockDetectionSweep(self):
+        adj, txns = self._wfg.captureWaitGraphSnapshot()
         cycles = _tarjan_sccs(adj)
         for cycle in cycles:
             # pick youngest (highest start_time) as victim
@@ -151,12 +158,17 @@ class DeadlockDetector:
             if victim_id and victim_id in txns:
                 self.abort_log.append(victim_id)
                 node = txns[victim_id]
-                self._wfg.unregister(victim_id)
+                self._wfg.unregisterTransactionFromGraph(victim_id)
                 if node.on_abort:
                     try:
                         node.on_abort()
                     except Exception:
                         pass
+
+    # Aliases for backward compatibility
+    start = startPeriodicDetectionLoop
+    stop = stopPeriodicDetectionLoop
+    _sweep = executeDeadlockDetectionSweep
 
 
 

@@ -11,7 +11,7 @@ _audit_logger = PipelineAuditLog()
 
 
 @router.post("/{query_id}", response_model=ApprovalResponse)
-async def handle_approval(query_id: str, request: ApprovalRequest):
+async def processHumanApprovalDecisionGate(query_id: str, request: ApprovalRequest):
     """Approval Gate decision endpoint: Human approves or rejects a mutating/DDL query."""
     
     if request.decision == "approve":
@@ -45,6 +45,7 @@ async def handle_approval(query_id: str, request: ApprovalRequest):
         from routers.query import stored_responses
         from core.connectors import default_registry
 
+        has_exec_error = False
         exec_msg = "Executed on production DBMS (sandbox replica)"
         stored = stored_responses.get(query_id)
         if stored and stored.generated_sql and default_registry.is_attached(request.user_id):
@@ -52,13 +53,16 @@ async def handle_approval(query_id: str, request: ApprovalRequest):
             if conn:
                 try:
                     res = conn.execute_query(stored.generated_sql, is_mutating=True)
+                    target_name = conn.config.database or "server"
                     if res.error:
-                        exec_msg = f"DBMS execution error on [{conn.config.database}]: {res.error}"
+                        has_exec_error = True
+                        exec_msg = f"DBMS execution error on [{target_name}]: {res.error}"
                     else:
-                        exec_msg = f"Live change committed to [{conn.config.database}]: {res.rows_affected} rows affected in {res.execution_time_ms}ms"
+                        exec_msg = f"Live change committed to [{target_name}]: {res.rows_affected} rows affected in {res.execution_time_ms}ms"
                         # Re-introspect schema to reflect newly created/altered tables
                         conn.introspect_schema(force_refresh=True)
                 except Exception as ex:
+                    has_exec_error = True
                     exec_msg = f"DBMS execution failed: {ex}"
 
         await broadcast_event(
@@ -67,7 +71,7 @@ async def handle_approval(query_id: str, request: ApprovalRequest):
                 query_id=query_id,
                 stage_number=16,
                 stage_name=STAGE_NAMES[16],
-                status="completed",
+                status="failed" if has_exec_error else "completed",
                 message=exec_msg,
             ),
         )
@@ -82,6 +86,7 @@ async def handle_approval(query_id: str, request: ApprovalRequest):
             stage_name="Human Approval Executed",
             details={
                 "message": exec_msg,
+                "has_error": has_exec_error,
                 "sql": stored.generated_sql if stored else None,
             },
             concurrency_tag=f"txn-{request.user_id}",
@@ -89,8 +94,8 @@ async def handle_approval(query_id: str, request: ApprovalRequest):
 
         return ApprovalResponse(
             query_id=query_id,
-            status="approved_executing",
-            message=f"Query approved. {exec_msg}",
+            status="error" if has_exec_error else "approved_executing",
+            message=f"Query approved. {exec_msg}" if not has_exec_error else exec_msg,
         )
     else:
         # Rejection -> feeds back to Model (M6) for retry
@@ -124,3 +129,6 @@ async def handle_approval(query_id: str, request: ApprovalRequest):
             status="rejected_retrying",
             message=f"Query rejected. Feedback forwarded to SQL generator (M6) for retry: '{request.feedback}'",
         )
+
+
+handle_approval = processHumanApprovalDecisionGate

@@ -71,16 +71,20 @@ export const NLQueryInput: React.FC = () => {
       if (data && Array.isArray(data.databases) && data.databases.length > 0) {
         setDatabases(data.databases);
         setAvailableDatabases(data.databases);
-        if (data.database) {
-          setDatabaseProfile(data.database);
-        } else if (!data.databases.includes(databaseProfile)) {
-          setDatabaseProfile(data.databases[0]);
+        if (databaseProfile !== '__none__') {
+          if (data.database) {
+            setDatabaseProfile(data.database);
+          } else if (!data.databases.includes(databaseProfile)) {
+            setDatabaseProfile(data.databases[0]);
+          }
         }
       } else if (data && data.database) {
         const dbs = [data.database];
         setDatabases(dbs);
         setAvailableDatabases(dbs);
-        setDatabaseProfile(data.database);
+        if (databaseProfile !== '__none__') {
+          setDatabaseProfile(data.database);
+        }
       } else {
         // Fallback default sample database options so the dropdown is never blank
         const fallback = ['test', 'ecommerce_db', 'master_enterprise'];
@@ -156,7 +160,7 @@ export const NLQueryInput: React.FC = () => {
         user_id: userId,
         query_text: q,
         target_dialect: targetDialect,
-        database_profile: databaseProfile,
+        database_profile: databaseProfile === '__none__' ? '' : databaseProfile,
         model_name: selectedModel,
         thinking_enabled: modelSupportsThinking ? thinkingEnabled : null,
       });
@@ -172,7 +176,7 @@ export const NLQueryInput: React.FC = () => {
         status: res.status,
         timestamp: new Date().toLocaleTimeString(),
         is_mutating: res.status === 'approval_required',
-        database_profile: databaseProfile,
+        database_profile: res.database_profile || (databaseProfile === '__none__' ? '(None / New Database)' : databaseProfile),
       });
 
       if (res.status === 'approval_required' && res.approval_payload) {
@@ -218,7 +222,7 @@ export const NLQueryInput: React.FC = () => {
           <div className="flex items-center gap-1.5">
             <span className="font-semibold text-[var(--text-secondary)]">Connected DB Context:</span>
             <select
-              value={databaseProfile || (databases[0] ?? 'test')}
+              value={databaseProfile || '__none__'}
               onChange={(e) => handleDatabaseChange(e.target.value)}
               className={`text-xs rounded-none px-2 py-0.5 font-medium border cursor-pointer focus:outline-none focus:ring-1 focus:ring-[var(--border-focus)] transition-colors ${
                 isDark
@@ -226,26 +230,40 @@ export const NLQueryInput: React.FC = () => {
                   : 'bg-white border-[var(--border-subtle)] text-[var(--text-main)] hover:border-slate-400'
               }`}
               title={
-                isDbConnected
+                databaseProfile === '__none__'
+                  ? 'No database context attached. Scratchpad mode for creating new databases or tables.'
+                  : isDbConnected
                   ? `Active database context: '${databaseProfile}' (${connectedEngine?.toUpperCase() || 'DBMS'} socket active)`
                   : `Active schema context profile: '${databaseProfile}' (Offline/Sample schema — click 'Connect DB' to attach live engine)`
               }
             >
-              {(databases.length > 0 ? databases : ['test', 'ecommerce_db', 'master_enterprise']).map((db) => (
-                <option
-                  key={db}
-                  value={db}
-                  className={isDark ? 'bg-[#181824] text-white' : 'bg-white text-slate-900'}
-                >
-                  {db} {isDbConnected && db === databaseProfile ? `(active ${connectedEngine?.toUpperCase() || 'DB'})` : ''}
-                </option>
-              ))}
+              <option
+                value="__none__"
+                className={isDark ? 'bg-[#181824] text-amber-300 font-semibold' : 'bg-white text-amber-700 font-semibold'}
+              >
+                ✨ No Context (Create New DB / Scratch)
+              </option>
+              <optgroup label="Available Databases">
+                {(databases.length > 0 ? databases : ['test', 'ecommerce_db', 'master_enterprise']).map((db) => (
+                  <option
+                    key={db}
+                    value={db}
+                    className={isDark ? 'bg-[#181824] text-white' : 'bg-white text-slate-900'}
+                  >
+                    {db} {isDbConnected && db === databaseProfile ? `(active ${connectedEngine?.toUpperCase() || 'DB'})` : ''}
+                  </option>
+                ))}
+              </optgroup>
             </select>
 
-            {/* Live vs Offline Status Badge */}
+            {/* Live vs Scratch vs Offline Status Badge */}
             <span
               className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-mono tracking-tight border rounded-none select-none ${
-                isDbConnected
+                databaseProfile === '__none__'
+                  ? isDark
+                    ? 'bg-amber-950/40 border-amber-500/40 text-amber-300'
+                    : 'bg-amber-50 border-amber-300 text-amber-800'
+                  : isDbConnected
                   ? isDark
                     ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-400'
                     : 'bg-emerald-50 border-emerald-300 text-emerald-700'
@@ -254,13 +272,27 @@ export const NLQueryInput: React.FC = () => {
                   : 'bg-amber-50 border-amber-200 text-amber-700'
               }`}
               title={
-                isDbConnected
+                databaseProfile === '__none__'
+                  ? 'No schema context attached. Perfect for creating new databases, tables, or architecture design.'
+                  : isDbConnected
                   ? `Live socket attached to ${connectedEngine?.toUpperCase() || 'DBMS'} database '${databaseProfile}'`
                   : 'No live database attached. Using offline schema context. Click "Connect DB" in top bar to connect.'
               }
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${isDbConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-              <span>{isDbConnected ? (connectedEngine ? connectedEngine.toUpperCase() : 'LIVE') : 'OFFLINE'}</span>
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                databaseProfile === '__none__'
+                  ? 'bg-amber-400'
+                  : isDbConnected
+                  ? 'bg-emerald-400 animate-pulse'
+                  : 'bg-amber-400'
+              }`} />
+              <span>
+                {databaseProfile === '__none__'
+                  ? (isDbConnected ? `${connectedEngine ? connectedEngine.toUpperCase() + ' · ' : ''}NEW DB / SCRATCH` : 'NEW DB / SCRATCH')
+                  : isDbConnected
+                  ? (connectedEngine ? connectedEngine.toUpperCase() : 'LIVE')
+                  : 'OFFLINE'}
+              </span>
             </span>
           </div>
           <span className="text-[10px] text-[var(--text-muted)]">model:</span>

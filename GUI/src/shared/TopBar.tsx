@@ -39,6 +39,7 @@ export const TopBar: React.FC = () => {
   const schemaVersion = useSchemaStore((s) => s.schemaVersion);
   const updateSchema = useSchemaStore((s) => s.updateSchema);
   const targetDialect = useAppStore((s) => s.targetDialect);
+  const databaseProfile = useAppStore((s) => s.databaseProfile);
 
   useEffect(() => {
     const dialect = dbStatus?.connector_type || (targetDialect === 'auto' ? 'mysql' : targetDialect);
@@ -57,7 +58,7 @@ export const TopBar: React.FC = () => {
       setIsDbConnected(connected);
       if (connected) {
         if (data.connector_type) setConnectedEngine(data.connector_type);
-        if (data.database) setDatabaseProfile(data.database);
+        if (data.database && databaseProfile !== '__none__') setDatabaseProfile(data.database);
         if (Array.isArray(data.databases) && data.databases.length > 0) {
           setAvailableDatabases(data.databases);
         }
@@ -216,7 +217,7 @@ export const TopBar: React.FC = () => {
               className="text-[var(--success)] hover:underline cursor-pointer shrink-0 whitespace-nowrap"
               title="Click to view tables, switch database, or run SQL"
             >
-              {dbStatus.connector_type?.toUpperCase() || 'MYSQL'}: <span className="font-bold">{dbStatus.database || 'test'}</span>
+              {dbStatus.connector_type?.toUpperCase() || 'MYSQL'}: <span className="font-bold">{databaseProfile === '__none__' ? 'SCRATCH' : (dbStatus.database || 'test')}</span>
             </button>
             <button
               onClick={handleDetachDirect}

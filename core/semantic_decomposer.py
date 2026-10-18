@@ -34,6 +34,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import sqlglot
 from sqlglot import exp
+from core.sanitizer import split_sql_script
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Public constants
@@ -213,40 +214,99 @@ class SchemaMismatchGuard:
         """
         known_tables: {table_name_lower: [col_name_lower, …]}
         Returns refusal comment or "".
+
+        Handles multi-statement SQL scripts: skips DDL (CREATE/DROP) for
+        database/schema and individual table creations, tracks locally
+        created tables across statements so subsequent statements may
+        reference them, and never flags database names in CREATE DATABASE /
+        USE statements as unknown tables.
         """
         try:
-            ast = sqlglot.parse_one(sql, read="postgres")
+            statements = split_sql_script(sql, dialect="postgres")
         except Exception:
             return ""  # let validator handle syntax errors
 
-        if ast is None:
+        if not statements:
             return ""
 
-        # Skip database/schema level operations and table creations
-        if isinstance(ast, exp.Drop) and str(getattr(ast, "kind", "")).upper() in ("DATABASE", "SCHEMA"):
-            return ""
-        if isinstance(ast, exp.Create):
-            return ""
-
-        # Collect CTE names to avoid false positive schema mismatches
-        cte_names = set()
-        for cte in ast.find_all(exp.CTE):
-            c_alias = (cte.alias or getattr(cte, "name", "")).lower()
-            if c_alias:
-                cte_names.add(c_alias)
-
-        # Collect all referenced tables
-        unknown_tables: List[str] = []
-        table_alias_map: Dict[str, str] = {}     # alias → real_table
-
-        for tbl in ast.find_all(exp.Table):
-            t_name = tbl.name.lower()
-            if not t_name or t_name in cte_names:
+        # Pass 1: collect locally-created table names (from CREATE TABLE)
+        local_tables = set()
+        for stmt_sql in statements:
+            parsed = sqlglot.parse_one(stmt_sql, read="postgres")
+            if parsed is None:
                 continue
-            alias = (tbl.alias or t_name).lower()
-            table_alias_map[alias] = t_name
-            if t_name and t_name not in known_tables:
-                unknown_tables.append(t_name)
+            if not isinstance(parsed, exp.Create):
+                continue
+            kind = str(getattr(parsed, "kind", "")).upper()
+            if kind in ("DATABASE", "SCHEMA"):
+                continue
+            tbl = parsed.find(exp.Table)
+            if tbl and tbl.name:
+                local_tables.add(tbl.name.lower())
+
+        all_valid_tables = set(known_tables.keys()) | local_tables
+
+        # Pass 2: check table + column references against known ∪ local
+        unknown_tables: List[str] = []
+        unknown_cols: List[str] = []
+
+        for stmt_sql in statements:
+            parsed = sqlglot.parse_one(stmt_sql, read="postgres")
+            if parsed is None:
+                continue
+            table_alias_map: Dict[str, str] = {}
+            cte_names = {cte.alias_or_name.lower() for cte in parsed.find_all(exp.CTE) if cte.alias_or_name}
+            # Skip DDL that only creates databases / schemas or tables (no table refs).
+            # Also skip statements that are entirely management operations.
+            is_create = isinstance(parsed, exp.Create)
+            is_drop = isinstance(parsed, exp.Drop)
+            kind = ""
+            if is_create or is_drop:
+                kind = str(getattr(parsed, "kind", "")).upper()
+
+            # USE statement switches database context; its identifier is a
+            # database name, never a table — ignore it.
+            if isinstance(parsed, exp.Use):
+                continue
+            if (is_create or is_drop) and kind in ("DATABASE", "SCHEMA"):
+                continue
+            # CREATE TABLE ... AS SELECT: check source tables inside the
+            # SELECT clause but do not flag the target table itself.
+            if is_create:
+                target_create_tbl = None
+                target = parsed.find(exp.Table)
+                if target and target.name:
+                    target_create_tbl = target.name.lower()
+                # Continue to process references inside the AST
+            else:
+                target_create_tbl = None
+
+            for tbl in parsed.find_all(exp.Table):
+                t_name = tbl.name.lower()
+                if not t_name or t_name in cte_names:
+                    continue
+                alias = (tbl.alias or t_name).lower()
+                table_alias_map[alias] = t_name
+                # If this Table node is the one being created by the current
+                # CREATE TABLE statement, it's freshly created — allow.
+                if target_create_tbl and t_name == target_create_tbl:
+                    continue
+                if t_name and t_name not in all_valid_tables:
+                    unknown_tables.append(t_name)
+
+            # Column references are only valid if their table resolves to a
+            # known (or locally created) table.
+            for col in parsed.find_all(exp.Column):
+                c_name = col.name.lower()
+                if not c_name or c_name == "*":
+                    continue
+                tbl_ref = col.table.lower() if col.table else None
+                if tbl_ref and tbl_ref in table_alias_map:
+                    real_tbl = table_alias_map[tbl_ref]
+                    if real_tbl in known_tables:
+                        if c_name not in known_tables[real_tbl]:
+                            unknown_cols = unknown_cols or []
+                            unknown_cols.append(f"{tbl_ref}.{c_name}")
 
         if unknown_tables:
             missing = ", ".join(sorted(set(unknown_tables)))
@@ -256,19 +316,6 @@ class SchemaMismatchGuard:
                 f"-- AVAILABLE TABLES: {available}\n"
                 f"-- HINT: Please connect a database that contains these tables or rephrase your query."
             )
-
-        # Collect unknowncolumns (only when a table qualifier is present)
-        unknown_cols: List[str] = []
-        for col in ast.find_all(exp.Column):
-            c_name = col.name.lower()
-            if not c_name or c_name == "*":
-                continue
-            tbl_ref = col.table.lower() if col.table else None
-            if tbl_ref and tbl_ref in table_alias_map:
-                real_tbl = table_alias_map[tbl_ref]
-                if real_tbl in known_tables:
-                    if c_name not in known_tables[real_tbl]:
-                        unknown_cols.append(f"{tbl_ref}.{c_name}")
 
         if unknown_cols:
             missing = ", ".join(sorted(set(unknown_cols)))

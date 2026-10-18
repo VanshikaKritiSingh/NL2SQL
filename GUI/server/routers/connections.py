@@ -63,7 +63,7 @@ class ListDatabasesRequest(BaseModel):
 EXPLICITLY_DETACHED = set()
 
 
-def try_auto_attach_internal_mysql(user_id: str) -> bool:
+def attemptAutoAttachingInternalMariaDbSocket(user_id: str) -> bool:
     """Attempts to auto-attach the laptop's internal MariaDB (bhuknu@127.0.0.1:3306/test)."""
     if user_id in EXPLICITLY_DETACHED:
         return False
@@ -86,6 +86,9 @@ def try_auto_attach_internal_mysql(user_id: str) -> bool:
         return False
 
 
+try_auto_attach_internal_mysql = attemptAutoAttachingInternalMariaDbSocket
+
+
 class SwitchDatabaseRequest(BaseModel):
     user_id: str = Field(..., description="User session ID")
     database: str = Field(..., description="Target database to switch to")
@@ -97,7 +100,7 @@ class ExecuteDirectRequest(BaseModel):
 
 
 @router.post("/attach")
-async def attach_connection(req: AttachRequest):
+async def attachDatabaseConnectionToUserSession(req: AttachRequest):
     """Binds a live database socket to the specified user session in-memory."""
     EXPLICITLY_DETACHED.discard(req.user_id)
     config = ConnectionConfig(
@@ -127,8 +130,11 @@ async def attach_connection(req: AttachRequest):
         raise HTTPException(status_code=400, detail=f"Failed to attach database: {e}")
 
 
+attach_connection = attachDatabaseConnectionToUserSession
+
+
 @router.delete("/{user_id}")
-async def detach_connection(user_id: str):
+async def detachDatabaseConnectionFromUserSession(user_id: str):
     """Closes and removes the user's active database socket (marks as explicitly detached)."""
     EXPLICITLY_DETACHED.add(user_id)
     detached = default_registry.detach(user_id)
@@ -140,8 +146,11 @@ async def detach_connection(user_id: str):
     }
 
 
+detach_connection = detachDatabaseConnectionFromUserSession
+
+
 @router.post("/test")
-async def test_connection_params(req: TestRequest):
+async def testDatabaseConnectionParameters(req: TestRequest):
     """Pings the target database with provided parameters without registering a session."""
     config = ConnectionConfig(
         connector_type=req.connector_type,
@@ -161,6 +170,9 @@ async def test_connection_params(req: TestRequest):
             detail=res.get("error", "Database connection test failed"),
         )
     return res
+
+
+test_connection_params = testDatabaseConnectionParameters
 
 
 @router.post("/databases")
@@ -429,6 +441,16 @@ async def switch_database(req: SwitchDatabaseRequest):
     conn = default_registry.get(req.user_id)
     if not conn or not conn.is_connected:
         raise HTTPException(status_code=404, detail=f"No active database socket attached for user '{req.user_id}'")
+    if req.database in ("__none__", "", "none", "(none)"):
+        conn.config.database = ""
+        conn._cached_schema = None
+        return {
+            "ok": True,
+            "user_id": req.user_id,
+            "database": "",
+            "tables": [],
+            "message": "Switched to clean scratch context (no database selected).",
+        }
     try:
         conn.execute_query(f"USE `{req.database}`")
         conn.config.database = req.database

@@ -188,3 +188,12 @@ class ClickHouseConnector(BaseDBConnector):
             return {"ok": True, "dialect": "clickhouse", "plan": res.get("data", [])}
         except Exception as e:
             return {"ok": False, "dialect": "clickhouse", "error": str(e)}
+
+    # Aliases for Java-style camelCase naming convention
+    establishDatabaseConnection = connect
+    terminateDatabaseConnection = disconnect
+    verifyDatabaseConnectionStatus = test_connection
+    listAccessibleDatabaseNames = list_databases
+    introspectDatabaseCatalogSchema = introspect_schema
+    executeQueryAgainstDatabaseEngine = execute_query
+    generateQueryExecutionPlan = explain_query

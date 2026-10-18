@@ -2,6 +2,7 @@
 import asyncio
 from datetime import datetime
 import os
+import re
 import sys
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, BackgroundTasks, HTTPException
@@ -17,7 +18,7 @@ if REPO_ROOT not in sys.path:
 
 from core.orchestrator import EndToEndNL2SQLOrchestrator
 from core.schema_linker import TableMeta, ColumnMeta
-from validator.contracts import StatementType, Severity
+from core.validator.contracts import StatementType, Severity
 
 router = APIRouter(prefix="/query", tags=["Query Intake"])
 
@@ -77,42 +78,47 @@ stored_responses: Dict[str, QueryResponse] = {}
 
 
 @router.post("", response_model=QueryResponse)
-async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks):
+async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, background_tasks: BackgroundTasks):
     """Query Intake entry point: Receives natural language or SQL query, compiles via LLM and executes against live DB or orchestrator."""
     from core.connectors import default_registry
 
     # 0. Sync schema with connected live DBMS if attached
-    if default_registry.is_attached(request.user_id):
-        conn = default_registry.get(request.user_id)
-        if conn and conn.is_connected:
-            try:
-                schema_meta = conn.introspect_schema(force_refresh=False)
-                if schema_meta and schema_meta.tables:
-                    live_tables = {}
-                    for t_name, t_schema in schema_meta.tables.items():
-                        col_metas = {}
-                        for c_name, c_schema in t_schema.columns.items():
-                            fk_tbl, fk_col = None, None
-                            if c_schema.foreign_key_target and "." in c_schema.foreign_key_target:
-                                fk_tbl, fk_col = c_schema.foreign_key_target.split(".", 1)
-                            col_metas[c_name] = ColumnMeta(
-                                name=c_name,
-                                dtype=c_schema.data_type,
-                                is_pk=c_schema.is_primary_key or (c_name in t_schema.primary_keys),
-                                is_fk=c_schema.is_foreign_key,
-                                fk_target_table=fk_tbl,
-                                fk_target_column=fk_col,
-                                categorical_values=c_schema.sample_values or [],
-                            )
-                        live_tables[t_name] = TableMeta(
-                            name=t_name,
-                            description=t_schema.comment or f"Live table {t_name}",
-                            columns=col_metas,
+    is_none_db = request.database_profile in ("__none__", "", "none", "(none)", None)
+    is_attached = default_registry.is_attached(request.user_id)
+    conn = default_registry.get(request.user_id) if is_attached else None
+
+    if is_none_db:
+        # User selected clean scratch / new database context: no prior tables attached
+        orchestrator.update_schema({})
+    elif is_attached and conn and conn.is_connected:
+        try:
+            schema_meta = conn.introspect_schema(force_refresh=False)
+            if schema_meta and schema_meta.tables:
+                live_tables = {}
+                for t_name, t_schema in schema_meta.tables.items():
+                    col_metas = {}
+                    for c_name, c_schema in t_schema.columns.items():
+                        fk_tbl, fk_col = None, None
+                        if c_schema.foreign_key_target and "." in c_schema.foreign_key_target:
+                            fk_tbl, fk_col = c_schema.foreign_key_target.split(".", 1)
+                        col_metas[c_name] = ColumnMeta(
+                            name=c_name,
+                            dtype=c_schema.data_type,
+                            is_pk=c_schema.is_primary_key or (c_name in t_schema.primary_keys),
+                            is_fk=c_schema.is_foreign_key,
+                            fk_target_table=fk_tbl,
+                            fk_target_column=fk_col,
+                            categorical_values=c_schema.sample_values or [],
                         )
-                    if live_tables:
-                        orchestrator.update_schema(live_tables)
-            except Exception:
-                pass
+                    live_tables[t_name] = TableMeta(
+                        name=t_name,
+                        description=t_schema.comment or f"Live table {t_name}",
+                        columns=col_metas,
+                    )
+                if live_tables:
+                    orchestrator.update_schema(live_tables)
+        except Exception:
+            pass
     else:
         if orchestrator.tables != DEFAULT_SCHEMA:
             orchestrator.update_schema(DEFAULT_SCHEMA)
@@ -120,6 +126,14 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
     # 1. Run full 16-stage orchestrator pipeline with direct Ollama LLM grounding
     target_engine = request.target_dialect.value if isinstance(request.target_dialect, TargetDialect) else str(request.target_dialect)
     is_auto = (target_engine == "auto")
+
+    # If auto dialect and live DBMS is connected, ground target dialect on connected DBMS
+    if is_auto and is_attached and conn and conn.config:
+        conn_type = conn.config.connector_type
+        c_str = conn_type.value if hasattr(conn_type, "value") else str(conn_type)
+        if c_str and c_str.lower() != "auto":
+            target_engine = c_str.lower()
+            is_auto = False
     
     plan = orchestrator.process_query(
         query=request.query_text,
@@ -136,6 +150,15 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
         sql_str = compiled_sql.get("mql_string", str(compiled_sql))
     else:
         sql_str = str(compiled_sql)
+
+    # Determine resolved active database profile name
+    m_new_db = re.search(r"CREATE\s+DATABASE\s+(?:IF\s+NOT\s+EXISTS\s+)?([`\"\w]+)", sql_str, re.IGNORECASE)
+    if is_none_db:
+        active_db_name = m_new_db.group(1).strip("`\"'") if m_new_db else "(None / New Database)"
+    elif is_attached and conn and conn.config and conn.config.database:
+        active_db_name = conn.config.database
+    else:
+        active_db_name = request.database_profile or "master_enterprise"
 
     is_mutating = plan.requires_human_approval or plan.statement_type in (StatementType.WRITE, StatementType.DDL)
 
@@ -160,7 +183,7 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
             approval_payload=None,
             error_message=expl or "Model or schema guard declined SQL generation for this request.",
             cache_hit=False,
-            database_profile=request.database_profile or "master_enterprise",
+            database_profile=active_db_name,
             is_live_db_connected=False,
             execution_mode="preview_sandbox",
             model_name=plan.model_name or request.model_name or "auto",
@@ -175,7 +198,7 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
             approval_payload=None,
             error_message="; ".join(error_msgs) if error_msgs else "Validation policy rejected statement.",
             cache_hit=False,
-            database_profile=request.database_profile or "master_enterprise",
+            database_profile=active_db_name,
             is_live_db_connected=False,
             execution_mode="preview_sandbox",
             model_name=plan.model_name or request.model_name or "auto",
@@ -251,7 +274,7 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
                 approval_payload=None,
                 error_message=f"Live database execution error: {plan.live_query_result.error}",
                 cache_hit=False,
-                database_profile=request.database_profile or "master_enterprise",
+                database_profile=active_db_name,
                 is_live_db_connected=True,
                 execution_mode="live_database",
             )
@@ -282,7 +305,7 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
             approval_payload=None,
             error_message=None,
             cache_hit=False,
-            database_profile=request.database_profile or "master_enterprise",
+            database_profile=active_db_name,
             is_live_db_connected=is_live,
             execution_mode=exec_mode,
             model_name=plan.model_name or request.model_name or "auto",
@@ -299,7 +322,7 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
         status=response.status,
         timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         is_mutating=is_mutating,
-        database_profile=request.database_profile or "master_enterprise",
+        database_profile=active_db_name,
     )
     if request.user_id not in query_history:
         query_history[request.user_id] = []
@@ -309,14 +332,20 @@ async def submit_query(request: QueryRequest, background_tasks: BackgroundTasks)
     return response
 
 
+submit_query = submitNaturalLanguageQueryForProcessing
+
+
 @router.get("/history/{user_id}", response_model=List[HistoryItem])
-async def get_user_history(user_id: str):
+async def retrieveQueryHistoryForUserSession(user_id: str):
     """Returns query history for the given user."""
     return query_history.get(user_id, [])
 
 
+get_user_history = retrieveQueryHistoryForUserSession
+
+
 @router.delete("/history/{user_id}/{query_id}")
-async def delete_user_history_item(user_id: str, query_id: str):
+async def deleteSingleQueryHistoryRecord(user_id: str, query_id: str):
     """Deletes a single history item for the specified user."""
     if user_id in query_history:
         query_history[user_id] = [item for item in query_history[user_id] if item.query_id != query_id]
@@ -326,9 +355,15 @@ async def delete_user_history_item(user_id: str, query_id: str):
     return {"status": "not_found", "message": "User history not found"}
 
 
+delete_user_history_item = deleteSingleQueryHistoryRecord
+
+
 @router.delete("/history/{user_id}")
-async def clear_user_history(user_id: str):
+async def clearAllQueryHistoryRecordsForUserSession(user_id: str):
     """Clears all query history for the specified user."""
     if user_id in query_history:
         query_history[user_id] = []
     return {"status": "success", "message": f"History cleared for user {user_id}"}
+
+
+clear_user_history = clearAllQueryHistoryRecordsForUserSession

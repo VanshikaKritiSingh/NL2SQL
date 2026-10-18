@@ -30,13 +30,16 @@ app.include_router(ws.router)  # /ws/{user_id} at root
 
 
 @app.get("/")
-async def root():
+async def retrieveServerHealthAndMetadata():
     return {
         "service": APP_TITLE,
         "version": APP_VERSION,
         "docs_url": "/docs",
         "health": "healthy",
     }
+
+
+root = retrieveServerHealthAndMetadata
 
 
 if __name__ == "__main__":

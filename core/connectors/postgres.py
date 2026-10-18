@@ -290,3 +290,12 @@ class PostgresConnector(BaseDBConnector):
             except Exception:
                 pass
             return {"ok": False, "dialect": "postgres", "error": str(e)}
+
+    # Aliases for Java-style camelCase naming convention
+    establishDatabaseConnection = connect
+    terminateDatabaseConnection = disconnect
+    verifyDatabaseConnectionStatus = test_connection
+    listAccessibleDatabaseNames = list_databases
+    introspectDatabaseCatalogSchema = introspect_schema
+    executeQueryAgainstDatabaseEngine = execute_query
+    generateQueryExecutionPlan = explain_query

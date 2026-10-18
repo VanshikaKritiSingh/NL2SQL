@@ -155,3 +155,11 @@ class DynamoDBConnector(BaseDBConnector):
 
     def explain_query(self, query: str) -> Dict[str, Any]:
         return {"ok": True, "dialect": "dynamodb", "note": "PartiQL uses DynamoDB primary key and GSI routing directly."}
+
+    # Aliases for Java-style camelCase naming convention
+    establishDatabaseConnection = connect
+    terminateDatabaseConnection = disconnect
+    verifyDatabaseConnectionStatus = test_connection
+    introspectDatabaseCatalogSchema = introspect_schema
+    executeQueryAgainstDatabaseEngine = execute_query
+    generateQueryExecutionPlan = explain_query

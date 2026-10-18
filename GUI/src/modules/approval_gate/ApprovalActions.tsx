@@ -40,31 +40,60 @@ export const ApprovalActions: React.FC<ApprovalActionsProps> = ({ queryId, riskT
 
       if (decision === 'approve') {
         const msg = res.message || 'Approved! Mutation committed to transaction checkpoint and dispatched to connected database.';
-        setSettledResult({
-          type: 'approved',
-          message: msg,
-        });
+        const hasDbmsError = msg.includes('DBMS execution error') || msg.includes('DBMS execution failed') || res.status === 'error';
 
-        const currentResp = useQueryStore.getState().lastResponse;
-        if (currentResp) {
-          useQueryStore.getState().setLastResponse({
-            ...currentResp,
-            status: 'completed',
-            result_data: {
-              columns: ['status', 'action', 'details'],
-              rows: [
-                {
-                  status: 'COMMITTED',
-                  action: 'DBMS_EXECUTION_SUCCESS',
-                  details: msg,
-                },
-              ],
-              row_count: 1,
-            },
+        if (hasDbmsError) {
+          setSettledResult({
+            type: 'rejected',
+            message: msg,
           });
+
+          const currentResp = useQueryStore.getState().lastResponse;
+          if (currentResp) {
+            useQueryStore.getState().setLastResponse({
+              ...currentResp,
+              status: 'error',
+              error_message: msg,
+              result_data: {
+                columns: ['status', 'action', 'details'],
+                rows: [
+                  {
+                    status: 'DBMS_ERROR',
+                    action: 'EXECUTION_FAILED',
+                    details: msg,
+                  },
+                ],
+                row_count: 1,
+              },
+            });
+          }
+        } else {
+          setSettledResult({
+            type: 'approved',
+            message: msg,
+          });
+
+          const currentResp = useQueryStore.getState().lastResponse;
+          if (currentResp) {
+            useQueryStore.getState().setLastResponse({
+              ...currentResp,
+              status: 'completed',
+              result_data: {
+                columns: ['status', 'action', 'details'],
+                rows: [
+                  {
+                    status: 'COMMITTED',
+                    action: 'DBMS_EXECUTION_SUCCESS',
+                    details: msg,
+                  },
+                ],
+                row_count: 1,
+              },
+            });
+          }
+          // Refresh ER diagram after approval commits mutation
+          bumpSchemaVersion();
         }
-        // Refresh ER diagram after approval commits mutation
-        bumpSchemaVersion();
       } else {
         const msg = `Rejected! Feedback saved: "${feedback.trim() || 'Manual reject'}" and routed back for query adjustment.`;
         setSettledResult({

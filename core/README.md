@@ -266,8 +266,8 @@ PYTHONPATH=. ./.venv/bin/pytest tests/ -v
 - **Desktop & Web Studio Handbook:** [`../GUI/README.md`](../GUI/README.md)
 - **Cross-Platform Script Automation:** [`../scripts/README.md`](../scripts/README.md)
 - **Offline Model Checkpoint Registry:** [`../offline/models/README.md`](../offline/models/README.md)
-- **Static AST Validator Package:** [`../validator/`](../validator/)
-- **Query Cost & Blast Radius Estimator:** [`../cost_estimator/`](../cost_estimator/)
+- **Static AST Validator Engine:** [`validator/`](validator/) (and legacy shim [`../validator/`](../validator/))
+- **Query Cost & Blast Radius Engine:** [`cost_estimator/`](cost_estimator/) (and legacy shim [`../cost_estimator/`](../cost_estimator/))
 
 ---
 

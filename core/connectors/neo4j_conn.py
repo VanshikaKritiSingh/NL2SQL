@@ -166,3 +166,11 @@ class Neo4jConnector(BaseDBConnector):
                 return {"ok": True, "dialect": "neo4j", "plan": str(plan)}
         except Exception as e:
             return {"ok": False, "dialect": "neo4j", "error": str(e)}
+
+    # Aliases for Java-style camelCase naming convention
+    establishDatabaseConnection = connect
+    terminateDatabaseConnection = disconnect
+    verifyDatabaseConnectionStatus = test_connection
+    introspectDatabaseCatalogSchema = introspect_schema
+    executeQueryAgainstDatabaseEngine = execute_query
+    generateQueryExecutionPlan = explain_query

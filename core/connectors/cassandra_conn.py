@@ -157,3 +157,11 @@ class CassandraConnector(BaseDBConnector):
 
     def explain_query(self, query: str) -> Dict[str, Any]:
         return {"ok": True, "dialect": "cassandra", "note": "Use TRACING ON in cqlsh for Cassandra execution plan traces."}
+
+    # Aliases for Java-style camelCase naming convention
+    establishDatabaseConnection = connect
+    terminateDatabaseConnection = disconnect
+    verifyDatabaseConnectionStatus = test_connection
+    introspectDatabaseCatalogSchema = introspect_schema
+    executeQueryAgainstDatabaseEngine = execute_query
+    generateQueryExecutionPlan = explain_query

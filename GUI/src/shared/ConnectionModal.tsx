@@ -776,11 +776,16 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
                       : 'bg-white border-slate-300 text-slate-900'
                   }`}
                 >
-                  {availableDbs.map((d) => (
-                    <option key={d} value={d} className={isDark ? 'bg-[#181824] text-white' : 'bg-white text-slate-900'}>
-                      {d}
-                    </option>
-                  ))}
+                  <option value="__none__" className={isDark ? 'bg-[#181824] text-amber-300 font-semibold' : 'bg-white text-amber-700 font-semibold'}>
+                    ✨ No Database (Create New DB / Scratch)
+                  </option>
+                  <optgroup label="Available Databases">
+                    {availableDbs.map((d) => (
+                      <option key={d} value={d} className={isDark ? 'bg-[#181824] text-white' : 'bg-white text-slate-900'}>
+                        {d}
+                      </option>
+                    ))}
+                  </optgroup>
                 </select>
                 <button
                   type="button"

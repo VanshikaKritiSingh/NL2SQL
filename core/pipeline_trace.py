@@ -17,10 +17,10 @@ from typing import Any, Dict, List, Optional
 from core.dialect_converter import DeterministicDialectConverter
 from core.paradigm_suggestor import DatabaseParadigm, SpeculativeParadigmSuggestor
 from core.schema_linker import SchemaLinker, TableMeta, ColumnMeta
-from validator.contracts import Severity, StatementType, Status
-from validator.engine import run_validation
-from validator.interfaces import FakeSchemaProvider
-from cost_estimator.engine import HeuristicCostEngine
+from core.validator.contracts import Severity, StatementType, Status
+from core.validator.engine import run_validation
+from core.validator.interfaces import FakeSchemaProvider
+from core.cost_estimator.engine import HeuristicCostEngine
 
 
 def build_default_demo_schema() -> Dict[str, TableMeta]:

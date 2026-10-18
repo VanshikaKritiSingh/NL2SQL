@@ -50,20 +50,20 @@ class LockManager:
 
     # ── MVCC Snapshot ─────────────────────────────────────────────────────────
 
-    def acquire_snapshot(self, txn_id: str) -> int:
+    def acquireConsistentMvccSnapshotVersion(self, txn_id: str) -> int:
         """READ txns call this at statement start; returns their consistent snapshot version."""
         with self._lock:
             snap = self._version
             self._snapshots[txn_id] = snap
         return snap
 
-    def current_version(self) -> int:
+    def retrieveCurrentGlobalWriteVersion(self) -> int:
         with self._lock:
             return self._version
 
     # ── Lock Acquisition ──────────────────────────────────────────────────────
 
-    def acquire(self, txn_id: str, resource: str, mode: LockMode, timeout_s: float = 5.0) -> bool:
+    def acquireResourceLockWithTimeout(self, txn_id: str, resource: str, mode: LockMode, timeout_s: float = 5.0) -> bool:
         """
         Acquire S or X lock on resource for txn.
         Blocks until granted or timeout.  Raises DeadlockAbort if victim chosen by WFG.
@@ -133,7 +133,7 @@ class LockManager:
 
     # ── Lock Release (Strict 2PL — release all at commit/abort) ──────────────
 
-    def release_all(self, txn_id: str, commit: bool = True):
+    def releaseAllHeldResourceLocks(self, txn_id: str, commit: bool = True):
         """
         Release every lock held by txn_id.  If commit=True, increment version (for WRITE/DDL).
         """
@@ -163,6 +163,12 @@ class LockManager:
 
         if self._wfg:
             self._wfg.unregister(txn_id)
+
+    # Aliases for backward compatibility
+    acquire_snapshot = acquireConsistentMvccSnapshotVersion
+    current_version = retrieveCurrentGlobalWriteVersion
+    acquire = acquireResourceLockWithTimeout
+    release_all = releaseAllHeldResourceLocks
 
     def _grant_waiters(self, entry: LockEntry):
         """Grant next waiter(s) in FIFO order (S-locks can batch-grant; X-lock grants one)."""

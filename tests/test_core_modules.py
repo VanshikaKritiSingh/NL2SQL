@@ -31,14 +31,14 @@ from core.schema_linker import (
     CategoricalValueTrie,
     LinkedSchemaContext,
 )
-from validator.contracts import (
+from core.validator.contracts import (
     IssueCode,
     Layer,
     Severity,
     StatementType,
     Status,
 )
-from validator.engine import (
+from core.validator.engine import (
     validate_parse,
     validate_policy,
     validate_schema,
@@ -47,11 +47,11 @@ from validator.engine import (
     validate_schema_anti_patterns,
     run_validation,
 )
-from validator.interfaces import FakeSchemaProvider
-from validator.rules import RuleRegistry, RuleEntry
-from cost_estimator.contracts import CostReport
-from cost_estimator.engine import HeuristicCostEngine
-from cost_estimator.thresholds import Thresholds
+from core.validator.interfaces import FakeSchemaProvider
+from core.validator.rules import RuleRegistry, RuleEntry
+from core.cost_estimator.contracts import CostReport
+from core.cost_estimator.engine import HeuristicCostEngine
+from core.cost_estimator.thresholds import Thresholds
 from core.orchestrator import EndToEndNL2SQLOrchestrator, SemanticSQLSynthesizer
 
 
@@ -116,7 +116,7 @@ def mock_ecommerce_schema():
 # 1. Speculative Paradigm Suggestor & CLEF Classifier Tests
 # ==============================================================================
 
-def test_clef_drafter_all_six_paradigms():
+def testClefDrafterAcrossAllSixParadigms():
     drafter = CLEFDiscourseDrafter()
 
     # Graph
@@ -144,7 +144,7 @@ def test_clef_drafter_all_six_paradigms():
     assert p == DatabaseParadigm.RELATIONAL_SQL
 
 
-def test_speculative_verification_llm_fallback():
+def testSpeculativeVerificationLanguageModelFallback():
     suggestor = SpeculativeParadigmSuggestor(confidence_threshold=0.85)
 
     def mock_verifier(query, draft_p, draft_conf):
@@ -161,7 +161,7 @@ def test_speculative_verification_llm_fallback():
     assert res.confidence == 0.95
 
 
-def test_paradigm_manual_divergence_warning():
+def testParadigmManualDivergenceWarningDetection():
     suggestor = SpeculativeParadigmSuggestor()
     res = suggestor.classify_and_route(
         query="Trace mutual friends and connection paths between developers",
@@ -177,7 +177,7 @@ def test_paradigm_manual_divergence_warning():
 # 2. Universal Dialect Converter Tests
 # ==============================================================================
 
-def test_sql_transpilation_all_relational_dialects():
+def testSqlTranspilationAcrossAllRelationalDialects():
     converter = DeterministicDialectConverter()
     sql = "SELECT id, username, created_at FROM users WHERE id > 100 ORDER BY created_at DESC LIMIT 5;"
 
@@ -189,7 +189,7 @@ def test_sql_transpilation_all_relational_dialects():
         assert res.execution_time_ms < 150.0
 
 
-def test_opencypher_complex_transpilation():
+def testOpenCypherComplexGraphQueryTranspilation():
     converter = DeterministicDialectConverter()
     sql = "SELECT u.username, count(o.id) AS order_count FROM users AS u JOIN orders AS o ON u.id = o.user_id WHERE u.country = 'Germany' AND o.total_amount > 50 GROUP BY u.username ORDER BY order_count DESC LIMIT 10;"
     res = converter.transpile(sql, target_dialect="opencypher")
@@ -205,7 +205,7 @@ def test_opencypher_complex_transpilation():
     assert "LIMIT 10" in cypher
 
 
-def test_mongodb_mql_complex_aggregation_pipeline():
+def testMongoDbMqlComplexAggregationPipelineTranspilation():
     converter = DeterministicDialectConverter()
     # 1. Query with filters, group by, aggregations, sort, limit
     sql = "SELECT category, count(*) AS total_prods, avg(price) AS avg_price FROM products WHERE price >= 10.50 AND category != 'Discontinued' GROUP BY category ORDER BY avg_price DESC LIMIT 3;"
@@ -227,7 +227,7 @@ def test_mongodb_mql_complex_aggregation_pipeline():
     assert any("$unwind" in stage for stage in p_join)
 
 
-def test_transpile_invalid_syntax_error():
+def testTranspilerThrowsInvalidAstSyntaxErrorOnUnparseableInput():
     converter = DeterministicDialectConverter()
     with pytest.raises(InvalidASTSyntaxError):
         converter.transpile("SELECT FROM WHERE WHERE", target_dialect="postgres")
@@ -237,7 +237,7 @@ def test_transpile_invalid_syntax_error():
 # 3. Schema Linker & Context Retrieval Tests
 # ==============================================================================
 
-def test_trie_punctuation_resilience():
+def testAhoCorasickTriePunctuationResilience():
     trie = CategoricalValueTrie()
     trie.insert("Germany", "users.country")
     trie.insert("MacBook Pro", "products.product_name")
@@ -250,7 +250,7 @@ def test_trie_punctuation_resilience():
     assert matches["macbook pro"] == "products.product_name"
 
 
-def test_schema_linker_hybrid_rrf_and_steiner_bridge(mock_ecommerce_schema):
+def testSchemaLinkerHybridReciprocalRankFusionAndSteinerBridge(mock_ecommerce_schema):
     linker = SchemaLinker(tables=mock_ecommerce_schema, rrf_k=60)
     ctx = linker.link_context(
         query="List all users who purchased a MacBook Pro in Germany with order details",
@@ -270,7 +270,7 @@ def test_schema_linker_hybrid_rrf_and_steiner_bridge(mock_ecommerce_schema):
 # 4. 6-Layer Static AST Validator Tests
 # ==============================================================================
 
-def test_validator_layer1_parse():
+def testValidatorLayer1ParseValidation():
     # Empty query
     issues, ast = validate_parse("   ;  ")
     assert any(i.code == IssueCode.PARSE_02 for i in issues)
@@ -280,7 +280,7 @@ def test_validator_layer1_parse():
     assert any(i.code == IssueCode.PARSE_01 for i in issues)
 
 
-def test_validator_layer2_policy():
+def testValidatorLayer2PolicyValidation():
     # Prohibited DROP DATABASE
     issues, parsed = validate_parse("DROP DATABASE production;")
     assert parsed is not None
@@ -298,7 +298,7 @@ def test_validator_layer2_policy():
     assert any(i.code == IssueCode.POLICY_06 for i in p_issues)
 
 
-def test_validator_layer3_schema(mock_ecommerce_schema):
+def testValidatorLayer3SchemaValidation(mock_ecommerce_schema):
     provider = FakeSchemaProvider({
         "tables": [
             {"name": "users", "columns": {"id": "int", "username": "text"}, "pk": ["id"], "fks": {}, "indexes": {}, "row_count": 100, "nullable": {}}
@@ -309,7 +309,7 @@ def test_validator_layer3_schema(mock_ecommerce_schema):
     assert any(i.code == IssueCode.SCHEMA_02 for i in issues)
 
 
-def test_validator_layer4_semantic():
+def testValidatorLayer4SemanticValidation():
     # Aggregate in WHERE clause
     ast = sqlglot.parse_one("SELECT department FROM employees WHERE count(*) > 5;")
     issues = validate_semantic(ast)
@@ -321,7 +321,7 @@ def test_validator_layer4_semantic():
     assert any(i.code == IssueCode.SEM_01 for i in issues)
 
 
-def test_validator_layer5_query_anti_patterns():
+def testValidatorLayer5QueryAntiPatternValidation():
     # Cartesian product without ON clause
     ast = sqlglot.parse_one("SELECT * FROM users JOIN orders;")
     issues = validate_query_anti_patterns(ast)
@@ -333,7 +333,7 @@ def test_validator_layer5_query_anti_patterns():
     assert any(i.code == IssueCode.QUERY_AP_03 for i in issues)
 
 
-def test_validator_rule_registry_toggle():
+def testValidatorRuleRegistryDynamicFeatureToggle():
     registry = RuleRegistry()
     assert registry.is_enabled(IssueCode.QUERY_AP_01) is True
     # Toggle off SELECT * warning
@@ -348,7 +348,7 @@ def test_validator_rule_registry_toggle():
 # 5. Heuristic Cost & Blast Radius Engine Tests
 # ==============================================================================
 
-def test_heuristic_cost_read_and_write():
+def testHeuristicCostEngineEvaluatesReadAndWriteQueryUtilization():
     engine = HeuristicCostEngine(thresholds=Thresholds.defaults())
 
     # 1. Indexed read query (Low cost, allowed)
@@ -367,11 +367,11 @@ def test_heuristic_cost_read_and_write():
 # 6. Unified End-to-End Orchestrator Tests
 # ==============================================================================
 
-def test_orchestrator_full_lifecycle(mock_ecommerce_schema):
+def testOrchestratorFullReadWriteSecurityLifecycle(mock_ecommerce_schema):
     orchestrator = EndToEndNL2SQLOrchestrator(schema_tables=mock_ecommerce_schema)
 
     # 1. Natural Language Read Query -> Synthesized -> Validated -> Sandbox Replica
-    plan_read = orchestrator.process_query(
+    plan_read = orchestrator.processNaturalLanguageQueryThroughPipeline(
         query="Show all users in Germany with active accounts",
         target_engine="postgres",
         auto_mode=True,
@@ -383,7 +383,7 @@ def test_orchestrator_full_lifecycle(mock_ecommerce_schema):
     assert plan_read.requires_human_approval is False
 
     # 2. Mutating NL Query -> Synthesized -> Escalated to Approval Gate
-    plan_mutate = orchestrator.process_query(
+    plan_mutate = orchestrator.processNaturalLanguageQueryThroughPipeline(
         query="Delete all inactive user accounts with id = 50",
         target_engine="mysql",
         auto_mode=True,
@@ -394,7 +394,7 @@ def test_orchestrator_full_lifecycle(mock_ecommerce_schema):
     assert plan_mutate.requires_human_approval is True
 
     # 3. Security Violation -> BLOCKED
-    plan_blocked = orchestrator.process_query(
+    plan_blocked = orchestrator.processNaturalLanguageQueryThroughPipeline(
         query="Drop database production immediately",
         target_engine="postgres",
     )
@@ -402,16 +402,16 @@ def test_orchestrator_full_lifecycle(mock_ecommerce_schema):
     assert plan_blocked.execution_route == "BLOCKED"
 
 
-def test_orchestrator_refusal_non_sql(mock_ecommerce_schema):
+def testOrchestratorRefusesNonDatabaseChitChatQueries(mock_ecommerce_schema):
     orchestrator = EndToEndNL2SQLOrchestrator(schema_tables=mock_ecommerce_schema)
     for q in ["hi", "hello there", "who is the president of india", "what is the capital of france"]:
-        plan = orchestrator.process_query(query=q)
+        plan = orchestrator.processNaturalLanguageQueryThroughPipeline(query=q)
         assert plan.execution_route == "REFUSAL"
         assert plan.is_valid is True
         assert "-- REFUSAL:" in plan.generated_canonical_sql
 
 
-def test_orchestrator_refusal_schema_mismatch():
+def testOrchestratorRefusesQueryReferencingNonExistentSchemaTables():
     users_only_schema = {
         "users": TableMeta(
             name="users",
@@ -423,7 +423,7 @@ def test_orchestrator_refusal_schema_mismatch():
     }
     orchestrator = EndToEndNL2SQLOrchestrator(schema_tables=users_only_schema)
     # Query asking for products when only users exists
-    plan = orchestrator.process_query(
+    plan = orchestrator.processNaturalLanguageQueryThroughPipeline(
         query="Show top 5 products by price",
         mock_llm_generator=lambda q, ctx: "SELECT * FROM products ORDER BY price DESC LIMIT 5;",
     )
@@ -432,10 +432,10 @@ def test_orchestrator_refusal_schema_mismatch():
     assert "products" in plan.generated_canonical_sql
 
 
-def test_orchestrator_architecture_synthesis():
+def testOrchestratorSynthesizesEnterpriseDdlFromArchitectureDescription():
     orchestrator = EndToEndNL2SQLOrchestrator(schema_tables={})
     arch_query = "Design an e-commerce platform with users, products, orders, order_items, and categories"
-    plan = orchestrator.process_query(query=arch_query)
+    plan = orchestrator.processNaturalLanguageQueryThroughPipeline(query=arch_query)
     assert plan.execution_route == "APPROVAL_GATE"
     assert plan.statement_type == StatementType.DDL
     assert "CREATE TABLE users" in plan.generated_canonical_sql
@@ -444,12 +444,12 @@ def test_orchestrator_architecture_synthesis():
     assert len(orchestrator.tables) >= 4
 
 
-def test_orchestrator_short_query_not_refused(mock_ecommerce_schema):
+def testOrchestratorDoesNotRefuseShortSchemaBoundQueries(mock_ecommerce_schema):
     """Verifies that short 2-3 word queries are not falsely classified as chit-chat refusal."""
     orchestrator = EndToEndNL2SQLOrchestrator(schema_tables=mock_ecommerce_schema)
     short_queries = ["active users", "order totals", "customer count", "pending orders"]
     for q in short_queries:
-        plan = orchestrator.process_query(
+        plan = orchestrator.processNaturalLanguageQueryThroughPipeline(
             query=q,
             mock_llm_generator=lambda query_str, ctx: "SELECT count(*) FROM users WHERE status = 'active';",
         )
@@ -457,14 +457,14 @@ def test_orchestrator_short_query_not_refused(mock_ecommerce_schema):
         assert plan.is_valid is True
 
 
-def test_orchestrator_cte_schema_mismatch_clean(mock_ecommerce_schema):
+def testOrchestratorCommonTableExpressionDoesNotTriggerFalsePositiveSchemaMismatch(mock_ecommerce_schema):
     """Verifies that Common Table Expressions (WITH clauses) do not trigger false positive schema mismatch."""
     orchestrator = EndToEndNL2SQLOrchestrator(schema_tables=mock_ecommerce_schema)
     cte_sql = (
         "WITH active_u AS (SELECT id, username FROM users WHERE status = 'active') "
         "SELECT * FROM active_u;"
     )
-    plan = orchestrator.process_query(
+    plan = orchestrator.processNaturalLanguageQueryThroughPipeline(
         query="List active users using CTE",
         mock_llm_generator=lambda q, ctx: cte_sql,
     )

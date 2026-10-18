@@ -129,32 +129,37 @@ class BaseDBConnector(ABC):
     def is_connected(self) -> bool:
         return self._is_connected
 
-    @abstractmethod
-    def connect(self) -> bool:
+    def establishDatabaseConnection(self) -> bool:
         """Establish connection to the target database."""
-        pass
+        if type(self).connect is not BaseDBConnector.connect:
+            return self.connect()
+        raise NotImplementedError(f"{type(self).__name__} must implement establishDatabaseConnection() or connect()")
 
-    @abstractmethod
-    def disconnect(self) -> bool:
+    def terminateDatabaseConnection(self) -> bool:
         """Close the connection cleanly."""
-        pass
+        if type(self).disconnect is not BaseDBConnector.disconnect:
+            return self.disconnect()
+        raise NotImplementedError(f"{type(self).__name__} must implement terminateDatabaseConnection() or disconnect()")
 
-    @abstractmethod
-    def test_connection(self) -> Dict[str, Any]:
+    def verifyDatabaseConnectionStatus(self) -> Dict[str, Any]:
         """Ping database, measure roundtrip latency, return status dictionary."""
-        pass
+        if type(self).test_connection is not BaseDBConnector.test_connection:
+            return self.test_connection()
+        raise NotImplementedError(f"{type(self).__name__} must implement verifyDatabaseConnectionStatus() or test_connection()")
 
-    @abstractmethod
-    def introspect_schema(self, force_refresh: bool = False) -> SchemaMetadata:
+    def introspectDatabaseCatalogSchema(self, force_refresh: bool = False) -> SchemaMetadata:
         """Extract database metadata, tables, columns, foreign keys, and indexes."""
-        pass
+        if type(self).introspect_schema is not BaseDBConnector.introspect_schema:
+            return self.introspect_schema(force_refresh=force_refresh)
+        raise NotImplementedError(f"{type(self).__name__} must implement introspectDatabaseCatalogSchema() or introspect_schema()")
 
-    def list_databases(self) -> List[str]:
+    def listAccessibleDatabaseNames(self) -> List[str]:
         """List all accessible databases/schemas for the authenticated user."""
+        if type(self).list_databases is not BaseDBConnector.list_databases:
+            return self.list_databases()
         return [self.config.database] if self.config.database else []
 
-    @abstractmethod
-    def execute_query(
+    def executeQueryAgainstDatabaseEngine(
         self,
         query: str,
         params: Optional[Dict[str, Any]] = None,
@@ -162,9 +167,58 @@ class BaseDBConnector(ABC):
         timeout_s: Optional[float] = None,
     ) -> QueryResult:
         """Execute a query/command against the live database and return normalized QueryResult."""
-        pass
+        if type(self).execute_query is not BaseDBConnector.execute_query:
+            return self.execute_query(
+                query=query, params=params, is_mutating=is_mutating, timeout_s=timeout_s
+            )
+        raise NotImplementedError(f"{type(self).__name__} must implement executeQueryAgainstDatabaseEngine() or execute_query()")
 
-    @abstractmethod
-    def explain_query(self, query: str) -> Dict[str, Any]:
+    def generateQueryExecutionPlan(self, query: str) -> Dict[str, Any]:
         """Generate and parse query execution plan (EXPLAIN / PROFILE)."""
-        pass
+        if type(self).explain_query is not BaseDBConnector.explain_query:
+            return self.explain_query(query)
+        raise NotImplementedError(f"{type(self).__name__} must implement generateQueryExecutionPlan() or explain_query()")
+
+    # Aliases for backward compatibility
+    def connect(self) -> bool:
+        if type(self).establishDatabaseConnection is not BaseDBConnector.establishDatabaseConnection:
+            return self.establishDatabaseConnection()
+        raise NotImplementedError(f"{type(self).__name__} must implement establishDatabaseConnection() or connect()")
+
+    def disconnect(self) -> bool:
+        if type(self).terminateDatabaseConnection is not BaseDBConnector.terminateDatabaseConnection:
+            return self.terminateDatabaseConnection()
+        raise NotImplementedError(f"{type(self).__name__} must implement terminateDatabaseConnection() or disconnect()")
+
+    def test_connection(self) -> Dict[str, Any]:
+        if type(self).verifyDatabaseConnectionStatus is not BaseDBConnector.verifyDatabaseConnectionStatus:
+            return self.verifyDatabaseConnectionStatus()
+        raise NotImplementedError(f"{type(self).__name__} must implement verifyDatabaseConnectionStatus() or test_connection()")
+
+    def introspect_schema(self, force_refresh: bool = False) -> SchemaMetadata:
+        if type(self).introspectDatabaseCatalogSchema is not BaseDBConnector.introspectDatabaseCatalogSchema:
+            return self.introspectDatabaseCatalogSchema(force_refresh=force_refresh)
+        raise NotImplementedError(f"{type(self).__name__} must implement introspectDatabaseCatalogSchema() or introspect_schema()")
+
+    def list_databases(self) -> List[str]:
+        if type(self).listAccessibleDatabaseNames is not BaseDBConnector.listAccessibleDatabaseNames:
+            return self.listAccessibleDatabaseNames()
+        return [self.config.database] if self.config.database else []
+
+    def execute_query(
+        self,
+        query: str,
+        params: Optional[Dict[str, Any]] = None,
+        is_mutating: bool = False,
+        timeout_s: Optional[float] = None,
+    ) -> QueryResult:
+        if type(self).executeQueryAgainstDatabaseEngine is not BaseDBConnector.executeQueryAgainstDatabaseEngine:
+            return self.executeQueryAgainstDatabaseEngine(
+                query=query, params=params, is_mutating=is_mutating, timeout_s=timeout_s
+            )
+        raise NotImplementedError(f"{type(self).__name__} must implement executeQueryAgainstDatabaseEngine() or execute_query()")
+
+    def explain_query(self, query: str) -> Dict[str, Any]:
+        if type(self).generateQueryExecutionPlan is not BaseDBConnector.generateQueryExecutionPlan:
+            return self.generateQueryExecutionPlan(query)
+        raise NotImplementedError(f"{type(self).__name__} must implement generateQueryExecutionPlan() or explain_query()")

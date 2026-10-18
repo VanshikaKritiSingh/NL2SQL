@@ -62,35 +62,42 @@ class WorkingSetPager:
             self._sessions[user_id] = UserPageState()
         return self._sessions[user_id]
 
-    def record(self, user_id: str, tables_referenced: List[str]):
+    def recordQueryTablesForUserSession(self, user_id: str, tables_referenced: List[str]):
         """Call after each query to advance the working set window."""
         self._state(user_id).record_query(tables_referenced)
 
-    def active_tables(self, user_id: str) -> Set[str]:
+    def retrieveActiveWorkingSetTablesForUser(self, user_id: str) -> Set[str]:
         """
         Returns the working set: tables the user has touched in the last WINDOW_SIZE queries.
         Empty set = no history (cold start) → caller should include all tables.
         """
         return self._state(user_id).working_set
 
-    def filter_schema(self, user_id: str, all_tables: List[str]) -> List[str]:
+    def filterSchemaTablesToActiveWorkingSet(self, user_id: str, all_tables: List[str]) -> List[str]:
         """
         Page-in: return tables to include in the LLM prompt.
         Cold start (empty window) → all tables passed through.
         Warm: only working set tables + any newly mentioned table.
         """
-        ws = self.active_tables(user_id)
+        ws = self.retrieveActiveWorkingSetTablesForUser(user_id)
         if not ws:
             return all_tables  # cold start: admit everything
         # always include tables in working set; caller can add query-specific tables on top
         return [t for t in all_tables if t.lower() in ws]
 
-    def reference_counts(self, user_id: str) -> Dict[str, int]:
+    def retrieveTableReferenceCountsForUser(self, user_id: str) -> Dict[str, int]:
         return self._state(user_id).reference_counts
 
-    def evict_session(self, user_id: str):
+    def evictUserSessionWorkingSetState(self, user_id: str):
         """Clean up state on user logout / session expiry."""
         self._sessions.pop(user_id, None)
+
+    # Aliases for backward compatibility
+    record = recordQueryTablesForUserSession
+    active_tables = retrieveActiveWorkingSetTablesForUser
+    filter_schema = filterSchemaTablesToActiveWorkingSet
+    reference_counts = retrieveTableReferenceCountsForUser
+    evict_session = evictUserSessionWorkingSetState
 
 
 

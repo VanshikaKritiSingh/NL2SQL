@@ -2,6 +2,7 @@
 core/connectors/mysql.py — MySQL Relational DBMS Connector
 """
 
+import re
 import time
 from typing import Any, Dict, List, Optional
 
@@ -18,6 +19,7 @@ mysql_driver = None
 try:
     import pymysql
     import pymysql.cursors
+    from pymysql.constants import CLIENT
     mysql_driver = "pymysql"
 except ImportError:
     try:
@@ -52,6 +54,7 @@ class MySQLConnector(BaseDBConnector):
                     connect_timeout=int(self.config.timeout_s),
                     cursorclass=pymysql.cursors.DictCursor,
                     autocommit=not self.config.read_only,
+                    client_flag=CLIENT.MULTI_STATEMENTS,
                 )
             else:
                 self._conn = mysql.connector.connect(
@@ -228,16 +231,27 @@ class MySQLConnector(BaseDBConnector):
             self.connect()
 
         start = time.perf_counter()
-        clean_q = query.strip().rstrip(";")
+        clean_q = query.strip()
         cursor = self._conn.cursor()
 
-        # Handle database switching via USE command
-        if clean_q.upper().startswith("USE "):
-            parts = clean_q.split()
-            if len(parts) > 1:
-                new_db = parts[1].strip("` ;\"'")
-                self.config.database = new_db
-                self._cached_schema = None
+        # Handle database creation and switching via USE command
+        m_create = re.search(r"CREATE\s+DATABASE\s+(?:IF\s+NOT\s+EXISTS\s+)?([`\"\w]+)", clean_q, re.IGNORECASE)
+        if m_create:
+            new_db = m_create.group(1).strip("`\"'")
+            # If not followed by USE <new_db>, inject USE <new_db> after CREATE DATABASE
+            if not re.search(rf"\bUSE\s+[`\"]?{re.escape(new_db)}[`\"]?", clean_q, re.IGNORECASE):
+                end_pos = clean_q.find(";", m_create.end())
+                if end_pos != -1:
+                    clean_q = clean_q[:end_pos+1] + f"\nUSE `{new_db}`;\n" + clean_q[end_pos+1:].lstrip()
+                else:
+                    clean_q = clean_q + f";\nUSE `{new_db}`;\n"
+            self.config.database = new_db
+            self._cached_schema = None
+
+        m_use = re.search(r"\bUSE\s+([`\"\w]+)", clean_q, re.IGNORECASE)
+        if m_use:
+            self.config.database = m_use.group(1).strip("`\"'")
+            self._cached_schema = None
 
         try:
             if params:
@@ -245,41 +259,57 @@ class MySQLConnector(BaseDBConnector):
             else:
                 cursor.execute(clean_q)
 
+            total_affected = 0
+            cols = []
+            rows = []
+            has_result_set = False
+
+            while True:
+                if cursor.description:
+                    has_result_set = True
+                    cols = [d[0] for d in cursor.description]
+                    raw_rows = cursor.fetchall()
+                    if raw_rows and isinstance(raw_rows[0], dict):
+                        rows = raw_rows
+                    else:
+                        rows = [dict(zip(cols, row)) for row in raw_rows]
+                else:
+                    if cursor.rowcount > 0:
+                        total_affected += cursor.rowcount
+
+                if not cursor.nextset():
+                    break
+
+            cursor.close()
+
+            # Explicit commit to guarantee mutations persist to MySQL
+            if not self.config.read_only:
+                try:
+                    self._conn.commit()
+                except Exception:
+                    pass
+
+            # Invalidate cached schema if DDL statement ran
+            if any(kw in clean_q.upper() for kw in ("CREATE ", "ALTER ", "DROP ", "TRUNCATE ", "RENAME ", "USE ")):
+                self._cached_schema = None
+
             exec_ms = (time.perf_counter() - start) * 1000
 
-            if cursor.description:
-                cols = [d[0] for d in cursor.description]
-                raw_rows = cursor.fetchall()
-                if raw_rows and isinstance(raw_rows[0], dict):
-                    rows = raw_rows
-                else:
-                    rows = [dict(zip(cols, row)) for row in raw_rows]
-                cursor.close()
+            if has_result_set:
                 return QueryResult(
                     columns=cols,
                     rows=rows,
                     row_count=len(rows),
-                    rows_affected=0,
+                    rows_affected=total_affected,
                     execution_time_ms=round(exec_ms, 2),
                     is_mutating=False,
                 )
             else:
-                affected = cursor.rowcount
-                cursor.close()
-                # Explicit commit to guarantee mutations persist to MySQL
-                if not self.config.read_only:
-                    try:
-                        self._conn.commit()
-                    except Exception:
-                        pass
-                # Invalidate cached schema if DDL statement ran
-                if any(clean_q.upper().startswith(ddl) for ddl in ("CREATE", "ALTER", "DROP", "TRUNCATE", "RENAME")):
-                    self._cached_schema = None
                 return QueryResult(
                     columns=[],
                     rows=[],
                     row_count=0,
-                    rows_affected=affected if affected >= 0 else 0,
+                    rows_affected=total_affected,
                     execution_time_ms=round(exec_ms, 2),
                     is_mutating=True,
                 )
@@ -318,3 +348,12 @@ class MySQLConnector(BaseDBConnector):
             except Exception:
                 pass
             return {"ok": False, "dialect": "mysql", "error": str(e)}
+
+    # Aliases for Java-style camelCase naming convention
+    establishDatabaseConnection = connect
+    terminateDatabaseConnection = disconnect
+    verifyDatabaseConnectionStatus = test_connection
+    listAccessibleDatabaseNames = list_databases
+    introspectDatabaseCatalogSchema = introspect_schema
+    executeQueryAgainstDatabaseEngine = execute_query
+    generateQueryExecutionPlan = explain_query

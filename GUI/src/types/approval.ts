@@ -54,6 +54,6 @@ export interface ApprovalRequest {
 
 export interface ApprovalResponse {
   query_id: string;
-  status: 'approved_executing' | 'rejected_retrying' | 'rejected_final';
+  status: 'approved_executing' | 'rejected_retrying' | 'rejected_final' | 'error';
   message: string;
 }

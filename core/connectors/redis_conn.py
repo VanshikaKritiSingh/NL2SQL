@@ -168,3 +168,11 @@ class RedisConnector(BaseDBConnector):
 
     def explain_query(self, query: str) -> Dict[str, Any]:
         return {"ok": True, "dialect": "redis", "note": "Redis is in-memory O(1)/O(N); no query optimizer EXPLAIN."}
+
+    # Aliases for Java-style camelCase naming convention
+    establishDatabaseConnection = connect
+    terminateDatabaseConnection = disconnect
+    verifyDatabaseConnectionStatus = test_connection
+    introspectDatabaseCatalogSchema = introspect_schema
+    executeQueryAgainstDatabaseEngine = execute_query
+    generateQueryExecutionPlan = explain_query

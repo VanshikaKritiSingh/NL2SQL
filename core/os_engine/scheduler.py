@@ -78,15 +78,15 @@ class WFQScheduler:
         self._running = False
         # ponytail: global lock on inflight counter; per-table locking when throughput is proven bottleneck
 
-    def start(self):
+    def startSchedulerWorkerThread(self):
         self._running = True
         self._worker.start()
 
-    def stop(self):
+    def stopSchedulerWorkerThread(self):
         self._running = False
         self._work_event.set()
 
-    def submit(self, query_id: str, kind: QueryKind, user_role: str, fn: Callable[[], Any]) -> "ScheduledQuery":
+    def submitQueryTaskToScheduler(self, query_id: str, kind: QueryKind, user_role: str, fn: Callable[[], Any]) -> "ScheduledQuery":
         with self._lock:
             self._arrival_counter += 1
             q = ScheduledQuery(
@@ -99,6 +99,11 @@ class WFQScheduler:
             self._queues[kind.value].append(q)
         self._work_event.set()
         return q
+
+    # Aliases for backward compatibility
+    start = startSchedulerWorkerThread
+    stop = stopSchedulerWorkerThread
+    submit = submitQueryTaskToScheduler
 
     def _next_candidate(self) -> Optional[ScheduledQuery]:
         """

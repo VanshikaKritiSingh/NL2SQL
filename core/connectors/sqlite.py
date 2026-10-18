@@ -28,7 +28,7 @@ class SQLiteConnector(BaseDBConnector):
         super().__init__(config)
         self._conn: Optional[sqlite3.Connection] = None
 
-    def connect(self) -> bool:
+    def establishDatabaseConnection(self) -> bool:
         try:
             db_path = self.config.database
             if db_path != ":memory:":
@@ -53,7 +53,7 @@ class SQLiteConnector(BaseDBConnector):
             self._conn = None
             raise ConnectionError(f"Failed to connect to SQLite [{self.config.database}]: {e}")
 
-    def disconnect(self) -> bool:
+    def terminateDatabaseConnection(self) -> bool:
         if self._conn:
             try:
                 self._conn.close()
@@ -64,11 +64,11 @@ class SQLiteConnector(BaseDBConnector):
                 self._is_connected = False
         return True
 
-    def test_connection(self) -> Dict[str, Any]:
+    def verifyDatabaseConnectionStatus(self) -> Dict[str, Any]:
         start = time.perf_counter()
         try:
             if not self.is_connected or not self._conn:
-                self.connect()
+                self.establishDatabaseConnection()
             cursor = self._conn.cursor()
             cursor.execute("SELECT sqlite_version();")
             ver = cursor.fetchone()[0]
@@ -94,12 +94,12 @@ class SQLiteConnector(BaseDBConnector):
                 "database": self.config.database,
             }
 
-    def introspect_schema(self, force_refresh: bool = False) -> SchemaMetadata:
+    def introspectDatabaseCatalogSchema(self, force_refresh: bool = False) -> SchemaMetadata:
         if self._cached_schema and not force_refresh:
             return self._cached_schema
 
         if not self.is_connected or not self._conn:
-            self.connect()
+            self.establishDatabaseConnection()
 
         tables_map: Dict[str, TableSchema] = {}
         relationships: List[Dict[str, str]] = []
@@ -186,7 +186,7 @@ class SQLiteConnector(BaseDBConnector):
         self._cached_schema = schema_meta
         return schema_meta
 
-    def execute_query(
+    def executeQueryAgainstDatabaseEngine(
         self,
         query: str,
         params: Optional[Dict[str, Any]] = None,
@@ -194,7 +194,7 @@ class SQLiteConnector(BaseDBConnector):
         timeout_s: Optional[float] = None,
     ) -> QueryResult:
         if not self.is_connected or not self._conn:
-            self.connect()
+            self.establishDatabaseConnection()
 
         start = time.perf_counter()
         clean_q = query.strip().rstrip(";")
@@ -251,9 +251,9 @@ class SQLiteConnector(BaseDBConnector):
                 error=str(e),
             )
 
-    def explain_query(self, query: str) -> Dict[str, Any]:
+    def generateQueryExecutionPlan(self, query: str) -> Dict[str, Any]:
         if not self.is_connected or not self._conn:
-            self.connect()
+            self.establishDatabaseConnection()
 
         cursor = self._conn.cursor()
         clean_q = query.strip().rstrip(";")
@@ -281,3 +281,11 @@ class SQLiteConnector(BaseDBConnector):
             }
         except Exception as e:
             return {"ok": False, "dialect": "sqlite", "error": str(e)}
+
+    # Aliases for backward compatibility
+    connect = establishDatabaseConnection
+    disconnect = terminateDatabaseConnection
+    test_connection = verifyDatabaseConnectionStatus
+    introspect_schema = introspectDatabaseCatalogSchema
+    execute_query = executeQueryAgainstDatabaseEngine
+    explain_query = generateQueryExecutionPlan

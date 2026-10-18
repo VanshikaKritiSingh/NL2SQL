@@ -230,20 +230,21 @@ NL2SQL/
 |   |-- dialect_converter.py         # Deterministic AST transpiler (20+ SQL, Cypher, MQL)
 |   |-- semantic_decomposer.py       # Intent classification, refusal tags & architecture DDL synthesis
 |   |-- orchestrator.py              # Unified pipeline dispatcher & dual-path router
+|   |-- validator/                   # 6-Layer Static AST Validator & Policy Guardrails
+|   |   |-- contracts.py             # Immutable validation issue models & contracts
+|   |   |-- engine.py                # 6-Layer static AST validation pipeline
+|   |   |-- interfaces.py            # SchemaProvider & AuditLogger protocols
+|   |   `-- rules/                   # Centralized RuleRegistry with dynamic toggles
+|   |-- cost_estimator/              # Query Cost & Blast-Radius Estimator
+|   |   |-- contracts.py             # Cost report structures & threshold definitions
+|   |   |-- thresholds.py            # Configurable row scan and execution limits
+|   |   |-- engine.py                # AST-driven heuristic cost & blast-radius engine
+|   |   `-- adapters/postgres.py     # EXPLAIN plan parser & replica row estimator
 |   |-- connectors/peft_connector.py # High-speed in-process PEFT engine (A2.5C0.5 & Q2.5C0.5)
 |   `-- README.md                    # Dedicated AI/ML architectural handbook
 |
-|-- validator/                       # Static AST Validator & Policy Guardrails (Software & Security)
-|   |-- contracts.py                 # Immutable validation issue models & contracts
-|   |-- engine.py                    # 6-Layer static AST validation pipeline
-|   |-- interfaces.py                # SchemaProvider & AuditLogger protocols
-|   `-- rules/                       # Centralized RuleRegistry with dynamic toggles
-|
-|-- cost_estimator/                  # Query Cost & Blast-Radius Estimator (Software & Security)
-|   |-- contracts.py                 # Cost report structures & threshold definitions
-|   |-- thresholds.py                # Configurable row scan and execution limits
-|   |-- engine.py                    # AST-driven heuristic cost & blast-radius engine
-|   `-- adapters/postgres.py         # EXPLAIN plan parser & replica row estimator
+|-- validator/                       # Backward-compatibility shim (redirects to core/validator)
+|-- cost_estimator/                  # Backward-compatibility shim (redirects to core/cost_estimator)
 |
 |-- GUI/                             # Native Desktop & Web Interface Studio (Frontend & Systems)
 |   |-- src/                         # React 18, TypeScript, Monaco Editor, React Flow ER Diagrams

@@ -19,11 +19,11 @@ from sqlglot import exp
 from core.dialect_converter import DeterministicDialectConverter, TranspilationResult
 from core.paradigm_suggestor import DatabaseParadigm, ParadigmSuggestion, SpeculativeParadigmSuggestor
 from core.schema_linker import ColumnMeta, LinkedSchemaContext, SchemaLinker, TableMeta
-from validator.contracts import Issue, Layer, Severity, StatementType, Status, ValidationResult
-from validator.engine import run_validation
-from validator.interfaces import FakeSchemaProvider
-from cost_estimator.contracts import CostReport
-from cost_estimator.engine import HeuristicCostEngine
+from core.validator.contracts import Issue, Layer, Severity, StatementType, Status, ValidationResult
+from core.validator.engine import run_validation
+from core.validator.interfaces import FakeSchemaProvider
+from core.cost_estimator.contracts import CostReport
+from core.cost_estimator.engine import HeuristicCostEngine
 from core.os_engine import (
     WFQScheduler, QueryKind,
     WaitForGraph, DeadlockDetector,
@@ -268,11 +268,13 @@ class EndToEndNL2SQLOrchestrator:
             })
         return FakeSchemaProvider({"tables": raw_tables})
 
-    def update_schema(self, schema_tables: Dict[str, TableMeta]):
+    def updateSchemaTableCatalogMetadata(self, schema_tables: Dict[str, TableMeta]):
         """Updates the registered database schema."""
         self.tables = schema_tables
         self.schema_linker = SchemaLinker(tables=self.tables)
         self._schema_provider = self._build_fake_schema_provider()
+
+    update_schema = updateSchemaTableCatalogMetadata
 
     def _register_architecture_entities(self, entities: List[Any]) -> None:
         """Dynamically registers synthesized entity specifications into the active schema."""
@@ -472,7 +474,7 @@ class EndToEndNL2SQLOrchestrator:
         except Exception:
             return False
 
-    def process_query(
+    def processNaturalLanguageQueryThroughPipeline(
         self,
         query: str,
         target_engine: Optional[str] = "postgres",
@@ -593,6 +595,8 @@ class EndToEndNL2SQLOrchestrator:
         if scheduled.error:
             raise scheduled.error
         return scheduled.result
+
+    process_query = processNaturalLanguageQueryThroughPipeline
 
     def _run_pipeline(
         self,

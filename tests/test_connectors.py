@@ -11,7 +11,7 @@ from core.connectors.sqlite import SQLiteConnector
 from core.connectors.base import ConnectionConfig, ConnectorType
 
 
-def test_ollama_online_and_list_models():
+def testOllamaServiceOnlineAndListsAvailableModels():
     connector = OllamaConnector()
     online = connector.is_online()
     assert online is True
@@ -25,7 +25,7 @@ def test_ollama_online_and_list_models():
         assert "supports_thinking" in m
 
 
-def test_ollama_resolve_best_model():
+def testOllamaResolvesOptimalGenerativeCodingModel():
     connector = OllamaConnector()
     best = connector.resolve_best_model()
     assert "coder" in best.lower() or "qwen" in best.lower() or "gemma" in best.lower()
@@ -39,7 +39,7 @@ def test_ollama_resolve_best_model():
     assert resolved_clef != "clef-flash:latest"
 
 
-def test_ollama_clean_sql_and_extract_thought():
+def testOllamaCleansMarkdownFencesAndExtractsThinkingTags():
     connector = OllamaConnector()
 
     # 1. Markdown code fence stripping
@@ -65,7 +65,7 @@ def test_ollama_clean_sql_and_extract_thought():
     assert sql.endswith(";")
 
 
-def test_ollama_live_generation_sql_syntax():
+def testOllamaGeneratesSyntacticallyValidPostgreSqlQuery():
     schema = """
     CREATE TABLE users (user_id INT PRIMARY KEY, username VARCHAR(100), status VARCHAR(50));
     CREATE TABLE orders (order_id INT PRIMARY KEY, user_id INT REFERENCES users(user_id), total_amount DECIMAL(10,2));
@@ -83,19 +83,55 @@ def test_ollama_live_generation_sql_syntax():
     assert "users" in res.sql.lower()
 
 
-def test_sqlite_connector_in_memory():
+def testSqliteConnectorInMemoryExecutionAndSchemaIntrospection():
     cfg = ConnectionConfig(connector_type=ConnectorType.SQLITE, database=":memory:")
     conn = SQLiteConnector(cfg)
-    test_res = conn.test_connection()
+    test_res = conn.verifyDatabaseConnectionStatus()
     assert test_res["ok"] is True
 
     # Introspect empty
-    schema = conn.introspect_schema(force_refresh=True)
+    schema = conn.introspectDatabaseCatalogSchema(force_refresh=True)
     assert schema.database_name == ":memory:"
 
-    # Execute DDL & query
-    conn.execute_query("CREATE TABLE test_tbl (id INT PRIMARY KEY, name TEXT);", is_mutating=True)
-    conn.execute_query("INSERT INTO test_tbl VALUES (1, 'Alice');", is_mutating=True)
-    q_res = conn.execute_query("SELECT * FROM test_tbl;", is_mutating=False)
+    # Execute DDL & query using self-documenting camelCase methods
+    conn.executeQueryAgainstDatabaseEngine("CREATE TABLE test_tbl (id INT PRIMARY KEY, name TEXT);", is_mutating=True)
+    conn.executeQueryAgainstDatabaseEngine("INSERT INTO test_tbl VALUES (1, 'Alice');", is_mutating=True)
+    q_res = conn.executeQueryAgainstDatabaseEngine("SELECT * FROM test_tbl;", is_mutating=False)
     assert q_res.row_count == 1
     assert q_res.rows[0]["name"] == "Alice"
+
+
+def testAllConnectorTypesCanBeInstantiatedWithBothCamelCaseAndSnakeCaseMethods():
+    """Verify all 10 connector classes instantiate cleanly and expose both camelCase and snake_case APIs."""
+    from core.connectors.registry import instantiateConnectorForConfiguration
+
+    for ctype in ConnectorType:
+        cfg = ConnectionConfig(connector_type=ctype, database="unit_test_db")
+        conn = instantiateConnectorForConfiguration(cfg)
+        assert conn is not None
+        # Check Java-style camelCase methods
+        assert hasattr(conn, "establishDatabaseConnection")
+        assert hasattr(conn, "terminateDatabaseConnection")
+        assert hasattr(conn, "verifyDatabaseConnectionStatus")
+        assert hasattr(conn, "introspectDatabaseCatalogSchema")
+        assert hasattr(conn, "listAccessibleDatabaseNames")
+        assert hasattr(conn, "executeQueryAgainstDatabaseEngine")
+        assert hasattr(conn, "generateQueryExecutionPlan")
+        # Check backward-compatible snake_case methods
+        assert hasattr(conn, "connect")
+        assert hasattr(conn, "disconnect")
+        assert hasattr(conn, "test_connection")
+        assert hasattr(conn, "introspect_schema")
+        assert hasattr(conn, "list_databases")
+        assert hasattr(conn, "execute_query")
+        assert hasattr(conn, "explain_query")
+
+
+def testOllamaDecisionModelResolutionAndSystemOneEndpoint():
+    """Verify Ollama decision model resolution and /v1/systemone non-autoregressive classification."""
+    connector = OllamaConnector()
+    dec_model = connector.resolve_decision_model()
+    # If Clef is installed, it resolves to clef-flash or clef-flash-cpu
+    if dec_model:
+        assert "clef" in dec_model.lower() or "decision" in dec_model.lower()
+

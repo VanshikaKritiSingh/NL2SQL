@@ -31,11 +31,11 @@ class PipelineAuditLog:
             with open(self.path, "w") as f:
                 pass
 
-    def append(self, event: AuditEvent):
+    def appendAuditTrailEventRecord(self, event: AuditEvent):
         with open(self.path, "a") as f:
             f.write(json.dumps(asdict(event)) + "\n")
 
-    def list_events(self, user_id: Optional[str] = None, operation: Optional[str] = None, limit: int = 100) -> List[AuditEvent]:
+    def listAuditTrailEventRecords(self, user_id: Optional[str] = None, operation: Optional[str] = None, limit: int = 100) -> List[AuditEvent]:
         events: List[AuditEvent] = []
         with open(self.path, "r") as f:
             for line in f:
@@ -53,5 +53,34 @@ class PipelineAuditLog:
                     break
         return events
 
-    def last_for_query(self, query_id: str) -> List[AuditEvent]:
-        return [ev for ev in self.list_events() if ev.query_id == query_id]
+    def retrieveAuditEventsForQueryIdentifier(self, query_id: str) -> List[AuditEvent]:
+        return [ev for ev in self.listAuditTrailEventRecords() if ev.query_id == query_id]
+
+    def recordValidationAuditEntry(self, sql: str, result: Any, user_id: str = "system", query_id: Optional[str] = None) -> None:
+        """Bridge method allowing PipelineAuditLog to act as an AuditLogger for the validation engine."""
+        issues_summary = [
+            {"code": getattr(issue, "code", ""), "severity": str(getattr(issue, "severity", "")), "message": getattr(issue, "message", "")}
+            for issue in getattr(result, "issues", [])
+        ]
+        status_val = getattr(getattr(result, "status", None), "value", str(getattr(result, "status", "UNKNOWN")))
+        event = AuditEvent(
+            event_id=f"val_{int(time.time() * 1000)}",
+            timestamp=time.time(),
+            user_id=user_id,
+            operation="VALIDATE",
+            query_id=query_id,
+            stage=6,
+            stage_name="ValidationEngine",
+            details={
+                "sql": sql,
+                "status": status_val,
+                "issues": issues_summary,
+            }
+        )
+        self.appendAuditTrailEventRecord(event)
+
+    # Aliases for backward compatibility
+    append = appendAuditTrailEventRecord
+    list_events = listAuditTrailEventRecords
+    last_for_query = retrieveAuditEventsForQueryIdentifier
+    log_validation = recordValidationAuditEntry

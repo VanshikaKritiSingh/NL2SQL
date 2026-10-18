@@ -15,7 +15,7 @@ from core.connectors import default_registry, ConnectionConfig, ConnectorType
 from routers.schema import _build_schema_from_connection
 
 
-def test_er_schema_lifecycle():
+def testEntityRelationshipSchemaIntrospectionLifecycle():
     user_id = "test_er_user"
     # Use in-memory SQLite to test lifecycle: create table -> add 2nd table with FK -> insert data
     config = ConnectionConfig(
@@ -106,5 +106,5 @@ def test_er_schema_lifecycle():
 
 
 if __name__ == "__main__":
-    test_er_schema_lifecycle()
+    testEntityRelationshipSchemaIntrospectionLifecycle()
     print("✓ All ER schema lifecycle tests passed.")

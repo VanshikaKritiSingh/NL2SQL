@@ -151,7 +151,7 @@ def _build_schema_from_orchestrator(dialect: str) -> Optional[SchemaInfo]:
 
 
 @router.get("/{dialect}", response_model=SchemaInfo)
-async def get_schema(dialect: str = "mysql", user_id: Optional[str] = Query(None)):
+async def retrieveDatabaseSchemaMetadataForVisualizer(dialect: str = "mysql", user_id: Optional[str] = Query(None)):
     """
     Returns database schema graph for the ER Diagram visualizer.
 
@@ -180,3 +180,6 @@ async def get_schema(dialect: str = "mysql", user_id: Optional[str] = Query(None
 
     # 3. Fallback to mock
     return get_mock_ecommerce_schema(dialect)
+
+
+get_schema = retrieveDatabaseSchemaMetadataForVisualizer
