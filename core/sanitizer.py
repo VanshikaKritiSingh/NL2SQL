@@ -1,12 +1,13 @@
 """M7 — Parameterized Query Sanitizer Module.
 
-The path is wrong, so let's create the sanitized version directly under the workspace.
+Provides AST-based parameterization for SQL queries using sqlglot,
+extracting raw literals into typed parameters to prevent SQL injection.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Tuple
+from typing import Any, List, Tuple
 
 import sqlglot
 from sqlglot import exp
@@ -32,46 +33,47 @@ def parse_sql(sql: str, dialect: str = "postgres") -> exp.Expression:
 
 def sanitize_sql(sql: str, dialect: str = "postgres") -> ParameterizedStatement:
     parsed = parse_sql(sql, dialect=dialect)
-    params: list[Any] = []
-    placeholder_map: dict[int, int] = {}
+    params: List[Any] = []
     param_counter = 1
 
-    def walk(node: exp.Expression) -> None:
-        nonlocal param_counter
-        if isinstance(node, exp.Literal):
-            if node.this is None:
-                return
-            placeholder_map[id(node)] = param_counter
-            if isinstance(node, exp.Boolean):
-                val = node.this
-            elif isinstance(node, exp.Number):
-                val = float(node.name) if node.is_float else int(node.name)
-            else:
-                val = node.this
-            params.append(val)
-            param_counter += 1
-        else:
-            for child in node.iter_expressions():
-                walk(child)
-
-    walk(parsed)
-
     def transform(node: exp.Expression) -> exp.Expression:
-        if isinstance(node, exp.Literal) and id(node) in placeholder_map:
-            idx = placeholder_map[id(node)]
-            if dialect == "postgres":
-                return exp.Placeholder(this=f"${idx}")
+        nonlocal param_counter
+        if isinstance(node, (exp.Literal, exp.Boolean)):
+            if isinstance(node, exp.Literal) and node.this is None:
+                return node
+            if isinstance(node, exp.Boolean):
+                val = bool(node.this)
+            elif getattr(node, "is_int", False):
+                val = int(node.name)
+            elif getattr(node, "is_number", False):
+                try:
+                    val = int(node.name)
+                except ValueError:
+                    val = float(node.name)
             else:
-                return exp.Placeholder(this="?")
-        return node.transform(transform)
+                val = node.this
 
-    transformed = parsed.transform(transform)
+            params.append(val)
+            idx = param_counter
+            param_counter += 1
+
+            if dialect in ("postgres", "postgresql"):
+                return exp.Parameter(this=exp.Literal.number(idx))
+            else:
+                return exp.Placeholder()
+        return node
+
+    transformed = parsed.transform(transform, copy=False)
     result_sql = transformed.sql(dialect=dialect)
 
-    # Sanity check: no raw literals left
+    # Sanity check: no unparameterized raw literals left
     check = sqlglot.parse_one(result_sql, dialect=dialect)
     for node in check.walk():
-        if isinstance(node, exp.Literal) and not isinstance(node, exp.Boolean):
+        if (
+            isinstance(node, exp.Literal)
+            and not isinstance(node, exp.Boolean)
+            and not node.find_ancestor(exp.Parameter)
+        ):
             raise SanitizationError(
                 "Literal value still present after transformation — unsafe input detected"
             )

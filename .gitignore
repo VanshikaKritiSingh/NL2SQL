@@ -66,8 +66,5 @@ runs/
 lightning_logs/
 .cache/
 
-# Hide directories from GitHub
+# Large Offline Datasets (do not track 1GB+ generated corpora)
 offline/datasets/dialects/
-validator/
-test/
-tests/

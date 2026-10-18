@@ -1,10 +1,11 @@
-# test_er_schema.py — Unit test for live schema introspection & ER diagram contract
-import sys
-import os
+"""test_er_schema.py — Unit test for live schema introspection & ER diagram contract."""
 
-# Add repo root and GUI/server to sys.path
+import os
+import sys
+
+# Ensure repository root and GUI/server are on sys.path
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-SERVER_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "server"))
+SERVER_ROOT = os.path.abspath(os.path.join(REPO_ROOT, "GUI", "server"))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 if SERVER_ROOT not in sys.path:
@@ -28,16 +29,18 @@ def test_er_schema_lifecycle():
     # Step 1: Empty database
     schema0 = _build_schema_from_connection(conn, "sqlite")
     assert schema0 is None or len(schema0.tables) == 0, f"Expected 0 tables, got {schema0}"
-    print("✓ Step 1: Initial empty database returns no tables as expected")
 
     # Step 2: CREATE TABLE users (1 table)
-    conn.execute_query("""
+    conn.execute_query(
+        """
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name VARCHAR(50) NOT NULL,
             email VARCHAR(100) UNIQUE
         );
-    """, is_mutating=True)
+    """,
+        is_mutating=True,
+    )
 
     schema1 = _build_schema_from_connection(conn, "sqlite")
     assert schema1 is not None, "Schema should not be None"
@@ -47,17 +50,19 @@ def test_er_schema_lifecycle():
     # Check PK
     pk_cols = [c.name for c in schema1.tables[0].columns if c.is_primary_key]
     assert "id" in pk_cols, f"id should be PK, got {pk_cols}"
-    print("✓ Step 2: CREATE TABLE creates exactly 1 table box with proper PK (id) and attributes")
 
     # Step 3: CREATE TABLE orders with FOREIGN KEY (2 tables, 1 FK relation)
-    conn.execute_query("""
+    conn.execute_query(
+        """
         CREATE TABLE orders (
             order_id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             total_amount REAL NOT NULL,
             FOREIGN KEY (user_id) REFERENCES users(id)
         );
-    """, is_mutating=True)
+    """,
+        is_mutating=True,
+    )
 
     schema2 = _build_schema_from_connection(conn, "sqlite")
     assert schema2 is not None
@@ -69,12 +74,20 @@ def test_er_schema_lifecycle():
     fk = schema2.foreign_keys[0]
     assert fk.from_table == "orders" and fk.from_column == "user_id"
     assert fk.to_table == "users" and fk.to_column == "id"
-    print("✓ Step 3: Adding 2nd table updates ER visualizer with both tables and foreign key link (orders.user_id -> users.id)")
 
     # Step 4: INSERT DATA into users and orders
-    conn.execute_query("INSERT INTO users (name, email) VALUES ('Alice', 'alice@test.com');", is_mutating=True)
-    conn.execute_query("INSERT INTO users (name, email) VALUES ('Bob', 'bob@test.com');", is_mutating=True)
-    conn.execute_query("INSERT INTO orders (user_id, total_amount) VALUES (1, 99.99);", is_mutating=True)
+    conn.execute_query(
+        "INSERT INTO users (name, email) VALUES ('Alice', 'alice@test.com');",
+        is_mutating=True,
+    )
+    conn.execute_query(
+        "INSERT INTO users (name, email) VALUES ('Bob', 'bob@test.com');",
+        is_mutating=True,
+    )
+    conn.execute_query(
+        "INSERT INTO orders (user_id, total_amount) VALUES (1, 99.99);",
+        is_mutating=True,
+    )
 
     schema3 = _build_schema_from_connection(conn, "sqlite")
     assert schema3 is not None
@@ -85,12 +98,13 @@ def test_er_schema_lifecycle():
 
     # Check sample values in users table
     name_col = next(c for c in users_tbl.columns if c.name == "name")
-    assert "Alice" in name_col.sample_values or "Bob" in name_col.sample_values, f"Expected sample values, got {name_col.sample_values}"
-    print(f"✓ Step 4: INSERT DATA updates row counts (users: {users_tbl.row_count}, orders: {orders_tbl.row_count}) and sample values {name_col.sample_values}")
+    assert (
+        "Alice" in name_col.sample_values or "Bob" in name_col.sample_values
+    ), f"Expected sample values, got {name_col.sample_values}"
 
     default_registry.detach(user_id)
-    print("\n🎉 ALL ER VISUALIZER DATABASE LIFECYCLE TESTS PASSED PERFECTLY!")
 
 
 if __name__ == "__main__":
     test_er_schema_lifecycle()
+    print("✓ All ER schema lifecycle tests passed.")

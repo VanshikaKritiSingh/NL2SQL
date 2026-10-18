@@ -163,8 +163,8 @@ SCHEMA_KEYS: FrozenSet[str] = frozenset(
 )
 
 
-def parse_yaml_schema(text: str) -> Dict:
-    """Placeholder: real loader parses YAML; stub validates key presence."""
-    # This is a minimal stub — real work is done by FakeSchemaProvider.
-    # We keep it here so contracts.py has no dependency on yaml package.
+def parse_yaml_schema(text: str) -> Dict[str, Any]:
+    """Stub / placeholder parser for raw YAML schema text."""
     return {"loaded": True, "raw": text}
+
+

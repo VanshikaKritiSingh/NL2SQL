@@ -639,3 +639,84 @@ class DeterministicDialectConverter:
             is_native_sql=True,
             metadata={"sqlglot_dialect": resolved_dialect}
         )
+
+
+# Alias for backward and forward compatibility
+UniversalDialectConverter = DeterministicDialectConverter
+
+
+# ---------------------------------------------------------------------------
+# M8 Multi-Dialect Helper API & Dataclasses
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True, slots=True)
+class DialectSQL:
+    """Single dialect conversion result."""
+    dialect: str
+    sql: str
+
+
+@dataclass(frozen=True, slots=True)
+class ConvertedStatement:
+    """All dialect conversions for one input statement."""
+    original: str
+    conversions: Tuple[DialectSQL, ...]
+
+
+class DialectConversionError(ValueError):
+    """Raised when conversion to a dialect fails."""
+    pass
+
+
+def convert_sql(
+    statement: Any,
+    target_dialects: Optional[List[str]] = None,
+) -> ConvertedStatement:
+    """
+    Convert SQL (string or ParameterizedStatement) to one or more target dialects.
+    """
+    if target_dialects is None:
+        target_dialects = ["postgres", "mysql", "oracle", "sqlserver", "access"]
+
+    if hasattr(statement, "sql"):
+        original_sql = statement.sql
+        read_d = getattr(statement, "dialect", "postgres")
+    else:
+        original_sql = str(statement)
+        read_d = "postgres"
+
+    conversions: List[DialectSQL] = []
+    converter = DeterministicDialectConverter()
+
+    for target in target_dialects:
+        try:
+            res = converter.transpile(original_sql, target_dialect=target, read_dialect=read_d)
+            conversions.append(DialectSQL(dialect=target, sql=str(res.compiled_query)))
+        except Exception as exc:
+            raise DialectConversionError(f"Conversion to '{target}' failed: {exc}") from exc
+
+    return ConvertedStatement(
+        original=original_sql,
+        conversions=tuple(conversions),
+    )
+
+
+def convert_to_postgres(statement: Any) -> DialectSQL:
+    return convert_sql(statement, target_dialects=["postgres"]).conversions[0]
+
+
+def convert_to_mysql(statement: Any) -> DialectSQL:
+    return convert_sql(statement, target_dialects=["mysql"]).conversions[0]
+
+
+def convert_to_oracle(statement: Any) -> DialectSQL:
+    return convert_sql(statement, target_dialects=["oracle"]).conversions[0]
+
+
+def convert_to_sqlserver(statement: Any) -> DialectSQL:
+    return convert_sql(statement, target_dialects=["sqlserver"]).conversions[0]
+
+
+def convert_to_access(statement: Any) -> DialectSQL:
+    return convert_sql(statement, target_dialects=["access"]).conversions[0]
+

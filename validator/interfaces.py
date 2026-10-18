@@ -138,10 +138,12 @@ class ListAuditLogger(AuditLogger):
 
 
 # ------------------------------------------------------------------
-# Parse utilities (used by engine.py)
+# Parse utilities
 # ------------------------------------------------------------------
 
-from sqlglot import parse_one, exp
+import sqlglot
+from sqlglot import exp
+
 
 def parse_sql(sql: str, dialect: str = "postgres") -> exp.Expression:
     """Parse a single SQL statement with sqlglot.
@@ -150,11 +152,7 @@ def parse_sql(sql: str, dialect: str = "postgres") -> exp.Expression:
         ValueError: if parsing fails or multiple statements are detected.
     """
     try:
-        # sqlglot parses a single expression/statement; we need to ensure
-        # there is exactly one top‑level statement.
-        expr = parse_one(sql, dialect=dialect)
-        # Quick check: sqlglot may parse multiple statements if we feed it a string
-        # containing ';'. We split and verify exactly one statement.
+        expr = sqlglot.parse_one(sql, dialect=dialect)
         statements = [s.strip() for s in sql.split(";") if s.strip()]
         if len(statements) != 1:
             raise ValueError(f"Multiple statements detected: {statements}")
@@ -164,15 +162,6 @@ def parse_sql(sql: str, dialect: str = "postgres") -> exp.Expression:
 
 
 def is_multi_statement(sql: str) -> bool:
-    """Detect stacked queries separated by semicolons or comment tricks."""
-    # Basic split on semicolons; more sophisticated detection could look inside comments.
+    """Detect stacked queries separated by semicolons."""
     return len([s for s in sql.split(";") if s.strip()]) > 1
 
-
-def reject_unparseable(sql: str) -> bool:
-    """True if sql cannot be parsed by sqlglot."""
-    try:
-        parse_sql(sql)
-        return False
-    except ValueError:
-        return True
