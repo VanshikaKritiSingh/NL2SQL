@@ -42,28 +42,47 @@ async def processHumanApprovalDecisionGate(query_id: str, request: ApprovalReque
         await asyncio.sleep(0.2)
 
         # Stage 16: Connected DBMS Dispatcher — Live Execution & Mutation Commit
-        from routers.query import stored_responses
+        from routers.query import stored_responses, sync_sandbox_ddl, sync_orchestrator_from_schema
         from core.connectors import default_registry
 
         has_exec_error = False
         exec_msg = "Executed on production DBMS (sandbox replica)"
+        active_db = None
+        available_dbs = []
+        tables_list = []
+
         stored = stored_responses.get(query_id)
-        if stored and stored.generated_sql and default_registry.is_attached(request.user_id):
-            conn = default_registry.get(request.user_id)
-            if conn:
-                try:
-                    res = conn.execute_query(stored.generated_sql, is_mutating=True)
-                    target_name = conn.config.database or "server"
-                    if res.error:
+        if stored and stored.generated_sql:
+            # Sync in-memory SQLite sandbox so subsequent preview queries work immediately
+            sync_sandbox_ddl(request.user_id, stored.generated_sql)
+
+            if default_registry.is_attached(request.user_id):
+                conn = default_registry.get(request.user_id)
+                if conn:
+                    try:
+                        res = conn.execute_query(stored.generated_sql, is_mutating=True)
+                        active_db = conn.config.database
+                        target_name = active_db or "server"
+                        if res.error:
+                            has_exec_error = True
+                            exec_msg = f"DBMS execution error on [{target_name}]: {res.error}"
+                        else:
+                            exec_msg = f"Live change committed to [{target_name}]: {res.rows_affected} rows affected in {res.execution_time_ms}ms"
+                            # Re-introspect schema and sync orchestrator tables
+                            try:
+                                schema = conn.introspect_schema(force_refresh=True)
+                                if schema and schema.tables:
+                                    tables_list = list(schema.tables.keys())
+                                    sync_orchestrator_from_schema(schema)
+                            except Exception:
+                                pass
+                            try:
+                                available_dbs = default_registry.list_databases(conn.config)
+                            except Exception:
+                                available_dbs = [active_db] if active_db else []
+                    except Exception as ex:
                         has_exec_error = True
-                        exec_msg = f"DBMS execution error on [{target_name}]: {res.error}"
-                    else:
-                        exec_msg = f"Live change committed to [{target_name}]: {res.rows_affected} rows affected in {res.execution_time_ms}ms"
-                        # Re-introspect schema to reflect newly created/altered tables
-                        conn.introspect_schema(force_refresh=True)
-                except Exception as ex:
-                    has_exec_error = True
-                    exec_msg = f"DBMS execution failed: {ex}"
+                        exec_msg = f"DBMS execution failed: {ex}"
 
         await broadcast_event(
             request.user_id,
@@ -88,6 +107,7 @@ async def processHumanApprovalDecisionGate(query_id: str, request: ApprovalReque
                 "message": exec_msg,
                 "has_error": has_exec_error,
                 "sql": stored.generated_sql if stored else None,
+                "active_database": active_db,
             },
             concurrency_tag=f"txn-{request.user_id}",
         ))
@@ -96,6 +116,9 @@ async def processHumanApprovalDecisionGate(query_id: str, request: ApprovalReque
             query_id=query_id,
             status="error" if has_exec_error else "approved_executing",
             message=f"Query approved. {exec_msg}" if not has_exec_error else exec_msg,
+            active_database=active_db,
+            available_databases=available_dbs,
+            tables=tables_list,
         )
     else:
         # Rejection -> feeds back to Model (M6) for retry

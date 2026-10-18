@@ -59,5 +59,8 @@ class ApprovalRequest(BaseModel):
 
 class ApprovalResponse(BaseModel):
     query_id: str
-    status: Literal["approved_executing", "rejected_retrying", "rejected_final"]
+    status: Literal["approved_executing", "rejected_retrying", "rejected_final", "error"]
     message: str
+    active_database: Optional[str] = None
+    available_databases: Optional[List[str]] = None
+    tables: Optional[List[str]] = None

@@ -76,6 +76,138 @@ orchestrator = EndToEndNL2SQLOrchestrator(schema_tables=DEFAULT_SCHEMA)
 query_history: Dict[str, List[HistoryItem]] = {}
 stored_responses: Dict[str, QueryResponse] = {}
 
+import sqlite3
+
+_sandbox_dbs: Dict[str, sqlite3.Connection] = {}
+
+def get_session_sandbox(user_id: str) -> sqlite3.Connection:
+    if user_id not in _sandbox_dbs:
+        db = sqlite3.connect(":memory:", check_same_thread=False)
+        db.row_factory = sqlite3.Row
+        db.executescript("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            username TEXT,
+            email TEXT,
+            country TEXT,
+            status TEXT,
+            created_at TEXT
+        );
+        INSERT OR IGNORE INTO users VALUES
+        (1, 'alice_w', 'alice@example.com', 'Germany', 'active', '2024-01-15'),
+        (2, 'bob_k', 'bob@example.com', 'USA', 'active', '2024-02-20'),
+        (3, 'charlie_m', 'charlie@example.com', 'Germany', 'inactive', '2024-03-10');
+
+        CREATE TABLE IF NOT EXISTS products (
+            product_id INTEGER PRIMARY KEY,
+            name TEXT,
+            category TEXT,
+            price REAL,
+            stock_quantity INTEGER
+        );
+        INSERT OR IGNORE INTO products VALUES
+        (1, 'MacBook Pro', 'Laptops', 1999.0, 15),
+        (2, 'Wireless Mouse', 'Accessories', 29.99, 120),
+        (3, 'USB-C Adapter', 'Accessories', 19.99, 85);
+
+        CREATE TABLE IF NOT EXISTS orders (
+            order_id INTEGER PRIMARY KEY,
+            user_id INTEGER,
+            order_date TEXT,
+            status TEXT,
+            total_amount REAL
+        );
+        INSERT OR IGNORE INTO orders VALUES
+        (1, 1, '2025-05-10 14:22:00', 'DELIVERED', 149.99),
+        (2, 2, '2025-05-12 09:15:30', 'SHIPPED', 89.50),
+        (3, 3, '2025-05-15 18:44:12', 'PROCESSING', 299.00),
+        (4, 1, '2025-05-18 11:05:00', 'DELIVERED', 45.20),
+        (5, 2, '2025-05-20 16:30:45', 'PENDING', 120.00);
+        """)
+        _sandbox_dbs[user_id] = db
+    return _sandbox_dbs[user_id]
+
+
+def sync_sandbox_ddl(user_id: str, sql_str: str):
+    """Executes DDL statements on the in-memory SQLite sandbox so preview queries can resolve."""
+    try:
+        from core.dialect_converter import DeterministicDialectConverter
+        conv = DeterministicDialectConverter()
+        res = conv.transpile(sql_str, target_dialect="sqlite")
+        db = get_session_sandbox(user_id)
+        clean_sqlite = re.sub(r"\bUSE\s+[^;]+;", "", res.compiled_query, flags=re.IGNORECASE)
+        clean_sqlite = re.sub(r"CREATE\s+DATABASE\s+[^;]+;", "", clean_sqlite, flags=re.IGNORECASE).strip()
+        if clean_sqlite:
+            db.executescript(clean_sqlite)
+            for m_tbl in re.finditer(r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([`\"\w]+)", clean_sqlite, re.IGNORECASE):
+                t_name = m_tbl.group(1).strip("`\"'")
+                cur = db.cursor()
+                try:
+                    cur.execute(f"SELECT COUNT(*) FROM `{t_name}`")
+                    cnt = cur.fetchone()[0]
+                    if cnt == 0:
+                        cur.execute(f"PRAGMA table_info(`{t_name}`)")
+                        cols = cur.fetchall()
+                        if cols:
+                            for i in range(1, 4):
+                                vals = []
+                                for c in cols:
+                                    cid, cname, ctype, notnull, dflt, pk = c
+                                    clow = cname.lower()
+                                    if pk:
+                                        vals.append(i)
+                                    elif "roll" in clow:
+                                        vals.append(f"R-{100 + i}")
+                                    elif "name" in clow or "title" in clow:
+                                        vals.append(f"{t_name.capitalize()} {i}")
+                                    elif "duration" in clow or "quantity" in clow:
+                                        vals.append(30 * i)
+                                    elif "price" in clow or "amount" in clow:
+                                        vals.append(19.99 * i)
+                                    elif "status" in clow:
+                                        vals.append("ACTIVE")
+                                    elif "email" in clow:
+                                        vals.append(f"user{i}@example.com")
+                                    elif "int" in str(ctype).lower():
+                                        vals.append(i * 10)
+                                    else:
+                                        vals.append(f"Sample {cname} {i}")
+                                placeholders = ", ".join(["?"] * len(vals))
+                                col_str = ", ".join(f"`{c[1]}`" for c in cols)
+                                db.execute(f"INSERT INTO `{t_name}` ({col_str}) VALUES ({placeholders})", vals)
+                            db.commit()
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+
+def sync_orchestrator_from_schema(schema_meta):
+    """Refreshes orchestrator tables from introspected schema metadata."""
+    if not schema_meta or not schema_meta.tables:
+        return
+    live_tables = {}
+    for t_name, t_schema in schema_meta.tables.items():
+        col_metas = {}
+        for c_name, c_schema in t_schema.columns.items():
+            fk_tbl, fk_col = None, None
+            if c_schema.foreign_key_target and "." in c_schema.foreign_key_target:
+                fk_tbl, fk_col = c_schema.foreign_key_target.split(".", 1)
+            col_metas[c_name] = ColumnMeta(
+                name=c_name,
+                dtype=c_schema.data_type,
+                is_pk=c_schema.is_primary_key or (c_name in t_schema.primary_keys),
+                is_fk=c_schema.is_foreign_key,
+                fk_target_table=fk_tbl,
+                fk_target_column=fk_col,
+            )
+        live_tables[t_name] = TableMeta(
+            name=t_name,
+            description=t_schema.description or f"Table {t_name}",
+            columns=col_metas,
+        )
+    orchestrator.update_schema(live_tables)
+
 
 @router.post("", response_model=QueryResponse)
 async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, background_tasks: BackgroundTasks):
@@ -281,19 +413,35 @@ async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, backgro
             stored_responses[response.query_id] = response
             return response
         else:
-            # Sandbox preview fallback
-            rows = [
-                {"user_id": 101, "username": "alice_w", "order_date": "2025-05-10 14:22:00", "status": "DELIVERED", "total_amount": 149.99},
-                {"user_id": 102, "username": "bob_k", "order_date": "2025-05-12 09:15:30", "status": "SHIPPED", "total_amount": 89.50},
-                {"user_id": 103, "username": "charlie_m", "order_date": "2025-05-15 18:44:12", "status": "PROCESSING", "total_amount": 299.00},
-                {"user_id": 104, "username": "diana_p", "order_date": "2025-05-18 11:05:00", "status": "DELIVERED", "total_amount": 45.20},
-                {"user_id": 105, "username": "evan_r", "order_date": "2025-05-20 16:30:45", "status": "PENDING", "total_amount": 120.00},
-            ]
-            res_data = ResultData(
-                columns=list(rows[0].keys()),
-                rows=rows,
-                row_count=len(rows),
-            )
+            # Sandbox preview execution using session SQLite sandbox
+            try:
+                from core.dialect_converter import DeterministicDialectConverter
+                conv = DeterministicDialectConverter()
+                res_sqlite = conv.transpile(sql_str, target_dialect="sqlite")
+                db = get_session_sandbox(request.user_id)
+                clean_q = re.sub(r"\bUSE\s+[^;]+;", "", res_sqlite.compiled_query, flags=re.IGNORECASE)
+                clean_q = re.sub(r"CREATE\s+DATABASE\s+[^;]+;", "", clean_q, flags=re.IGNORECASE).strip()
+                cur = db.cursor()
+                cur.execute(clean_q)
+                if cur.description:
+                    s_cols = [d[0] for d in cur.description]
+                    s_rows = [dict(zip(s_cols, r)) for r in cur.fetchall()]
+                    res_data = ResultData(columns=s_cols, rows=s_rows, row_count=len(s_rows))
+                else:
+                    res_data = ResultData(columns=["status"], rows=[{"status": "OK"}], row_count=1)
+            except Exception:
+                matched_cols = []
+                for t in (plan.tables_touched or []):
+                    if t in orchestrator.tables:
+                        matched_cols.extend(list(orchestrator.tables[t].columns.keys()))
+                if not matched_cols:
+                    matched_cols = ["id", "name", "created_at"]
+                matched_cols = list(dict.fromkeys(matched_cols))
+                sample_rows = [
+                    {c: (i if "id" in c.lower() else f"Sample {c} {i}") for c in matched_cols}
+                    for i in range(1, 6)
+                ]
+                res_data = ResultData(columns=matched_cols, rows=sample_rows, row_count=len(sample_rows))
             is_live = False
             exec_mode = "preview_sandbox"
 
