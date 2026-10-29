@@ -24,6 +24,7 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
   onViewERDiagram,
 }) => {
   const theme = useAppStore((s) => s.theme);
+  const databaseProfile = useAppStore((s) => s.databaseProfile);
   const isDark = theme === 'dark';
 
   if (!isOpen || !payload) return null;
@@ -57,7 +58,7 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
                 <RiskBadge level={payload.risk_tier} />
               </div>
               <p className="text-[10px] text-[var(--text-muted)] font-mono">
-                Query ID: {payload.query_id} · Target: {payload.target_dialect.toUpperCase()}
+                Query ID: {payload.query_id} · Target: {databaseProfile && databaseProfile !== '__none__' ? `${databaseProfile} (${payload.target_dialect.toUpperCase()})` : payload.target_dialect.toUpperCase()}
               </p>
             </div>
           </div>

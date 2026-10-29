@@ -13,6 +13,8 @@ interface ERDiagramModalProps {
   onClose: () => void;
   schema: SchemaInfo | null;
   impactedTables?: ImpactedTable[];
+  generatedSql?: string | null;
+  defaultScope?: 'query' | 'all';
   title?: string;
 }
 
@@ -21,6 +23,8 @@ export const ERDiagramModal: React.FC<ERDiagramModalProps> = ({
   onClose,
   schema,
   impactedTables = [],
+  generatedSql,
+  defaultScope,
   title = 'Database ER Schema Graph',
 }) => {
   const theme = useAppStore((s) => s.theme);
@@ -90,7 +94,12 @@ export const ERDiagramModal: React.FC<ERDiagramModalProps> = ({
         {/* Canvas Body — ER Diagram Canvas View */}
         <div className={`flex-1 min-h-0 p-3 ${isDark ? 'bg-[#101018]' : 'bg-[#E8E8EC]'}`}>
           {schema && schema.tables.length > 0 ? (
-            <ERDiagramPanel schema={schema} impactedTables={impactedTables} />
+            <ERDiagramPanel
+              schema={schema}
+              impactedTables={impactedTables}
+              generatedSql={generatedSql}
+              initialScope={defaultScope}
+            />
           ) : (
             <div className={`flex flex-col items-center justify-center h-full gap-3 ${isDark ? 'text-slate-400' : 'text-[#8E8E98]'}`}>
               <Database className="w-10 h-10 opacity-40" />

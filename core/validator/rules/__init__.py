@@ -36,7 +36,7 @@ DEFAULT_RULES: List[RuleEntry] = [
     RuleEntry(IssueCode.PARSE_02, Layer.PARSE, Severity.ERROR, ("READ", "WRITE", "DDL"), "SQL syntax error or unparseable AST", "Check SQL syntax against dialect grammar"),
 
     # Layer 2 — POLICY
-    RuleEntry(IssueCode.POLICY_01, Layer.POLICY, Severity.ERROR, ("UNKNOWN",), "Statement type not recognized or disallowed", "Ensure statement is standard SELECT, INSERT, UPDATE, DELETE, or DDL"),
+    RuleEntry(IssueCode.POLICY_01, Layer.POLICY, Severity.ERROR, ("UNKNOWN",), "Statement type not recognized or disallowed", "Ensure statement is standard SELECT, INSERT, UPDATE, DELETE, SHOW, DESCRIBE, EXPLAIN, or standard DDL"),
     RuleEntry(IssueCode.POLICY_02, Layer.POLICY, Severity.ERROR, ("DDL", "WRITE"), "DROP DATABASE / DROP SCHEMA / TRUNCATE disallowed", "Use scoped table operations"),
     RuleEntry(IssueCode.POLICY_03, Layer.POLICY, Severity.ERROR, ("DDL",), "GRANT / REVOKE security operations disallowed", "Manage permissions via IAM / Security module"),
     RuleEntry(IssueCode.POLICY_04, Layer.POLICY, Severity.ERROR, ("READ", "WRITE", "DDL"), "COPY ... PROGRAM disallowed due to arbitrary command execution risk", "Use standard file import mechanisms"),

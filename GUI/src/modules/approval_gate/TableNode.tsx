@@ -1,7 +1,7 @@
 // src/modules/m14/TableNode.tsx
 import React, { memo, useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { GripVertical, Plus, Eye, EyeOff, Minus, ChevronDown, ChevronUp } from 'lucide-react';
+import { GripVertical, Plus, Eye, EyeOff, Minus, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import type { TableInfo } from '../../types/schema';
 
@@ -11,11 +11,12 @@ interface TableNodeProps {
     impactLevel: 'direct' | 'referenced' | 'none';
     operation?: string | null;
     isSelectedEntity?: boolean;
+    isNewlyGenerated?: boolean;
   };
 }
 
 export const TableNode = memo(({ data }: TableNodeProps) => {
-  const { table, impactLevel, operation, isSelectedEntity } = data;
+  const { table, impactLevel, operation, isSelectedEntity, isNewlyGenerated } = data;
   const theme = useAppStore((s) => s.theme);
   const isDark = theme === 'dark';
   const [expandedCols, setExpandedCols] = useState<Set<string>>(new Set());
@@ -45,7 +46,11 @@ export const TableNode = memo(({ data }: TableNodeProps) => {
   return (
     <div
       className={`w-72 rounded-none overflow-hidden font-sans transition-all select-none border ${
-        isDark
+        isNewlyGenerated
+          ? isDark
+            ? 'bg-[#141E18] border-emerald-500/80 shadow-[0_8px_30px_rgba(16,185,129,0.25)] hover:border-emerald-400'
+            : 'bg-[#F4FAF6] border-emerald-600 shadow-[0_8px_30px_rgba(16,185,129,0.18)] hover:border-emerald-500'
+          : isDark
           ? 'bg-[#181824] border-white/15 shadow-[0_8px_30px_rgba(0,0,0,0.6)] hover:border-[#8E94F2]/50 hover:shadow-[0_12px_36px_rgba(142,148,242,0.18)]'
           : 'bg-[#FFFFFF] border-[#EBE6EE] shadow-[0_8px_30px_rgba(0,0,0,0.08)] hover:border-[#8D3CFF]/40 hover:shadow-[0_12px_36px_rgba(103,18,220,0.12)]'
       }`}
@@ -57,7 +62,11 @@ export const TableNode = memo(({ data }: TableNodeProps) => {
       {/* Table Header */}
       <div
         className={`px-3.5 py-2.5 flex items-center justify-between border-b ${
-          isPrimaryOrSelected
+          isNewlyGenerated
+            ? isDark
+              ? 'bg-gradient-to-r from-emerald-700 via-teal-800 to-[#10241A] border-emerald-500/40 text-white'
+              : 'bg-gradient-to-r from-emerald-600 via-teal-600 to-[#E8F8F0] border-emerald-300 text-white'
+            : isPrimaryOrSelected
             ? isDark
               ? 'bg-gradient-to-r from-[#7B2CBF] to-[#201A30] border-white/15 text-white'
               : 'bg-gradient-to-r from-[#8D3CFF] to-[#FAF7FC] border-[#EBE6EE] text-white'
@@ -69,7 +78,7 @@ export const TableNode = memo(({ data }: TableNodeProps) => {
         <div className="flex items-center gap-2 truncate">
           <span
             className={`font-bold text-sm tracking-tight truncate ${
-              isPrimaryOrSelected
+              isNewlyGenerated || isPrimaryOrSelected
                 ? 'text-white drop-shadow-xs'
                 : isDark
                 ? 'text-white'
@@ -78,10 +87,23 @@ export const TableNode = memo(({ data }: TableNodeProps) => {
           >
             {table.name}
           </span>
+          {isNewlyGenerated && (
+            <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-none bg-emerald-500 text-white shadow-xs flex items-center gap-0.5">
+              <Sparkles className="w-2.5 h-2.5" />
+              <span>NEW</span>
+            </span>
+          )}
+          {!isNewlyGenerated && (
+            <span className={`text-[8px] font-mono font-medium px-1.5 py-0.2 rounded-none border ${
+              isDark ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-black/5 border-black/10 text-slate-500'
+            }`}>
+              EXISTING
+            </span>
+          )}
           {table.row_count !== undefined && table.row_count !== null && (
             <span
               className={`text-[9px] font-mono font-medium px-1.5 py-0.2 rounded-none border ${
-                isPrimaryOrSelected
+                isNewlyGenerated || isPrimaryOrSelected
                   ? 'bg-white/20 border-white/30 text-white'
                   : isDark
                   ? 'bg-white/5 border-white/10 text-slate-300'

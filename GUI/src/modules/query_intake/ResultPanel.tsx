@@ -28,8 +28,9 @@ export const ResultPanel: React.FC = () => {
   const updateSchema = useSchemaStore((s) => s.updateSchema);
   const setFetching = useSchemaStore((s) => s.setFetching);
   const setFetchError = useSchemaStore((s) => s.setFetchError);
+  const databaseProfile = useAppStore((s) => s.databaseProfile);
 
-  // Fetch schema whenever dialect, userId, connection status, or schemaVersion changes
+  // Fetch schema whenever dialect, userId, connection status, schemaVersion, or database profile changes
   const fetchSchema = useCallback(async () => {
     setFetching(true);
     setFetchError(null);
@@ -42,12 +43,12 @@ export const ResultPanel: React.FC = () => {
     } finally {
       setFetching(false);
     }
-  }, [userId, targetDialect, connectedEngine, updateSchema, setFetching, setFetchError]);
+  }, [userId, targetDialect, connectedEngine, databaseProfile, updateSchema, setFetching, setFetchError]);
 
-  // Refetch schema on mount and when schemaVersion bumps (triggered by SQL execution)
+  // Refetch schema on mount, when schemaVersion bumps, when connection status changes, or when active database changes
   useEffect(() => {
     fetchSchema();
-  }, [fetchSchema, schemaVersion, isDbConnected]);
+  }, [fetchSchema, schemaVersion, isDbConnected, databaseProfile]);
 
   // Auto-bump schema version when a new response arrives (especially for mutating operations)
   useEffect(() => {
@@ -192,7 +193,7 @@ export const ResultPanel: React.FC = () => {
               ? 'bg-[var(--bg-card-header)] border border-[var(--border-main)] text-[var(--text-muted)]'
               : 'bg-[var(--bg-card-header)] border border-[var(--border-subtle)] text-[var(--text-muted)]'
           }`}>
-            Target: {lastResponse.database_profile || 'Connected DBMS'}
+            Target: {databaseProfile && databaseProfile !== '__none__' ? databaseProfile : (lastResponse.database_profile || 'Connected DBMS')}
           </span>
         </div>
         <p className="text-xs max-w-md mb-5 leading-relaxed text-[var(--text-muted)]">
@@ -236,13 +237,15 @@ export const ResultPanel: React.FC = () => {
           }}
         />
 
-        {/* On-Demand ER Diagram Popup Modal */}
+        {/* On-Demand ER Diagram Popup Modal (Scoped to query's impacted/generated tables) */}
         <ERDiagramModal
           isOpen={isERDiagramOpen}
           onClose={() => setIsERDiagramOpen(false)}
           schema={schema}
           impactedTables={payload?.impacted_tables || []}
-          title={isDDL ? 'Schema Impact: Table Structure' : 'Database ER Schema Graph'}
+          generatedSql={payload?.generated_sql || lastResponse.generated_sql}
+          defaultScope="query"
+          title={isDDL ? 'Schema Impact: Generated Tables' : 'Query Impacted ER Schema'}
         />
       </div>
     );
@@ -365,9 +368,12 @@ export const ResultPanel: React.FC = () => {
         isOpen={isERDiagramOpen}
         onClose={() => setIsERDiagramOpen(false)}
         schema={schema}
+        impactedTables={lastResponse.approval_payload?.impacted_tables || []}
+        generatedSql={lastResponse.generated_sql}
+        defaultScope={lastResponse.generated_sql ? 'query' : 'all'}
         title={
           schema && schema.tables.length > 0
-            ? `Database ER Schema: ${schema.database_name} (${schema.tables.length} tables)`
+            ? `Query ER Scope: ${schema.database_name}`
             : 'Database ER Schema Graph'
         }
       />

@@ -15,20 +15,20 @@ export async function getLiveSchema(userId: string, dialect: string = 'mysql'): 
   // 1. Try fetching live schema from connected DB
   try {
     const raw = await apiFetch<any>(`/connections/schema/${encodeURIComponent(userId)}?force_refresh=true`);
-    if (raw && raw.tables && typeof raw.tables === 'object') {
+    if (raw && typeof raw === 'object' && raw.tables !== undefined) {
       const converted = convertLiveSchemaToSchemaInfo(raw, dialect);
-      if (converted.tables.length > 0) {
-        return converted;
-      }
+      return converted;
     }
   } catch {
     // DB not connected or schema introspection failed — try next
   }
 
-  // 2. Try orchestrator-based schema endpoint
+  // 2. Try orchestrator-based schema endpoint with userId
   try {
-    const schema = await apiFetch<SchemaInfo>(`/schema/${encodeURIComponent(dialect)}`);
-    if (schema && schema.tables && schema.tables.length > 0) {
+    const schema = await apiFetch<SchemaInfo>(
+      `/schema/${encodeURIComponent(dialect)}?user_id=${encodeURIComponent(userId)}`
+    );
+    if (schema && typeof schema === 'object') {
       return schema;
     }
   } catch {

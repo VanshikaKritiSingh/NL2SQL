@@ -319,9 +319,10 @@ export const TopBar: React.FC = () => {
         isOpen={isEROpen}
         onClose={() => setIsEROpen(false)}
         schema={schema}
+        defaultScope="all"
         title={
           schema && schema.tables.length > 0
-            ? `Database ER Schema: ${schema.database_name} (${schema.tables.length} tables)`
+            ? `Global Database ER Schema: ${schema.database_name} (${schema.tables.length} tables)`
             : 'Database ER Schema Graph'
         }
       />

@@ -103,17 +103,15 @@ export const NLQueryInput: React.FC = () => {
 
   const handleDatabaseChange = async (newDb: string) => {
     setDatabaseProfile(newDb);
-    if (isDbConnected) {
-      try {
-        await apiFetch('/connections/switch-database', {
-          method: 'POST',
-          body: JSON.stringify({ user_id: userId, database: newDb }),
-        });
-        bumpSchemaVersion();
-      } catch {
-        /* ignore offline/error */
-      }
+    try {
+      await apiFetch('/connections/switch-database', {
+        method: 'POST',
+        body: JSON.stringify({ user_id: userId, database: newDb }),
+      });
+    } catch {
+      /* ignore offline/error */
     }
+    bumpSchemaVersion();
   };
 
   useEffect(() => {

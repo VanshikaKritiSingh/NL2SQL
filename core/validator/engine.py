@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
+import re
 import sqlglot
 import sqlglot.expressions as exp
 
@@ -86,7 +87,7 @@ def executePolicyLayerValidation(sql: str, parsed: exp.Expression) -> Tuple[List
     node = parsed
 
     if isinstance(node, exp.Command):
-        stmt_keyword = node.name.upper()
+        stmt_keyword = node.name.upper().split()[0] if node.name else "COMMAND"
     elif isinstance(node, exp.Expression):
         stmt_keyword = node.__class__.__name__.upper()
     else:
@@ -101,15 +102,25 @@ def executePolicyLayerValidation(sql: str, parsed: exp.Expression) -> Tuple[List
         "ALTER": StatementType.DDL,
         "DROP": StatementType.DDL,
         "TRUNCATE": StatementType.DDL,
+        "TRUNCATETABLE": StatementType.DDL,
         "GRANT": StatementType.DDL,
         "REVOKE": StatementType.DDL,
+        # Introspection & Metadata discovery
+        "SHOW": StatementType.READ,
+        "DESCRIBE": StatementType.READ,
+        "DESC": StatementType.READ,
+        "EXPLAIN": StatementType.READ,
+        "PRAGMA": StatementType.READ,
+        # Session context
+        "USE": StatementType.DDL,
+        "SET": StatementType.DDL,
     }
 
     if stmt_keyword not in ALLOWED:
         issues.append(issue(
             IssueCode.POLICY_01, Layer.POLICY, Severity.ERROR,
             f"Statement type '{stmt_keyword}' is unrecognized or not in the allowlist",
-            "Permitted statement types are SELECT, INSERT, UPDATE, DELETE, and standard DDL",
+            "Permitted statement types are SELECT, INSERT, UPDATE, DELETE, SHOW, DESCRIBE, EXPLAIN, and standard DDL",
             ("UNKNOWN",)
         ))
         return issues, StatementType.UNKNOWN
@@ -126,7 +137,7 @@ def executePolicyLayerValidation(sql: str, parsed: exp.Expression) -> Tuple[List
             (stmt_type.value,)
         ))
 
-    if "TRUNCATE" in upper_sql:
+    if stmt_keyword in ("TRUNCATE", "TRUNCATETABLE") or re.search(r"\bTRUNCATE\b", upper_sql):
         issues.append(issue(
             IssueCode.POLICY_02, Layer.POLICY, Severity.ERROR,
             "TRUNCATE is prohibited; use bounded DELETE with WHERE clause",
@@ -134,7 +145,7 @@ def executePolicyLayerValidation(sql: str, parsed: exp.Expression) -> Tuple[List
             (stmt_type.value,)
         ))
 
-    if "GRANT" in upper_sql or "REVOKE" in upper_sql:
+    if stmt_keyword in ("GRANT", "REVOKE") or re.search(r"^\s*(GRANT|REVOKE)\b", upper_sql):
         issues.append(issue(
             IssueCode.POLICY_03, Layer.POLICY, Severity.ERROR,
             "GRANT / REVOKE security operations are prohibited",
@@ -182,6 +193,10 @@ def executeSchemaLayerValidation(parsed: exp.Expression, schema: Optional[Schema
     """Validates tables, columns, and aliases against SchemaProvider."""
     issues: List[Issue] = []
     if schema is None:
+        return issues
+
+    # USE statement switches database context; its identifier is a database name, not a table
+    if isinstance(parsed, exp.Use):
         return issues
 
     known_tables = set(t.lower() for t in schema.get_tables())
@@ -466,19 +481,124 @@ def executeFullSixLayerValidationPipeline(
             audit_logger.recordValidationAuditEntry(sql, result)
         return result
 
-    # Fast-path 0B: Multi-Statement Architecture DDL (all CREATE TABLE)
+    # Fast-path 0B: Multi-Statement Scripts (DDL migrations & initial seed data)
     try:
-        stmts = [s for s in sqlglot.parse(stripped, read=dialect) if s is not None]
-        if len(stmts) > 1 and all(isinstance(s, exp.Create) for s in stmts):
-            tables_touched = frozenset(t.name.lower() for s in stmts for t in s.find_all(exp.Table) if t.name)
-            columns_touched = frozenset(c.name.lower() for s in stmts for c in s.find_all(exp.Column) if c.name and c.name != "*")
+        from core.sanitizer import split_sql_script
+        read_d = dialect
+        if "`" in stripped or re.search(r"\bUSE\s+", stripped, re.IGNORECASE) or "AUTO_INCREMENT" in stripped.upper():
+            read_d = "mysql"
+
+        raw_stmts = split_sql_script(stripped, dialect=read_d)
+        if len(raw_stmts) > 1:
+            parsed_stmts = []
+            parse_errors = []
+            for stmt_str in raw_stmts:
+                parsed_node = None
+                for d_try in (read_d, "mysql", "postgres", "sqlite"):
+                    try:
+                        p = sqlglot.parse_one(stmt_str, read=d_try)
+                        if p is not None:
+                            parsed_node = p
+                            break
+                    except Exception:
+                        continue
+                if parsed_node is not None:
+                    parsed_stmts.append((stmt_str, parsed_node))
+                else:
+                    parse_errors.append(stmt_str)
+
+            if parse_errors:
+                result = ValidationResult(
+                    status=Status.INVALID,
+                    statement_type=StatementType.UNKNOWN,
+                    normalized_sql=None,
+                    issues=(issue(
+                        IssueCode.PARSE_02, Layer.PARSE, Severity.ERROR,
+                        f"SQL syntax error in statement: {parse_errors[0][:60]}",
+                        "Check query grammar against SQL dialect standard"
+                    ),)
+                )
+                if audit_logger:
+                    audit_logger.recordValidationAuditEntry(sql, result)
+                return result
+
+            # Stacking queries with SELECT is a classic injection pattern; require single statements for queries
+            has_select = any(isinstance(p, exp.Select) for _, p in parsed_stmts)
+            if has_select:
+                result = ValidationResult(
+                    status=Status.INVALID,
+                    statement_type=StatementType.UNKNOWN,
+                    normalized_sql=None,
+                    issues=(issue(
+                        IssueCode.PARSE_01, Layer.PARSE, Severity.ERROR,
+                        "Multiple statements detected; only single-statement SQL is permitted",
+                        "Execute one SQL statement at a time"
+                    ),)
+                )
+                if audit_logger:
+                    audit_logger.recordValidationAuditEntry(sql, result)
+                return result
+
+            # Validate multi-statement DDL/script against safety policies
+            script_issues: List[Issue] = []
+            for stmt_str, p in parsed_stmts:
+                upper_stmt = stmt_str.upper()
+                if "DROP DATABASE" in upper_stmt or "DROP SCHEMA" in upper_stmt:
+                    script_issues.append(issue(
+                        IssueCode.POLICY_02, Layer.POLICY, Severity.ERROR,
+                        "DROP DATABASE / DROP SCHEMA is prohibited by safety policy",
+                        "Target specific tables or use sandbox test environment",
+                        ("DDL",)
+                    ))
+                if isinstance(p, (exp.Update, exp.Delete)):
+                    if not p.find(exp.Where):
+                        script_issues.append(issue(
+                            IssueCode.POLICY_05, Layer.POLICY, Severity.ERROR,
+                            f"{p.key.upper()} statement missing WHERE clause",
+                            "Add a WHERE predicate to scope modification",
+                            ("WRITE",)
+                        ))
+                for func in p.find_all(exp.Anonymous, exp.Func):
+                    func_name = (func.name or "").lower()
+                    if func_name in {"pg_sleep", "sleep", "benchmark", "xp_cmdshell", "exec", "execute", "system", "sys_eval", "eval", "load_file", "into_outfile", "into_dumpfile"}:
+                        script_issues.append(issue(
+                            IssueCode.POLICY_06, Layer.POLICY, Severity.ERROR,
+                            f"Prohibited system function '{func_name}' detected",
+                            "Remove database engine internals access call",
+                            ("WRITE", "DDL")
+                        ))
+                ap_issues = executeSchemaAntiPatternValidation(p)
+                script_issues.extend(ap_issues)
+
+            tables_touched = frozenset(
+                t.name.lower()
+                for _, p in parsed_stmts
+                for t in p.find_all(exp.Table)
+                if t.name
+            )
+            columns_touched = frozenset(
+                c.name.lower()
+                for _, p in parsed_stmts
+                for c in p.find_all(exp.Column)
+                if c.name and c.name != "*"
+            )
+            is_ddl = any(
+                isinstance(p, (exp.Create, exp.Alter, exp.Drop, exp.Command, exp.Use)) or getattr(p, "kind", "").upper() in ("TABLE", "DATABASE", "SCHEMA")
+                for _, p in parsed_stmts
+            )
+            stmt_type = StatementType.DDL if is_ddl else StatementType.WRITE
+            filtered_issues = [i for i in script_issues if registry.is_enabled(i.code)]
+            has_errors = any(i.severity == Severity.ERROR for i in filtered_issues)
+            has_warnings = any(i.severity == Severity.WARNING for i in filtered_issues)
+            status = Status.INVALID if has_errors else (Status.VALID_WITH_WARNINGS if has_warnings else Status.VALID)
+
             result = ValidationResult(
-                status=Status.VALID,
-                statement_type=StatementType.DDL,
+                status=status,
+                statement_type=stmt_type,
                 normalized_sql=stripped,
                 tables_touched=tables_touched,
                 columns_touched=columns_touched,
-                issues=(),
+                issues=tuple(filtered_issues)
             )
             if audit_logger:
                 audit_logger.recordValidationAuditEntry(sql, result)

@@ -341,11 +341,59 @@ async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, backgro
         risk = "critical" if plan.statement_type == StatementType.DDL else "high"
         
         impacted = []
-        selected_tbls = plan.linked_context.selected_tables if plan.linked_context and hasattr(plan.linked_context, "selected_tables") else []
-        for t in selected_tbls:
-            impacted.append(ImpactedTable(name=t, impact_level="direct" if t == selected_tbls[0] else "referenced", operation=plan.statement_type.value))
+        # Priority 1: Tables directly touched by the generated SQL AST
+        selected_tbls = list(plan.tables_touched) if plan.tables_touched else []
+        # Fallback to linked context only if tables_touched is completely empty
+        if not selected_tbls and plan.linked_context and hasattr(plan.linked_context, "selected_tables"):
+            selected_tbls = list(plan.linked_context.selected_tables)
 
-        diff = get_mock_ddl_diff() if plan.statement_type == StatementType.DDL else get_mock_dml_diff()
+        # Determine specific operation per table (CREATE, DROP, ALTER, INSERT, UPDATE, DELETE)
+        table_ops = {}
+        try:
+            import sqlglot
+            from sqlglot import exp
+            stmts = [s for s in sqlglot.parse(sql_str) if s is not None]
+            for s in stmts:
+                if isinstance(s, exp.Create):
+                    tbl = s.find(exp.Table)
+                    if tbl and tbl.name:
+                        table_ops[tbl.name.lower()] = "CREATE"
+                elif isinstance(s, exp.Drop):
+                    tbl = s.find(exp.Table)
+                    if tbl and tbl.name:
+                        table_ops[tbl.name.lower()] = "DROP"
+                elif isinstance(s, exp.Alter):
+                    tbl = s.find(exp.Table)
+                    if tbl and tbl.name:
+                        table_ops[tbl.name.lower()] = "ALTER"
+                elif isinstance(s, exp.Insert):
+                    tbl = s.find(exp.Table)
+                    if tbl and tbl.name and tbl.name.lower() not in table_ops:
+                        table_ops[tbl.name.lower()] = "INSERT"
+                elif isinstance(s, exp.Update):
+                    tbl = s.find(exp.Table)
+                    if tbl and tbl.name and tbl.name.lower() not in table_ops:
+                        table_ops[tbl.name.lower()] = "UPDATE"
+                elif isinstance(s, exp.Delete):
+                    tbl = s.find(exp.Table)
+                    if tbl and tbl.name and tbl.name.lower() not in table_ops:
+                        table_ops[tbl.name.lower()] = "DELETE"
+        except Exception:
+            pass
+
+        for t in selected_tbls:
+            op = table_ops.get(t.lower(), plan.statement_type.value)
+            impacted.append(ImpactedTable(name=t, impact_level="direct" if t == selected_tbls[0] else "referenced", operation=op))
+
+        if plan.statement_type == StatementType.DDL:
+            diff = DiffData(
+                diff_type="ddl",
+                ddl_before="-- Current Schema State",
+                ddl_after=sql_str,
+                dml_rows=None,
+            )
+        else:
+            diff = get_mock_dml_diff()
 
         approval_payload = ApprovalPayload(
             query_id=plan.query_id,

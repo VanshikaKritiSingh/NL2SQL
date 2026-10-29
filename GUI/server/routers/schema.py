@@ -11,8 +11,16 @@ def _build_schema_from_connection(conn, dialect: str) -> Optional[SchemaInfo]:
     """Tries to build a SchemaInfo from a live DB connection's introspected schema."""
     try:
         schema_meta = conn.introspect_schema(force_refresh=True)
+        db_name = conn.config.database if conn.config else "unknown"
         if not schema_meta or not schema_meta.tables:
-            return None
+            return SchemaInfo(
+                dialect=dialect,
+                database_name=db_name,
+                tables=[],
+                foreign_keys=[],
+                total_tables=0,
+                total_columns=0,
+            )
 
         tbl_infos = []
         all_fks = []
@@ -168,7 +176,7 @@ async def retrieveDatabaseSchemaMetadataForVisualizer(dialect: str = "mysql", us
                 conn = default_registry.get(user_id)
                 if conn and conn.is_connected:
                     live_schema = _build_schema_from_connection(conn, dialect)
-                    if live_schema:
+                    if live_schema is not None:
                         return live_schema
         except Exception:
             pass

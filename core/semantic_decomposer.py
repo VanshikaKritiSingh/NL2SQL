@@ -104,7 +104,9 @@ _CHITCHAT_PATTERNS = re.compile(
 _SQL_VERB_PATTERNS = re.compile(
     r"\b(show|list|find|get|fetch|retrieve|select|count|sum|average|avg|"
     r"how many|top \d+|insert|update|delete|create table|alter table|"
-    r"drop table|group by|order by|where|join|having|distinct)\b",
+    r"drop table|group by|order by|where|join|having|distinct|"
+    r"describe\s+(?:table\s+)?[a-zA-Z_]\w*|desc\s+(?:table\s+)?[a-zA-Z_]\w*|"
+    r"explain\s+(?:select|query|plan|analyze)?)\b",
     re.IGNORECASE,
 )
 
@@ -123,7 +125,7 @@ _ARCH_PATTERNS = re.compile(
 _GENERAL_KN_PATTERNS = re.compile(
     r"\b(what (?:is|are|was|were)|who (?:is|was|are)|when (?:did|was|is)|"
     r"where (?:is|was)|why (?:is|does)|how (?:does|do|did)|"
-    r"define|explain|describe|tell me|capital of|meaning of|"
+    r"define|tell me|capital of|meaning of|"
     r"history of|biography|invention|discovery)\b",
     re.IGNORECASE,
 )
@@ -267,6 +269,10 @@ class SchemaMismatchGuard:
             # USE statement switches database context; its identifier is a
             # database name, never a table — ignore it.
             if isinstance(parsed, exp.Use):
+                continue
+            if isinstance(parsed, (exp.Show, exp.Pragma)):
+                continue
+            if isinstance(parsed, exp.Command) and (parsed.name or "").upper().split()[0] in ("SHOW", "USE", "PRAGMA", "SET"):
                 continue
             if (is_create or is_drop) and kind in ("DATABASE", "SCHEMA"):
                 continue

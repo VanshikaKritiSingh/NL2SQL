@@ -114,7 +114,12 @@ export const ApprovalGatePage: React.FC = () => {
                 <span>Impacted ER Schema Graph</span>
               </div>
               <div className="flex-1 min-h-0">
-                <ERDiagramPanel schema={schema} impactedTables={activePayload.impacted_tables} />
+                <ERDiagramPanel
+                  schema={schema}
+                  impactedTables={activePayload.impacted_tables}
+                  generatedSql={activePayload.generated_sql}
+                  initialScope="query"
+                />
               </div>
             </div>
           </Panel>

@@ -1,5 +1,5 @@
 // src/modules/approval_gate/ERDiagramPanel.tsx
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   ReactFlow,
   Background,
@@ -13,12 +13,16 @@ import {
 import '@xyflow/react/dist/style.css';
 import { TableNode } from './TableNode';
 import { useAppStore } from '../../store/useAppStore';
-import type { SchemaInfo } from '../../types/schema';
+import { parseTablesFromDDL } from '../../utils/ddlParser';
+import type { SchemaInfo, TableInfo, ForeignKey } from '../../types/schema';
 import type { ImpactedTable } from '../../types/approval';
+import { Sparkles, Layers, Eye } from 'lucide-react';
 
 interface ERDiagramPanelProps {
   schema: SchemaInfo | null;
-  impactedTables: ImpactedTable[];
+  impactedTables?: ImpactedTable[];
+  generatedSql?: string | null;
+  initialScope?: 'query' | 'all';
 }
 
 const nodeTypes = {
@@ -27,8 +31,6 @@ const nodeTypes = {
 
 /**
  * Compute an optimal grid layout based on the number of tables.
- * For small numbers (1-4), use a single row or 2×2.
- * For larger counts, use 2-3 columns with appropriate gaps.
  */
 function computeGridLayout(tableCount: number): { cols: number; xGap: number; yGap: number } {
   if (tableCount <= 1) return { cols: 1, xGap: 0, yGap: 0 };
@@ -39,13 +41,101 @@ function computeGridLayout(tableCount: number): { cols: number; xGap: number; yG
   return { cols: Math.min(4, Math.ceil(Math.sqrt(tableCount))), xGap: 350, yGap: 300 };
 }
 
-export const ERDiagramPanel: React.FC<ERDiagramPanelProps> = ({ schema, impactedTables }) => {
+export const ERDiagramPanel: React.FC<ERDiagramPanelProps> = ({
+  schema,
+  impactedTables = [],
+  generatedSql,
+  initialScope,
+}) => {
   const theme = useAppStore((s) => s.theme);
   const isDark = theme === 'dark';
 
-  // Convert schema tables to React Flow nodes with auto-grid layout
+  // Parse DDL statements from generated SQL to synthesize virtual tables if not yet in live schema
+  const parsedDDL = useMemo(() => {
+    return parseTablesFromDDL(generatedSql);
+  }, [generatedSql]);
+
+  // Set of newly generated table names (only explicitly created tables)
+  const newTableSet = useMemo(() => {
+    const s = new Set<string>();
+    parsedDDL.tableNames.forEach((name) => s.add(name.toLowerCase()));
+    impactedTables.forEach((t) => {
+      const op = (t.operation || '').toUpperCase();
+      if (op === 'CREATE') {
+        s.add(t.name.toLowerCase());
+      }
+    });
+    return s;
+  }, [parsedDDL, impactedTables]);
+
+  // Set of all query-impacted table names
+  const impactedSet = useMemo(() => {
+    const s = new Set<string>();
+    impactedTables.forEach((t) => s.add(t.name.toLowerCase()));
+    parsedDDL.tableNames.forEach((t) => s.add(t.toLowerCase()));
+    return s;
+  }, [impactedTables, parsedDDL]);
+
+  const hasQueryScope = impactedSet.size > 0;
+
+  // View scope state: 'query' (focused on impacted/new tables) or 'all' (entire database)
+  const [scope, setScope] = useState<'query' | 'all'>(() => {
+    if (initialScope) return initialScope;
+    return hasQueryScope ? 'query' : 'all';
+  });
+
+  useEffect(() => {
+    if (initialScope) {
+      setScope(initialScope);
+    }
+  }, [initialScope]);
+
+  // Merge schema tables with newly declared DDL tables
+  const mergedTables = useMemo<TableInfo[]>(() => {
+    const existing = schema?.tables ? [...schema.tables] : [];
+    const existingMap = new Set(existing.map((t) => t.name.toLowerCase()));
+
+    // Add synthesized tables that are not yet committed to live schema
+    parsedDDL.tables.forEach((dt) => {
+      if (!existingMap.has(dt.name.toLowerCase())) {
+        existing.push(dt);
+        existingMap.add(dt.name.toLowerCase());
+      }
+    });
+
+    return existing;
+  }, [schema, parsedDDL]);
+
+  // Merge foreign keys
+  const mergedForeignKeys = useMemo<ForeignKey[]>(() => {
+    const existing = schema?.foreign_keys ? [...schema.foreign_keys] : [];
+    const fkKeys = new Set(
+      existing.map((fk) => `${fk.from_table}.${fk.from_column}->${fk.to_table}.${fk.to_column}`.toLowerCase())
+    );
+
+    parsedDDL.foreignKeys.forEach((fk) => {
+      const key = `${fk.from_table}.${fk.from_column}->${fk.to_table}.${fk.to_column}`.toLowerCase();
+      if (!fkKeys.has(key)) {
+        existing.push(fk);
+        fkKeys.add(key);
+      }
+    });
+
+    return existing;
+  }, [schema, parsedDDL]);
+
+  // Determine active tables based on scope
+  const visibleTables = useMemo<TableInfo[]>(() => {
+    if (scope === 'query' && hasQueryScope) {
+      const filtered = mergedTables.filter((t) => impactedSet.has(t.name.toLowerCase()));
+      return filtered.length > 0 ? filtered : mergedTables;
+    }
+    return mergedTables;
+  }, [mergedTables, scope, hasQueryScope, impactedSet]);
+
+  // Convert visible tables to React Flow nodes with auto-grid layout
   const initialNodes = useMemo(() => {
-    if (!schema || !schema.tables || schema.tables.length === 0) return [];
+    if (visibleTables.length === 0) return [];
 
     const impactedMap = new Map<string, { level: 'direct' | 'referenced'; operation?: string | null }>();
     impactedTables.forEach((t) => {
@@ -55,13 +145,14 @@ export const ERDiagramPanel: React.FC<ERDiagramPanelProps> = ({ schema, impacted
       });
     });
 
-    const { cols, xGap, yGap } = computeGridLayout(schema.tables.length);
+    const { cols, xGap, yGap } = computeGridLayout(visibleTables.length);
 
-    return schema.tables.map((tbl, i) => {
+    return visibleTables.map((tbl, i) => {
       const col = i % cols;
       const row = Math.floor(i / cols);
+      const isNew = newTableSet.has(tbl.name.toLowerCase());
       const impact = impactedMap.get(tbl.name.toLowerCase());
-      const isSelected = i === 0 || impact !== undefined;
+      const isSelected = isNew || impact !== undefined;
 
       return {
         id: tbl.name,
@@ -69,31 +160,29 @@ export const ERDiagramPanel: React.FC<ERDiagramPanelProps> = ({ schema, impacted
         position: { x: col * xGap + 40, y: row * yGap + 40 },
         data: {
           table: tbl,
-          impactLevel: impact ? impact.level : 'none',
-          operation: impact?.operation || null,
+          impactLevel: impact ? impact.level : isNew ? 'direct' : 'none',
+          operation: impact?.operation || (isNew ? 'CREATE' : null),
           isSelectedEntity: isSelected,
+          isNewlyGenerated: isNew,
         },
       };
     });
-  }, [schema, impactedTables, isDark]);
+  }, [visibleTables, impactedTables, newTableSet]);
 
-  // Connectors: Link exact Foreign Key rows to Primary Key rows using orthogonal elbow paths
+  // Connectors: Link Foreign Key rows between visible tables
   const initialEdges = useMemo(() => {
-    if (!schema || !schema.foreign_keys || schema.foreign_keys.length === 0) return [];
+    if (mergedForeignKeys.length === 0) return [];
 
-    // Validate that both source and target tables exist
-    const tableNames = new Set(schema.tables.map((t) => t.name));
-
-    const impactedNames = new Set(impactedTables.map((t) => t.name.toLowerCase()));
+    const visibleNameSet = new Set(visibleTables.map((t) => t.name.toLowerCase()));
     const edgeColor = isDark ? '#A78BFA' : '#6712DC';
     const edgeLabelColor = isDark ? '#E0E7FF' : '#6712DC';
     const edgeLabelBg = isDark ? '#1E1E2C' : '#FFFFFF';
 
-    return schema.foreign_keys
-      .filter((fk) => tableNames.has(fk.from_table) && tableNames.has(fk.to_table))
+    return mergedForeignKeys
+      .filter((fk) => visibleNameSet.has(fk.from_table.toLowerCase()) && visibleNameSet.has(fk.to_table.toLowerCase()))
       .map((fk, i) => {
         const isImpacted =
-          impactedNames.has(fk.from_table.toLowerCase()) || impactedNames.has(fk.to_table.toLowerCase());
+          impactedSet.has(fk.from_table.toLowerCase()) || impactedSet.has(fk.to_table.toLowerCase());
 
         return {
           id: `fk-${fk.from_table}-${fk.from_column}-${fk.to_table}-${fk.to_column}-${i}`,
@@ -121,23 +210,21 @@ export const ERDiagramPanel: React.FC<ERDiagramPanelProps> = ({ schema, impacted
           },
         };
       });
-  }, [schema, impactedTables, isDark]);
+  }, [mergedForeignKeys, visibleTables, impactedSet, isDark]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setNodes(initialNodes);
   }, [initialNodes, setNodes]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setEdges(initialEdges);
   }, [initialEdges, setEdges]);
 
-  // Re-key ReactFlow when schema or theme changes so fitView runs fresh
-  const flowKey = schema
-    ? `${schema.dialect}-${schema.database_name}-${schema.tables.length}-${schema.foreign_keys?.length || 0}-${theme}`
-    : `empty-${theme}`;
+  // Re-key ReactFlow when scope or visible tables change so fitView recalculates cleanly
+  const flowKey = `er-${scope}-${visibleTables.length}-${initialEdges.length}-${theme}`;
 
   return (
     <div
@@ -145,16 +232,6 @@ export const ERDiagramPanel: React.FC<ERDiagramPanelProps> = ({ schema, impacted
         isDark ? 'border border-white/15 bg-[#101018]' : 'border border-[#DDE1E8] bg-[#E8E8EC]'
       }`}
     >
-      {/* SVG Gradient definitions for connectors */}
-      <svg className="absolute w-0 h-0 pointer-events-none">
-        <defs>
-          <linearGradient id="purpleConnectorGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor={isDark ? '#8E94F2' : '#6712DC'} />
-            <stop offset="100%" stopColor={isDark ? '#C4B5FD' : '#8D3CFF'} />
-          </linearGradient>
-        </defs>
-      </svg>
-
       <ReactFlow
         key={flowKey}
         nodes={nodes}
@@ -182,6 +259,7 @@ export const ERDiagramPanel: React.FC<ERDiagramPanelProps> = ({ schema, impacted
         />
         <MiniMap
           nodeColor={(n) => {
+            if (n.data?.isNewlyGenerated) return isDark ? '#10B981' : '#059669';
             if (n.data?.impactLevel === 'direct') return isDark ? '#F43F5E' : '#E11D48';
             return isDark ? '#8E94F2' : '#6712DC';
           }}
@@ -194,15 +272,63 @@ export const ERDiagramPanel: React.FC<ERDiagramPanelProps> = ({ schema, impacted
         />
       </ReactFlow>
 
-      {/* Floating Legend Overlay */}
+      {/* Floating Toolbar & Legend Overlay */}
       <div
-        className={`absolute top-3 left-3 backdrop-blur-md rounded-none p-2.5 text-[11px] font-sans shadow-lg flex flex-wrap items-center gap-4 ${
+        className={`absolute top-3 left-3 backdrop-blur-md rounded-none p-2 text-[11px] font-sans shadow-lg flex flex-wrap items-center gap-3 z-10 ${
           isDark
             ? 'bg-[#181824]/95 border border-white/15 text-slate-200'
             : 'bg-white/95 border border-[#EBE6EE] text-[#1E1E24]'
         }`}
       >
-        <div className="flex items-center gap-2">
+        {/* Scope Switcher: Focused View (Query Scope) vs Entire Database */}
+        {hasQueryScope && (
+          <div className="flex items-center gap-1 p-0.5 rounded-none border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5">
+            <button
+              type="button"
+              onClick={() => setScope('query')}
+              className={`flex items-center gap-1.5 px-2 py-1 text-[10px] font-semibold transition-all cursor-pointer rounded-none ${
+                scope === 'query'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Show only tables touched by this query"
+            >
+              <Eye className="w-3 h-3" />
+              <span>Query Scope ({visibleTables.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setScope('all')}
+              className={`flex items-center gap-1.5 px-2 py-1 text-[10px] font-semibold transition-all cursor-pointer rounded-none ${
+                scope === 'all'
+                  ? isDark ? 'bg-indigo-600 text-white shadow-xs' : 'bg-[#6712DC] text-white shadow-xs'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Show all tables in the database"
+            >
+              <Layers className="w-3 h-3" />
+              <span>Whole Database ({mergedTables.length})</span>
+            </button>
+          </div>
+        )}
+
+        {/* Legend: New Table distinction */}
+        {newTableSet.size > 0 && (
+          <div className="flex items-center gap-1.5 font-medium text-emerald-400">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="flex items-center gap-0.5 font-bold">
+              <Sparkles className="w-2.5 h-2.5" />
+              New Table
+            </span>
+          </div>
+        )}
+
+        <div className="flex items-center gap-1.5 text-slate-400">
+          <span className="w-2 h-2 rounded-none border border-slate-400 bg-slate-500/20" />
+          <span>Existing Table</span>
+        </div>
+
+        <div className="flex items-center gap-1.5">
           <span
             className={`w-4 h-4 rounded-none text-white text-[8px] font-bold flex items-center justify-center ${
               isDark ? 'bg-[#7B2CBF]' : 'bg-[#6712DC]'
@@ -210,9 +336,10 @@ export const ERDiagramPanel: React.FC<ERDiagramPanelProps> = ({ schema, impacted
           >
             PK
           </span>
-          <span className={`font-medium ${isDark ? 'text-slate-200' : 'text-[#1E1E24]'}`}>Primary Key</span>
+          <span className={`font-medium ${isDark ? 'text-slate-200' : 'text-[#1E1E24]'}`}>PK</span>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-1.5">
           <span
             className={`w-4 h-4 rounded-none text-white text-[8px] font-bold flex items-center justify-center ${
               isDark ? 'bg-[#9D4EDD]' : 'bg-[#8D3CFF]'
@@ -220,17 +347,12 @@ export const ERDiagramPanel: React.FC<ERDiagramPanelProps> = ({ schema, impacted
           >
             FK
           </span>
-          <span className={`font-medium ${isDark ? 'text-slate-200' : 'text-[#1E1E24]'}`}>Foreign Key</span>
+          <span className={`font-medium ${isDark ? 'text-slate-200' : 'text-[#1E1E24]'}`}>FK</span>
         </div>
-        <div className={`flex items-center gap-1.5 text-[10px] font-mono ${isDark ? 'text-slate-400' : 'text-[#8E8E98]'}`}>
-          <span className={`w-4 h-0.5 ${isDark ? 'bg-[#8E94F2]' : 'bg-[#6712DC]'}`} />
-          <span>Relationships</span>
+
+        <div className={`text-[10px] font-mono ${isDark ? 'text-slate-500' : 'text-[#ABABAB]'}`}>
+          {visibleTables.length}T · {initialEdges.length}FK
         </div>
-        {schema && (
-          <div className={`text-[10px] font-mono ${isDark ? 'text-slate-500' : 'text-[#ABABAB]'}`}>
-            {schema.tables.length}T · {schema.foreign_keys?.length || 0}FK
-          </div>
-        )}
       </div>
     </div>
   );

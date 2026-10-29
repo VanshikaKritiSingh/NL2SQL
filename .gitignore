@@ -35,6 +35,9 @@ env/
 *.pth
 *.gguf
 *.onnx
+export_hf/
+offline/llama_cpp/
+llama_cpp/
 offline/checkpoints/*
 !offline/checkpoints/.gitkeep
 offline/models/*
@@ -68,3 +71,4 @@ lightning_logs/
 
 # Large Offline Datasets (do not track 1GB+ generated corpora)
 offline/datasets/dialects/
+offline/training/convert_hf_to_gguf.py

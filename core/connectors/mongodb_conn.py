@@ -46,15 +46,35 @@ class MongoDBConnector(BaseDBConnector):
         if not HAS_PYMONGO:
             raise ImportError(_MISSING)
         try:
-            port = self.config.port or 27017
-            scheme = "mongodb"
-            if self.config.username and self.config.password:
-                uri = f"{scheme}://{self.config.username}:{self.config.password}@{self.config.host}:{port}/{self.config.database}"
+            import urllib.parse
+            raw_host = (self.config.host or "localhost").strip()
+            # If the user pasted a full mongodb:// or mongodb+srv:// URI into host or extra_params
+            if raw_host.startswith("mongodb://") or raw_host.startswith("mongodb+srv://"):
+                uri = raw_host
             else:
-                uri = f"{scheme}://{self.config.host}:{port}"
+                is_srv = "mongodb.net" in raw_host or raw_host.startswith("srv:")
+                if raw_host.startswith("srv:"):
+                    raw_host = raw_host[4:].strip()
+
+                if self.config.username and self.config.password:
+                    user_enc = urllib.parse.quote_plus(str(self.config.username))
+                    pass_enc = urllib.parse.quote_plus(str(self.config.password))
+                    auth_part = f"{user_enc}:{pass_enc}@"
+                else:
+                    auth_part = ""
+
+                db_part = f"/{self.config.database}" if self.config.database else ""
+
+                if is_srv:
+                    uri = f"mongodb+srv://{auth_part}{raw_host}{db_part}?retryWrites=true&w=majority"
+                else:
+                    port = self.config.port or 27017
+                    uri = f"mongodb://{auth_part}{raw_host}:{port}{db_part}"
+
             self._client = pymongo.MongoClient(uri, serverSelectionTimeoutMS=int(self.config.timeout_s * 1000))
             self._client.admin.command("ping")  # validate connection
-            self._db = self._client[self.config.database]
+            db_name = self.config.database or "admin"
+            self._db = self._client[db_name]
             self._is_connected = True
             return True
         except Exception as e:
@@ -149,14 +169,41 @@ class MongoDBConnector(BaseDBConnector):
         timeout_s: Optional[float] = None,
     ) -> QueryResult:
         """
-        Accepts the MQL envelope produced by dialect converter:
-          '{"collection":"orders","pipeline":[...]}'
-        or a simple find:
-          '{"collection":"orders","filter":{...},"limit":100}'
+        Accepts:
+          - MQL envelope produced by dialect converter:
+            '{"collection":"orders","pipeline":[...]}'
+          - Simple find:
+            '{"collection":"orders","filter":{...},"limit":100}'
+          - SQL/CLI navigation:
+            'USE <database>', 'SHOW COLLECTIONS', 'SHOW TABLES', 'SHOW DATABASES'
         """
         if not self.is_connected:
             self.connect()
         start = time.perf_counter()
+        clean_q = query.strip() if isinstance(query, str) else ""
+
+        # Handle navigation/administrative commands from GUI or direct execute
+        if clean_q:
+            upper_q = clean_q.upper().rstrip(";")
+            if upper_q.startswith("USE "):
+                target_db = clean_q[4:].strip().strip("`'\" ;")
+                self.config.database = target_db
+                self._db = self._client[target_db]
+                exec_ms = (time.perf_counter() - start) * 1000
+                return QueryResult(columns=["status"], rows=[{"status": f"Switched to database {target_db}"}], row_count=1, rows_affected=0, execution_time_ms=round(exec_ms, 2), is_mutating=False)
+
+            if upper_q in ("SHOW TABLES", "SHOW COLLECTIONS"):
+                colls = sorted(self._db.list_collection_names())
+                rows = [{"collection": c} for c in colls]
+                exec_ms = (time.perf_counter() - start) * 1000
+                return QueryResult(columns=["collection"], rows=rows, row_count=len(rows), rows_affected=0, execution_time_ms=round(exec_ms, 2), is_mutating=False)
+
+            if upper_q in ("SHOW DATABASES", "SHOW DBS"):
+                dbs = sorted(self._client.list_database_names())
+                rows = [{"database": d} for d in dbs]
+                exec_ms = (time.perf_counter() - start) * 1000
+                return QueryResult(columns=["database"], rows=rows, row_count=len(rows), rows_affected=0, execution_time_ms=round(exec_ms, 2), is_mutating=False)
+
         try:
             payload = json.loads(query) if isinstance(query, str) else query
             coll_name = payload.get("collection", "")
