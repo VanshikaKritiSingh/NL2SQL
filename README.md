@@ -7,10 +7,7 @@
 [![Transpiler](https://img.shields.io/badge/Dialects-20%2B%20SQL%20Engines-00bcd4?style=flat-square)](https://github.com/tobymao/sqlglot)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 
-![Topic: LLM](https://img.shields.io/badge/topic-LLM-7c3aed?style=flat-square)
-![Topic: Databases](https://img.shields.io/badge/topic-databases-0f766e?style=flat-square)
-![Topic: AdaLoRA](https://img.shields.io/badge/topic-AdaLoRA-475569?style=flat-square)
-![Topic: QLoRA](https://img.shields.io/badge/topic-QLoRA-475569?style=flat-square)
+**Topics:** ![LLM](https://img.shields.io/badge/LLM-7c3aed?style=flat-square) ![Databases](https://img.shields.io/badge/Databases-0f766e?style=flat-square) ![AdaLoRA](https://img.shields.io/badge/AdaLoRA-475569?style=flat-square) ![QLoRA](https://img.shields.io/badge/QLoRA-475569?style=flat-square)
 <br />
 
 **Overview:** [Summary](#executive-summary) &bull; [Design Intuition](#design-intuition) &bull; [Architecture](#system-architecture)
@@ -42,35 +39,16 @@ The **NL2SQL Production Pipeline** is an enterprise-grade compilation framework 
 
 The architecture of this pipeline is governed by five core engineering principles developed in response to production failure modes observed in raw LLM-to-database applications:
 
-```
-                  ┌─────────────────────────────────────────────────────────┐
-                  │                 Natural Language Input                  │
-                  └────────────────────────────┬────────────────────────────┘
-                                               │
-                                               ▼
-                         [Principle 1: Schema Grounding & Steiner Tree]
-                         Retrieve ONLY relevant tables & auto-inject FK bridges
-                                               │
-                                               ▼
-                         [Principle 2: Deterministic Compilation]
-                         Generate ONE Canonical AST ──► Transpile to 20+ dialects
-                                               │
-                                               ▼
-                         [Principle 3: 6-Layer Static AST Gate]
-                         Verify Parse, Policy, Schema & Semantics in memory
-                                               │
-                                               ▼
-                         [Principle 4: Dual-Path Blast-Radius Gate]
-                           /                                   \
-                 Read-Only SELECT                     Mutating Write / High Blast
-                        │                                       │
-                        ▼                                       ▼
-                 Sandbox Replica                      Human Visual Diff Gate
-                                                      (Monaco SQL + React Flow ER)
-                                                                │
-                                                                ▼
-                         [Principle 5: Native Database Isolation]
-                         Execute inside real DB transaction with SAVEPOINT rollback
+```mermaid
+flowchart TD
+    NL["Natural Language Input"] --> P1["1. Schema Grounding + Steiner Tree<br/>Relevant tables and FK bridges"]
+    P1 --> P2["2. Deterministic Compilation<br/>One canonical AST to 20+ dialects"]
+    P2 --> P3["3. 6-Layer Static AST Gate<br/>Parse, policy, schema and semantics"]
+    P3 --> P4{"4. Dual-Path Blast-Radius Gate"}
+    P4 -->|"Read-only SELECT"| R["Sandbox Replica"]
+    P4 -->|"Mutating write / high blast"| W["Human Visual Diff Gate<br/>Monaco SQL + React Flow ER"]
+    R --> P5["5. Native Database Isolation<br/>BEGIN / COMMIT / SAVEPOINT"]
+    W --> P5
 ```
 
 ### 1. NL2SQL Is a Compiler Problem
@@ -98,7 +76,7 @@ The NL2SQL architecture is specified across interactive web specifications, vect
 
 <div align="center">
 
-<a href="docs/diagrams/SVG_DIAGRAM.svg"><img src="docs/diagrams/pipeline_v2_check.png" width="420" alt="NL2SQL Master Pipeline Architecture Blueprint"></a>
+<a href="docs/diagrams/SVG_DIAGRAM.svg"><img src="docs/diagrams/pipeline_v2_check.png" width="300" alt="NL2SQL Master Pipeline Architecture Blueprint"></a>
 
 <p><em>Click the diagram above to inspect the full 1600x3560 vector SVG master blueprint (<a href="docs/diagrams/SVG_DIAGRAM.svg">docs/diagrams/SVG_DIAGRAM.svg</a>)</em></p>
 
@@ -133,23 +111,31 @@ python -m http.server 8080 --directory docs/html/
 
 ## System Architecture
 
-The pipeline executes through 16 human-supervised stages structured into four cohesive layers:
+The pipeline executes through 16 human-supervised stages structured into four cohesive layers. *(Stages 1, 2, 8, and 11 are folded into their neighbors per the audit's `DEL-*` plan.)*
+
+**Layer 1 - Intake & Routing**
 
 ```mermaid
 flowchart LR
   NL["Natural Language Query"] --> S0["Stage 0: Paradigm Router"] --> S3["Stage 3: Divergence Check"]
 ```
 
+**Layer 2 - Grounding & Synthesis**
+
 ```mermaid
 flowchart LR
   S4["Stage 4: Schema Linker"] --> S4B["FK Bridge Injection"] --> S5["Stage 5: DDL Context"] --> S6["Stage 6: AST Synthesis"] --> S7["Stage 7: Dialect Conversion"]
 ```
+
+**Layer 3 - Static Validation**
 
 ```mermaid
 flowchart LR
   S9["Stage 9: AST Validation"] --> S10["Stage 10: Cost & Blast-Radius Gate"]
   S9 --> BLOCKED["Blocked Diagnostic"]
 ```
+
+**Layer 4 - Execution Dispatch**
 
 ```mermaid
 flowchart LR
@@ -413,7 +399,7 @@ ALL 56 UNIT & INTEGRATION TESTS PASSED 100%!
 ---
 
 <details>
-<summary><strong>Detailed issue list</strong></summary>
+<summary><strong>41 items: FIX (15) · ALT (6) · IMP (5) · DEL (15)</strong></summary>
 
 ### 1. "Fix That" (Critical Bugs & Broken Invariants)
 
@@ -565,6 +551,9 @@ ALL 56 UNIT & INTEGRATION TESTS PASSED 100%!
 
 ### Sequenced Execution Order for Developers
 
+<details>
+<summary><strong>Sequenced execution order - 4 phases, 20 steps</strong></summary>
+
 ```
 [Phase 1: Pure Deletions — Zero Breakage Risk]
   1. DEL-01: rm -rf offline/llama_cpp/ (-52,604 vendored lines, -211 MB)
@@ -594,6 +583,8 @@ ALL 56 UNIT & INTEGRATION TESTS PASSED 100%!
   19. DEL-13: Unify triplicated demo schemas into data/demo_schema.json (-118 lines)
   20. IMP-02 & IMP-03: Implement rate limiter, semantic cache, and real DBMS savepoint rollback
 ```
+
+</details>
 
 ---
 
