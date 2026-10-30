@@ -1,19 +1,23 @@
 <div align="center">
 
-# NL2SQL Production Pipeline
-
-### Enterprise Natural Language to Multi-Paradigm Database Compiler
+# NL2SQL - natural language to universal DBMS query converter
 
 [![Milestone](https://img.shields.io/badge/Milestone-Phase%20I%20%26%20II%20Complete-007acc?style=flat-square)](https://github.com/VanshikaKritiSingh/NL2SQL)
 [![Tests](https://img.shields.io/badge/Tests-56%2F56%20Passing-success?style=flat-square&logo=pytest&logoColor=white)](https://github.com/VanshikaKritiSingh/NL2SQL)
-[![Interactive Spec](https://img.shields.io/badge/Architecture-Interactive%20HTML%20Spec-blueviolet?style=flat-square&logo=html5&logoColor=white)](docs/html/nl2sql.html)
-[![Vector Diagram](https://img.shields.io/badge/Vector%20Blueprint-SVG%20High--Res-ff69b4?style=flat-square&logo=inkscape&logoColor=white)](docs/diagrams/SVG_DIAGRAM.svg)
 [![Transpiler](https://img.shields.io/badge/Dialects-20%2B%20SQL%20Engines-00bcd4?style=flat-square)](https://github.com/tobymao/sqlglot)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 
+![Topic: LLM](https://img.shields.io/badge/topic-LLM-7c3aed?style=flat-square)
+![Topic: Databases](https://img.shields.io/badge/topic-databases-0f766e?style=flat-square)
+![Topic: AdaLoRA](https://img.shields.io/badge/topic-AdaLoRA-475569?style=flat-square)
+![Topic: QLoRA](https://img.shields.io/badge/topic-QLoRA-475569?style=flat-square)
 <br />
 
-[Overview](#executive-summary) &bull; [Design Intuition](#design-intuition) &bull; [Visual Blueprints](#interactive-specifications--visual-architecture-assets) &bull; [System Architecture](#system-architecture) &bull; [Universal Transpilation](#universal-ast-transpilation-engine) &bull; [Documentation Hub](#subsystem-documentation-hub) &bull; [Offline ML Suite](#offline-machine-learning--fine-tuning-suite) &bull; [Quick Start](#quick-start) &bull; [Developer Checklist](#developer-action-plan--production-hardening-checklist) &bull; [Team](#engineering-team)
+**Overview:** [Summary](#executive-summary) &bull; [Design Intuition](#design-intuition) &bull; [Architecture](#system-architecture)
+
+**Assets:** [Blueprints](#interactive-specifications--visual-architecture-assets) &bull; [Transpilation](#universal-ast-transpilation-engine) &bull; [Docs Hub](#subsystem-documentation-hub)
+
+**Get Started:** [Quick Start](#quick-start) &bull; [Checklist](#developer-action-plan) &bull; [Team](#engineering-team)
 
 </div>
 
@@ -69,7 +73,7 @@ The architecture of this pipeline is governed by five core engineering principle
                          Execute inside real DB transaction with SAVEPOINT rollback
 ```
 
-### 1. Natural Language to SQL is a Compiler Problem, Not Text Generation
+### 1. NL2SQL Is a Compiler Problem
 Raw LLM output cannot be trusted to execute directly on production databases. LLMs hallucinate column names, fabricate joins, invent non-existent functions, and miss edge cases in dialect syntax. Treating NL2SQL as a **multi-stage compiler**—where the LLM is merely the parser from natural language to an intermediate abstract syntax tree (AST)—allows the downstream pipeline to verify, rewrite, and reject malformed queries with mathematical guarantees before execution.
 
 ### 2. Deterministic AST Transpilation Over Prompt Chaining
@@ -94,7 +98,7 @@ The NL2SQL architecture is specified across interactive web specifications, vect
 
 <div align="center">
 
-<a href="docs/diagrams/SVG_DIAGRAM.svg"><img src="docs/diagrams/pipeline_v2_check.png" width="720" alt="NL2SQL Master Pipeline Architecture Blueprint"></a>
+<a href="docs/diagrams/SVG_DIAGRAM.svg"><img src="docs/diagrams/pipeline_v2_check.png" width="420" alt="NL2SQL Master Pipeline Architecture Blueprint"></a>
 
 <p><em>Click the diagram above to inspect the full 1600x3560 vector SVG master blueprint (<a href="docs/diagrams/SVG_DIAGRAM.svg">docs/diagrams/SVG_DIAGRAM.svg</a>)</em></p>
 
@@ -131,61 +135,35 @@ python -m http.server 8080 --directory docs/html/
 
 The pipeline executes through 16 human-supervised stages structured into four cohesive layers:
 
-<div align="center">
-<div style="max-width: 500px; margin: 0 auto;">
-
 ```mermaid
-flowchart TD
-    classDef intake fill:#1e293b,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
-    classDef ai fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#f8fafc;
-    classDef safety fill:#312e81,stroke:#c084fc,stroke-width:2px,color:#f8fafc;
-    classDef gate fill:#701a75,stroke:#f472b6,stroke-width:2px,color:#f8fafc;
-    classDef exec fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#f8fafc;
-
-    subgraph Layer_Intake ["1. Intake & Speculative Intent Routing"]
-        NL["Natural Language Query"]:::intake --> S0["Stage 0: Speculative Paradigm Router<br/>(CLEF Drafter + DSpark Verifier)"]:::intake
-        S0 -->|"Auto Mode / User Selection"| S3["Stage 3: Guardrail & Divergence Checker<br/>(Structured Warning on Mismatch)"]:::intake
-    end
-
-    subgraph Layer_AI ["2. Schema Grounding, Synthesis & Transpilation"]
-        S3 --> S4["Stage 4: Hybrid Schema Linker<br/>(BM25 + Fuzzy N-Gram RRF & Trie Grounding)"]:::ai
-        S4 -->|"Steiner Minimal Tree"| S4B["Foreign Key Bridge Join Injection<br/>(Guarantees Unbroken Graph Paths)"]:::ai
-        S4B --> S5["Stage 5: Dynamic Context DDL Prompt Builder"]:::ai
-        S5 --> S6["Stage 6: Qwen2.5-Coder-7B SFT / Local Inference<br/>(Canonical ANSI/PostgreSQL AST)"]:::ai
-        S6 --> S7["Stage 7: Universal Dialect Converter<br/>(Deterministic sqlglot Transpiler)"]:::ai
-    end
-
-    subgraph Layer_Safety ["3. Static AST Validation & Cost Gate"]
-        S7 --> S9["Stage 9: 6-Layer Static AST Validator<br/>(PARSE → POLICY → SCHEMA → SEMANTIC → QUERY_AP → SCHEMA_AP)"]:::safety
-        S9 -->|"Valid AST"| S10["Stage 10: Heuristic Cost & Blast-Radius Engine<br/>(Scan Estimation, Join Depth, Threshold Checks)"]:::safety
-        S9 -->|"Syntax / Policy Error"| BLOCKED["Stage 9/10: Blocked Safety Trap<br/>(Emits Actionable Diagnostic Feedback)"]:::gate
-    end
-
-    subgraph Layer_Execution ["4. Dual-Path Routing & Execution Dispatch"]
-        S10 --> S12{"Stage 12: Dual-Path Execution Router"}:::safety
-        
-        S12 -->|"Read-Only SELECT (Cost Allowed)"| S13["Stage 13: Sandbox Replica Execution<br/>(Isolated Read Node)"]:::exec
-        S12 -->|"Mutating DML / DDL / High Blast Radius"| S14["Stage 14: Human Approval Gate & Visual Studio<br/>(Monaco SQL Diff + React Flow ER Blast Radius)"]:::gate
-        
-        S14 -->|"Human Approves"| S15["Stage 15: Transaction & SAVEPOINT Checkpoint<br/>(Native Relational Execution)"]:::exec
-        S14 -->|"Human Rejects / Edit Request"| S6
-        
-        S13 --> S16["Stage 16: Paginated Result Table & Formatter"]:::exec
-        S15 --> S16
-    end
+flowchart LR
+  NL["Natural Language Query"] --> S0["Stage 0: Paradigm Router"] --> S3["Stage 3: Divergence Check"]
 ```
 
-</div>
-</div>
+```mermaid
+flowchart LR
+  S4["Stage 4: Schema Linker"] --> S4B["FK Bridge Injection"] --> S5["Stage 5: DDL Context"] --> S6["Stage 6: AST Synthesis"] --> S7["Stage 7: Dialect Conversion"]
+```
+
+```mermaid
+flowchart LR
+  S9["Stage 9: AST Validation"] --> S10["Stage 10: Cost & Blast-Radius Gate"]
+  S9 --> BLOCKED["Blocked Diagnostic"]
+```
+
+```mermaid
+flowchart LR
+  S12{"Stage 12: Execution Router"} --> S13["Stage 13: Sandbox Read"]
+  S12 --> S14["Stage 14: Human Approval"] --> S15["Stage 15: Transaction"]
+  S13 --> S16["Stage 16: Results"]
+  S15 --> S16
+```
 
 ---
 
 ## Universal AST Transpilation Engine
 
 A single canonical ANSI SQL AST is compiled deterministically into 20+ SQL targets in `< 5ms`:
-
-<div align="center">
-<div style="max-width: 820px; margin: 0 auto;">
 
 ```mermaid
 flowchart LR
@@ -206,17 +184,14 @@ flowchart LR
     end
 ```
 
-</div>
-</div>
-
 ---
 
 ## Multi-Paradigm & Dialect Support
 
 | Paradigm | Underlying Mechanism | Supported Dialects & Engines | Primary Workload Focus |
 | :--- | :--- | :--- | :--- |
-| **Relational (RDBMS)** | ANSI SQL & Relational Algebra | PostgreSQL, MySQL, SQLite, Oracle, T-SQL / SQL Server, MariaDB | Transactional consistency, normalized tables |
-| **Column-Family / OLAP** | Vectorized Columnar Scanning | Snowflake, Google BigQuery, ClickHouse, DuckDB, Redshift, StarRocks, Trino, Presto, Spark SQL, Databricks | Analytical aggregations, multi-billion row scans |
+| **Relational (RDBMS)** | ANSI SQL & Relational Algebra | PostgreSQL, MySQL, SQLite, Oracle, T-SQL, MariaDB | Transactional consistency, normalized tables |
+| **Column-Family / OLAP** | Vectorized Columnar Scanning | Snowflake, BigQuery, ClickHouse, DuckDB, Redshift, StarRocks, Trino, Spark SQL | Analytical aggregations, multi-billion row scans |
 | **Embedded SQL** | Zero-Config Local In-Memory DB | SQLite, DuckDB | Development, testing, sandboxes |
 
 ---
@@ -225,36 +200,18 @@ flowchart LR
 
 Every generated query undergoes a 6-layer verification pipeline before cost estimation or execution:
 
-<div align="center">
-<div style="width: 100%; margin: 0 auto; overflow-x: auto;">
-
-```mermaid
-flowchart LR
-    classDef l1 fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
-    classDef l2 fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#f8fafc;
-    classDef l3 fill:#312e81,stroke:#a855f7,stroke-width:2px,color:#f8fafc;
-    classDef l4 fill:#4c1d95,stroke:#c084fc,stroke-width:2px,color:#f8fafc;
-    classDef l5 fill:#701a75,stroke:#f472b6,stroke-width:2px,color:#f8fafc;
-    classDef l6 fill:#831843,stroke:#fb7185,stroke-width:2px,color:#f8fafc;
-
-    Q[Target SQL Query] --> L1["Layer 1: PARSE<br/>• Single-statement enforcement (PARSE_01)<br/>• Syntax & AST grammar check (PARSE_02)"]:::l1
-    L1 --> L2["Layer 2: POLICY<br/>• Statement allowlist (POLICY_01)<br/>• Block DROP DATABASE / TRUNCATE (POLICY_02)<br/>• Block GRANT / REVOKE & COPY PROGRAM (POLICY_03/04)<br/>• UPDATE/DELETE without WHERE guard (POLICY_05)"]:::l2
-    L2 --> L3["Layer 3: SCHEMA<br/>• Table & column existence in catalog (SCHEMA_01/02)<br/>• Ambiguous join column detection (SCHEMA_03)<br/>• Alias reference resolution (SCHEMA_04)"]:::l3
-    L3 --> L4["Layer 4: SEMANTIC<br/>• Non-aggregated column in GROUP BY check (SEM_01)<br/>• Aggregate in WHERE clause detection (SEM_02)<br/>• INSERT column/value parity (SEM_03)"]:::l4
-    L4 --> L5["Layer 5: QUERY ANTI-PATTERNS<br/>• SELECT * production warning (QUERY_AP_01)<br/>• Cartesian product / CROSS JOIN check (QUERY_AP_02)<br/>• Leading-wildcard LIKE '%...' warning (QUERY_AP_03)<br/>• Unbounded ORDER BY without LIMIT (QUERY_AP_06)"]:::l5
-    L5 --> L6["Layer 6: SCHEMA ANTI-PATTERNS (DDL)<br/>• CREATE TABLE without PRIMARY KEY (SCHEMA_AP_01)<br/>• Monetary FLOAT type warning (SCHEMA_AP_06)"]:::l6
-    L6 --> PASS["Validation Passed (Status: VALID / VALID_WITH_WARNINGS)"]
-```
-
-</div>
-</div>
+| Layer | Checks | Codes |
+| :--- | :--- | :--- |
+| 1. PARSE | Single statement, syntax and grammar | `PARSE_01/02` |
+| 2. POLICY | Allowlist, dangerous DDL, no-WHERE guard | `POLICY_01–05` |
+| 3. SCHEMA | Tables, columns, joins and aliases | `SCHEMA_01–04` |
+| 4. SEMANTIC | GROUP BY, aggregate placement, INSERT parity | `SEM_01–03` |
+| 5. QUERY ANTI-PATTERNS | Wildcards, Cartesian joins, unbounded ordering | `QUERY_AP_01/02/03/06` |
+| 6. SCHEMA ANTI-PATTERNS | Missing primary keys, monetary FLOAT types | `SCHEMA_AP_01/06` |
 
 ---
 
 ## Offline Machine Learning & Fine-Tuning Suite
-
-<div align="center">
-<div style="max-width: 820px; margin: 0 auto;">
 
 ```mermaid
 flowchart LR
@@ -274,12 +231,10 @@ flowchart LR
     GGUF --> EVAL["offline/training/evaluate.py<br/>AST Exact Match & SQLite EX Accuracy"]:::stage
 ```
 
-</div>
-</div>
-
 ---
 
-## Repository Structure
+<details>
+<summary><strong>Repository structure</strong></summary>
 
 ```
 NL2SQL/
@@ -345,6 +300,8 @@ NL2SQL/
     `-- test_centralized_core_architecture.py # Core architectural consistency tests
 ```
 
+</details>
+
 ---
 
 ## Subsystem Documentation Hub
@@ -355,19 +312,19 @@ For the complete catalog, see [`docs/README.md`](docs/README.md).
 
 ### Master Documentation Matrix
 
-| Document | Category | Created | Status | Purpose & Description |
-| :--- | :--- | :--- | :--- | :--- |
-| **[Developer Action Plan](docs/DEVELOPER_CHECKLIST.md)** | Checklist | 2026-10-30 | `[STATUS_ACTIVE]` | Master 41-task implementation checklist derived from audits |
-| **[Adversarial & Ponytail Audit](docs/reviews/audit.md)** | Review / Audit | 2026-10-29 | `[STATUS_OPEN]` | 29 correctness flaws (Part I) + 15 over-engineering cuts (Part II) |
-| **[Decided Modules Plan](docs/DECIDED_MODULES.md)** | Plan | 2026-10-04 | `[STATUS_PARTIAL]` | 16-stage pipeline allocations, module roles, and target metrics |
-| **[GUI Integration Guide](docs/GUI_INTEGRATION_GUIDE.md)** | Guide | 2026-10-04 | `[STATUS_DONE]` | Typed FastAPI REST/WebSocket contracts and frontend bridges |
-| **[Connectors Quickstart](docs/CONNECTORS_QUICKSTART.md)** | Guide | 2026-10-12 | `[STATUS_DONE]` | Database connection strings, credentials, and verification |
-| **[Model Fine-Tuning Guide](docs/FINE_TUNE_GUIDE.md)** | Guide | 2026-10-12 | `[STATUS_IN_PROGRESS]` | 4-bit NF4 QLoRA SFT training runbook on consumer GPUs |
-| **[Pipeline Design Analysis](docs/DesignAnalysis.md)** | Review | 2026-10-12 | `[STATUS_SUPERSEDED]` | Early architectural comparative review (superseded by audit) |
-| **[Phase-I Evaluation Report](docs/Phase-I_PBL_Evaluation.pptx.pdf)** | Report | 2026-10-05 | `[STATUS_DONE]` | Milestone presentation deck and evaluation report |
-| **[Architecture Reference Spec](docs/NL2SQL-Pipeline-Architecture.md)** | Specification | 2026-09-01 | `[STATUS_BASELINE]` | 16-stage pipeline text specification companion to SVG diagram |
-| **[Interactive Web Spec](docs/html/nl2sql.html)** | Interactive | 2026-09-01 | `[STATUS_BASELINE]` | Interactive HTML pipeline specification with inlined SVG |
-| **[Master Vector Blueprint](docs/diagrams/SVG_DIAGRAM.svg)** | Diagram | 2026-09-01 | `[STATUS_BASELINE]` | 1600x3560 vector blueprint with subsystem boundaries |
+| Document | Category | Status | Purpose |
+| :--- | :--- | :--- | :--- |
+| **[Developer Action Plan](docs/DEVELOPER_CHECKLIST.md)** | Checklist | `[STATUS_ACTIVE]` | 41-task production hardening plan |
+| **[Adversarial & Ponytail Audit](docs/reviews/audit.md)** | Review / Audit | `[STATUS_OPEN]` | Correctness flaws and over-engineering review |
+| **[Decided Modules Plan](docs/DECIDED_MODULES.md)** | Plan | `[STATUS_PARTIAL]` | Stage allocations and module roles |
+| **[GUI Integration Guide](docs/GUI_INTEGRATION_GUIDE.md)** | Guide | `[STATUS_DONE]` | FastAPI and frontend integration contracts |
+| **[Connectors Quickstart](docs/CONNECTORS_QUICKSTART.md)** | Guide | `[STATUS_DONE]` | Connection strings and verification steps |
+| **[Model Fine-Tuning Guide](docs/FINE_TUNE_GUIDE.md)** | Guide | `[STATUS_IN_PROGRESS]` | Consumer-GPU QLoRA training runbook |
+| **[Pipeline Design Analysis](docs/DesignAnalysis.md)** | Review | `[STATUS_SUPERSEDED]` | Superseded architectural comparison |
+| **[Phase-I Evaluation Report](docs/Phase-I_PBL_Evaluation.pptx.pdf)** | Report | `[STATUS_DONE]` | Milestone evaluation report |
+| **[Architecture Reference Spec](docs/NL2SQL-Pipeline-Architecture.md)** | Specification | `[STATUS_BASELINE]` | 16-stage pipeline text specification |
+| **[Interactive Web Spec](docs/html/nl2sql.html)** | Interactive | `[STATUS_BASELINE]` | Self-contained inline-SVG architecture guide |
+| **[Master Vector Blueprint](docs/diagrams/SVG_DIAGRAM.svg)** | Diagram | `[STATUS_BASELINE]` | Full 1600x3560 architecture blueprint |
 
 ---
 
@@ -440,11 +397,9 @@ ALL 56 UNIT & INTEGRATION TESTS PASSED 100%!
 
 ---
 
-## Developer Action Plan & Production Hardening Checklist
+## Developer Action Plan
 
-> **Source:** Derived from the comprehensive Adversarial Audit and Ponytail Over-Engineering Review in [`docs/reviews/2026-10-29_adversarial_and_ponytail_audit_[STATUS_OPEN].md`](docs/reviews/2026-10-29_adversarial_and_ponytail_audit_[STATUS_OPEN].md).  
-> **Master File:** [`docs/checklists/2026-10-30_developer_todo_checklist_[STATUS_ACTIVE].md`](docs/checklists/2026-10-30_developer_todo_checklist_[STATUS_ACTIVE].md)  
-> **Status:** `[STATUS_ACTIVE]` &bull; 41 Actionable Items &bull; 4 Sequenced Phases
+> 41 actionable items across 4 phases. See the [full developer checklist](docs/checklists/2026-10-30_developer_todo_checklist_%5BSTATUS_ACTIVE%5D.md) for detailed rationale, locations, and fixes.
 
 ### Summary Scoreboard
 
@@ -456,6 +411,9 @@ ALL 56 UNIT & INTEGRATION TESTS PASSED 100%!
 | **4. Delete / Strip This** | 15 | Bloat elimination: vendored trees, speculative connectors, shims | **-4,495 Python LOC**, **-52,604 vendored LOC (-211 MB)**, **-6 deps** |
 
 ---
+
+<details>
+<summary><strong>Detailed issue list</strong></summary>
 
 ### 1. "Fix That" (Critical Bugs & Broken Invariants)
 
@@ -602,6 +560,8 @@ ALL 56 UNIT & INTEGRATION TESTS PASSED 100%!
   - Remove `max_inflight_reads=8` and cap `stored_responses`.
 
 ---
+
+</details>
 
 ### Sequenced Execution Order for Developers
 
