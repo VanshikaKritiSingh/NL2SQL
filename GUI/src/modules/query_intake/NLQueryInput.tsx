@@ -207,7 +207,7 @@ export const NLQueryInput: React.FC = () => {
   const charCount = inputText.length;
 
   return (
-    <div className={`bento-card p-4 shadow-lg relative flex flex-col gap-2.5 transition-all duration-300 rounded-none ${
+    <div className={`bento-card p-4 shadow-lg relative flex flex-col gap-2.5 transition-colors duration-200 rounded-[var(--radius-panel)] ${
       isDark
         ? 'bg-[var(--bg-card)] border-[var(--border-main)]'
         : 'bg-[var(--bg-card)] border-[var(--border-subtle)]'
@@ -217,13 +217,13 @@ export const NLQueryInput: React.FC = () => {
         isDark ? 'border-[var(--border-main)]' : 'border-[var(--border-subtle)]'
       }`}>
         <div className="flex items-center gap-2 flex-wrap">
-          <Database className={`w-3.5 h-3.5 ${isDark ? 'text-[var(--accent-primary)]' : 'text-[#6712DC]'}`} />
+          <Database aria-hidden="true" className={`w-3.5 h-3.5 ${isDark ? 'text-[var(--accent-primary)]' : 'text-[var(--accent-primary)]'}`} />
           <div className="flex items-center gap-1.5">
             <span className="font-semibold text-[var(--text-secondary)]">Connected DB Context:</span>
             <select
               value={databaseProfile || '__none__'}
               onChange={(e) => handleDatabaseChange(e.target.value)}
-              className={`text-xs rounded-none px-2 py-0.5 font-medium border cursor-pointer focus:outline-none focus:ring-1 focus:ring-[var(--border-focus)] transition-colors ${
+              className={`text-xs rounded-[var(--radius-control)] px-2 py-0.5 font-medium border cursor-pointer focus:outline-none focus:ring-1 focus:ring-[var(--border-focus)] transition-colors ${
                 isDark
                   ? 'bg-[var(--bg-input)] border-[var(--border-main)] text-[var(--text-main)] hover:border-white/25'
                   : 'bg-white border-[var(--border-subtle)] text-[var(--text-main)] hover:border-slate-400'
@@ -238,16 +238,16 @@ export const NLQueryInput: React.FC = () => {
             >
               <option
                 value="__none__"
-                className={isDark ? 'bg-[#181824] text-amber-300 font-semibold' : 'bg-white text-amber-700 font-semibold'}
+                className={isDark ? 'bg-[var(--bg-panel)] text-[var(--warning)] font-semibold' : 'bg-white text-[var(--warning)] font-semibold'}
               >
-                ✨ No Context (Create New DB / Scratch)
+                No Context (Create New DB / Scratch)
               </option>
               <optgroup label="Available Databases">
                 {(databases.length > 0 ? databases : ['test', 'ecommerce_db', 'master_enterprise']).map((db) => (
                   <option
                     key={db}
                     value={db}
-                    className={isDark ? 'bg-[#181824] text-white' : 'bg-white text-slate-900'}
+                    className={isDark ? 'bg-[var(--bg-panel)] text-white' : 'bg-white text-slate-900'}
                   >
                     {db} {isDbConnected && db === databaseProfile ? `(active ${connectedEngine?.toUpperCase() || 'DB'})` : ''}
                   </option>
@@ -257,18 +257,18 @@ export const NLQueryInput: React.FC = () => {
 
             {/* Live vs Scratch vs Offline Status Badge */}
             <span
-              className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-mono tracking-tight border rounded-none select-none ${
+              className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-mono tracking-tight border rounded-[var(--radius-pill)] select-none ${
                 databaseProfile === '__none__'
                   ? isDark
-                    ? 'bg-amber-950/40 border-amber-500/40 text-amber-300'
-                    : 'bg-amber-50 border-amber-300 text-amber-800'
+                    ? 'bg-[var(--warning-bg)] border-[var(--warning)]/40 text-[var(--warning)]'
+                    : 'bg-[var(--warning-bg)] border-[var(--warning)]/30 text-[var(--warning)]'
                   : isDbConnected
                   ? isDark
-                    ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-400'
-                    : 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                    ? 'bg-[var(--success-bg)] border-[var(--success)]/30 text-[var(--success)]'
+                    : 'bg-[var(--success-bg)] border-[var(--success)]/30 text-[var(--success)]'
                   : isDark
-                  ? 'bg-amber-950/30 border-amber-500/25 text-amber-400/90'
-                  : 'bg-amber-50 border-amber-200 text-amber-700'
+                  ? 'bg-[var(--warning-bg)] border-[var(--warning)]/25 text-[var(--warning)]'
+                  : 'bg-[var(--warning-bg)] border-[var(--warning)]/25 text-[var(--warning)]'
               }`}
               title={
                 databaseProfile === '__none__'
@@ -280,10 +280,10 @@ export const NLQueryInput: React.FC = () => {
             >
               <span className={`w-1.5 h-1.5 rounded-full ${
                 databaseProfile === '__none__'
-                  ? 'bg-amber-400'
+                  ? 'bg-[var(--warning)]'
                   : isDbConnected
-                  ? 'bg-emerald-400 animate-pulse'
-                  : 'bg-amber-400'
+                  ? 'bg-[var(--success)]'
+                  : 'bg-[var(--warning)]'
               }`} />
               <span>
                 {databaseProfile === '__none__'
@@ -298,7 +298,7 @@ export const NLQueryInput: React.FC = () => {
           <select
             value={selectedModel}
             onChange={(e) => setSelectedModel(e.target.value)}
-            className={`text-xs rounded-none px-2 py-0.5 font-medium border cursor-pointer focus:outline-none focus:ring-1 focus:ring-[var(--border-focus)] ${
+            className={`text-xs rounded-[var(--radius-control)] px-2 py-0.5 font-medium border cursor-pointer focus:outline-none focus:ring-1 focus:ring-[var(--border-focus)] ${
               isDark
                 ? 'bg-[var(--bg-input)] border-[var(--border-main)] text-[var(--text-main)]'
                 : 'bg-white border-[var(--border-subtle)] text-[var(--text-main)]'
@@ -329,7 +329,7 @@ export const NLQueryInput: React.FC = () => {
             <button
               type="button"
               onClick={() => setThinkingEnabled(thinkingEnabled ? false : true)}
-              className={`flex items-center gap-1 px-2 py-0.5 rounded-none text-[10px] font-semibold border transition-all cursor-pointer select-none ${
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-[var(--radius-pill)] text-[10px] font-semibold border transition-colors duration-200 cursor-pointer select-none ${
                 thinkingEnabled
                   ? isDark
                     ? 'bg-purple-500/15 border-purple-500/40 text-purple-400 hover:bg-purple-500/25'
@@ -346,12 +346,12 @@ export const NLQueryInput: React.FC = () => {
             >
               {thinkingEnabled ? (
                 <>
-                  <BrainCircuit className="w-3 h-3" />
+                  <BrainCircuit aria-hidden="true" className="w-3 h-3" />
                   <span>Think</span>
                 </>
               ) : (
                 <>
-                  <Brain className="w-3 h-3" />
+                  <Brain aria-hidden="true" className="w-3 h-3" />
                   <span>NoThink</span>
                 </>
               )}
@@ -360,7 +360,7 @@ export const NLQueryInput: React.FC = () => {
         </div>
         <div className="flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
           <span className="flex items-center gap-1">
-            <Eye className="w-3 h-3 text-[var(--success)]" />
+            <Eye aria-hidden="true" className="w-3 h-3 text-[var(--success)]" />
             <span>Dry-Run / Preview Mode</span>
           </span>
         </div>
@@ -374,10 +374,10 @@ export const NLQueryInput: React.FC = () => {
           onChange={(e) => setInputText(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Ask a question in natural language... (e.g. 'Show me all active users and their total order amounts from last quarter')"
-          className={`w-full rounded-none p-3.5 text-sm focus:outline-none focus:ring-2 border font-sans select-text transition-all duration-200 resize-y min-h-[96px] max-h-[360px] leading-relaxed ${
+          className={`w-full rounded-[var(--radius-control)] p-3.5 text-sm focus:outline-none focus:ring-2 border font-sans select-text transition-colors duration-200 resize-y min-h-[96px] max-h-[360px] leading-relaxed ${
             isDark
               ? 'bg-[var(--bg-input)] text-[var(--text-main)] placeholder-[var(--text-muted)] border-[var(--border-main)] focus:border-[var(--accent-primary)] focus:ring-[var(--accent-primary)]/20'
-              : 'bg-white text-[var(--text-main)] placeholder-[var(--text-muted)] border-[var(--border-subtle)] focus:border-[#111111] focus:ring-[#111111]/10'
+              : 'bg-white text-[var(--text-main)] placeholder-[var(--text-muted)] border-[var(--border-subtle)] focus:border-[var(--border-focus)] focus:ring-[var(--border-focus)]/10'
           }`}
         />
       </div>
@@ -386,11 +386,11 @@ export const NLQueryInput: React.FC = () => {
         <div className="flex items-center gap-2.5 text-[11px] text-[var(--text-muted)]">
           {charCount > 0 && <span className="font-mono">{charCount} chars · {lineCount} line{lineCount > 1 ? 's' : ''}</span>}
           <span className="hidden sm:inline font-mono text-[var(--text-muted)]">
-            <kbd className={`px-1.5 py-0.5 rounded-none text-[10px] ${
+            <kbd className={`px-1.5 py-0.5 rounded-[var(--radius-control)] text-[10px] ${
               isDark
                 ? 'bg-[var(--bg-card-header)] text-[var(--text-main)] border border-[var(--border-main)]'
                 : 'bg-[var(--bg-card-header)] text-[var(--text-main)] border border-[var(--border-subtle)]'
-            }`}>Enter</kbd> to execute, <kbd className={`px-1.5 py-0.5 rounded-none text-[10px] ${
+            }`}>Enter</kbd> to execute, <kbd className={`px-1.5 py-0.5 rounded-[var(--radius-control)] text-[10px] ${
               isDark
                 ? 'bg-[var(--bg-card-header)] text-[var(--text-main)] border border-[var(--border-main)]'
                 : 'bg-[var(--bg-card-header)] text-[var(--text-main)] border border-[var(--border-subtle)]'
@@ -399,28 +399,28 @@ export const NLQueryInput: React.FC = () => {
         </div>
         <div className="flex items-center gap-2 ml-auto">
           {inputText && (
-            <button onClick={() => setInputText('')} className="p-1.5 rounded-none transition-colors cursor-pointer flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--danger)] hover:bg-[var(--bg-hover)]" title="Clear input prompt">
-              <X className="w-3.5 h-3.5" />
+            <button onClick={() => setInputText('')} className="p-1.5 rounded-[var(--radius-control)] transition-colors duration-200 cursor-pointer flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--danger)] hover:bg-[var(--bg-hover)]" title="Clear input prompt">
+              <X aria-hidden="true" className="w-3.5 h-3.5" />
               <span>Clear</span>
             </button>
           )}
           <button
             onClick={() => handleSubmit()}
             disabled={!inputText.trim() || isSubmitting}
-            className={`flex items-center gap-1.5 px-5 py-2.5 rounded-none text-xs font-semibold shadow-lg transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
+            className={`flex items-center gap-1.5 px-5 py-2.5 rounded-[var(--radius-pill)] text-xs font-semibold shadow-lg transition-colors duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
               isDark
-                ? 'bg-[var(--btn-primary-bg)] hover:bg-[var(--btn-primary-hover)] text-[var(--btn-primary-text)] ambient-glow-btn'
+                ? 'bg-[var(--btn-primary-bg)] hover:bg-[var(--btn-primary-hover)] text-[var(--btn-primary-text)]'
                 : 'bg-[var(--btn-primary-bg)] hover:bg-[var(--btn-primary-hover)] text-[var(--btn-primary-text)] shadow-black/10'
             }`}
           >
             {isSubmitting ? (
               <>
-                <LoadingSpinner size="sm" />
+                <LoadingSpinner size="sm" aria-hidden="true" />
                 <span>Running Pipeline...</span>
               </>
             ) : (
               <>
-                <Send className="w-3.5 h-3.5" />
+                <Send aria-hidden="true" className="w-3.5 h-3.5" />
                 <span>Generate & Execute</span>
               </>
             )}

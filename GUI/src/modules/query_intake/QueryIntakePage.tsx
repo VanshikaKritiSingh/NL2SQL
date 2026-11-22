@@ -5,6 +5,7 @@ import { HistorySidebar } from './HistorySidebar';
 import { NLQueryInput } from './NLQueryInput';
 import { SqlInspector } from './SqlInspector';
 import { ResultPanel } from './ResultPanel';
+import { ERDiagramView } from './ERDiagramView';
 import { useAppStore } from '../../store/useAppStore';
 import { useQueryStore } from '../../store/useQueryStore';
 import { getHistory } from '../../api/queryApi';
@@ -12,6 +13,7 @@ import { getHistory } from '../../api/queryApi';
 export const QueryIntakePage: React.FC = () => {
   const userId = useAppStore((s) => s.userId);
   const theme = useAppStore((s) => s.theme);
+  const rightPanelTab = useAppStore((s) => s.rightPanelTab);
   const setHistory = useQueryStore((s) => s.setHistory);
   const isDark = theme === 'dark';
 
@@ -27,7 +29,7 @@ export const QueryIntakePage: React.FC = () => {
 
       {/* Main Workspace Area */}
       <main
-        className={`flex-1 flex flex-col p-4 gap-3 overflow-hidden transition-colors duration-300 ${
+        className={`flex-1 flex flex-col p-4 gap-3 overflow-hidden transition-colors duration-200 ${
           isDark ? 'bg-[var(--bg-app)]' : 'bg-white'
         }`}
       >
@@ -42,15 +44,15 @@ export const QueryIntakePage: React.FC = () => {
               <SqlInspector />
             </Panel>
 
-            <PanelResizeHandle className={`w-2 transition-colors cursor-col-resize flex items-center justify-center rounded-none ${
-              isDark ? 'hover:bg-[var(--accent-primary)]/20' : 'hover:bg-[#111111]/10'
+            <PanelResizeHandle className={`w-2 transition-colors duration-200 cursor-col-resize flex items-center justify-center rounded-[var(--radius-control)] ${
+              isDark ? 'hover:bg-[var(--accent-primary)]/20' : 'hover:bg-[var(--bg-hover)]'
             }`}>
-              <div className={`w-0.5 h-8 rounded-none ${isDark ? 'bg-[var(--border-main)]' : 'bg-[var(--border-main)]'}`} />
+              <div className={`w-0.5 h-8 rounded-[var(--radius-control)] ${isDark ? 'bg-[var(--border-main)]' : 'bg-[var(--border-main)]'}`} />
             </PanelResizeHandle>
 
-            {/* Right Panel: Result Table / Status */}
+            {/* Right Panel: Result Table / Status OR ER Diagram */}
             <Panel defaultSize={50} minSize={30}>
-              <ResultPanel />
+              {rightPanelTab === 'er_diagram' ? <ERDiagramView /> : <ResultPanel />}
             </Panel>
           </PanelGroup>
         </div>

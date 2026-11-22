@@ -23,26 +23,26 @@ export const SqlViewPanel: React.FC<SqlViewPanelProps> = ({ sql, dialect }) => {
 
   return (
     <div
-      className="bento-card overflow-hidden shadow-lg flex flex-col h-48 transition-all duration-300 rounded-none"
+      className="bento-card overflow-hidden shadow-lg flex flex-col h-48 transition-colors duration-200 rounded-[var(--radius-panel)]"
       style={{
         backgroundColor: isDark ? 'var(--bg-card)' : 'var(--bg-card)',
         border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid var(--border-subtle)',
       }}
     >
       <div
-        className={`h-9 px-3 border-b flex items-center justify-between shrink-0 transition-colors rounded-none ${
+        className={`h-9 px-3 border-b flex items-center justify-between shrink-0 transition-colors duration-200 rounded-t-[var(--radius-panel)] ${
           isDark
             ? 'border-[var(--border-main)] bg-[var(--bg-card-header)]'
             : 'border-[var(--border-subtle)] bg-[var(--bg-card-header)]'
         }`}
       >
         <div className="flex items-center gap-2">
-          <Code2 className="w-4 h-4 text-rose-500" />
+          <Code2 className="w-4 h-4 text-rose-500" aria-hidden="true" />
           <span className="text-xs font-semibold text-[var(--text-main)]">
             Pending Statement for Review
           </span>
           <span
-            className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded-none ${
+            className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded-[var(--radius-pill)] ${
               isDark
                 ? 'bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border-main)]'
                 : 'bg-white text-[var(--text-muted)] border border-[var(--border-subtle)]'
@@ -53,7 +53,7 @@ export const SqlViewPanel: React.FC<SqlViewPanelProps> = ({ sql, dialect }) => {
         </div>
         <button
           onClick={handleCopy}
-          className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-none transition-colors cursor-pointer ${
+          className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-[var(--radius-pill)] transition-colors duration-200 cursor-pointer ${
             isDark
               ? 'text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-main)]'
               : 'text-[var(--text-muted)] hover:text-[var(--text-main)] bg-white hover:bg-[var(--bg-hover)] border border-[var(--border-subtle)]'
@@ -61,12 +61,12 @@ export const SqlViewPanel: React.FC<SqlViewPanelProps> = ({ sql, dialect }) => {
         >
           {copied ? (
             <>
-              <Check className="w-3 h-3 text-emerald-500" />
+              <Check className="w-3 h-3 text-emerald-500" aria-hidden="true" />
               <span className="text-emerald-500">Copied</span>
             </>
           ) : (
             <>
-              <Copy className="w-3 h-3" />
+              <Copy className="w-3 h-3" aria-hidden="true" />
               <span>Copy</span>
             </>
           )}

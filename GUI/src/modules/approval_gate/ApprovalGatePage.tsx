@@ -49,18 +49,18 @@ export const ApprovalGatePage: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setCurrentView('query')}
-            className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-none transition-colors cursor-pointer ${
+            className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-[var(--radius-pill)] transition-colors duration-200 cursor-pointer ${
               isDark
                 ? 'text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-main)]'
                 : 'text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-subtle)]'
             }`}
           >
-            <ArrowLeft className="w-3.5 h-3.5" />
+            <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
             <span>Back to Query Intake</span>
           </button>
           <span className="text-[var(--border-subtle)]">|</span>
           <div className="flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 text-rose-500" />
+            <ShieldAlert className="w-4 h-4 text-rose-500" aria-hidden="true" />
             <span className="text-xs font-semibold text-[var(--text-main)]">
               Human Approval Gate: Safety & Impact Review
             </span>
@@ -75,7 +75,7 @@ export const ApprovalGatePage: React.FC = () => {
             </span>
             <button
               onClick={() => setApprovalPayload(MOCK_UPDATE_APPROVAL)}
-              className={`px-2.5 py-1 rounded-none text-xs font-medium transition-all cursor-pointer ${
+              className={`px-2.5 py-1 rounded-[var(--radius-pill)] text-xs font-medium transition-colors duration-200 cursor-pointer ${
                 activePayload.query_id === MOCK_UPDATE_APPROVAL.query_id
                   ? 'bg-rose-600 text-white shadow-md'
                   : isDark
@@ -87,7 +87,7 @@ export const ApprovalGatePage: React.FC = () => {
             </button>
             <button
               onClick={() => setApprovalPayload(MOCK_ALTER_APPROVAL)}
-              className={`px-2.5 py-1 rounded-none text-xs font-medium transition-all cursor-pointer ${
+              className={`px-2.5 py-1 rounded-[var(--radius-pill)] text-xs font-medium transition-colors duration-200 cursor-pointer ${
                 activePayload.query_id === MOCK_ALTER_APPROVAL.query_id
                   ? 'bg-rose-600 text-white shadow-md'
                   : isDark
@@ -110,7 +110,7 @@ export const ApprovalGatePage: React.FC = () => {
           <Panel defaultSize={48} minSize={30}>
             <div className="h-full flex flex-col">
               <div className="text-xs font-semibold mb-2 flex items-center gap-2 text-[var(--text-secondary)]">
-                <Database className={`w-4 h-4 ${isDark ? 'text-[var(--accent-primary)]' : 'text-[#6712DC]'}`} />
+                <Database className={`w-4 h-4 ${isDark ? 'text-[var(--accent-primary)]' : 'text-[var(--accent-primary)]'}`} aria-hidden="true" />
                 <span>Impacted ER Schema Graph</span>
               </div>
               <div className="flex-1 min-h-0">
@@ -124,10 +124,10 @@ export const ApprovalGatePage: React.FC = () => {
             </div>
           </Panel>
 
-          <PanelResizeHandle className={`w-2 transition-colors cursor-col-resize flex items-center justify-center rounded-none ${
-            isDark ? 'hover:bg-[var(--accent-primary)]/20' : 'hover:bg-[#6712DC]/10'
+          <PanelResizeHandle className={`w-2 transition-colors duration-200 cursor-col-resize flex items-center justify-center rounded-[var(--radius-control)] ${
+            isDark ? 'hover:bg-[var(--accent-primary)]/20' : 'hover:bg-[var(--accent-primary)]/10'
           }`}>
-            <div className="w-0.5 h-8 rounded-none bg-[var(--border-main)]" />
+            <div className="w-0.5 h-8 rounded-[var(--radius-control)] bg-[var(--border-main)]" />
           </PanelResizeHandle>
 
           {/* Right Panel: SQL Statement + Diff View + Pre-flight Telemetry */}

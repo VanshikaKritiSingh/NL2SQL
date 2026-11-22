@@ -174,9 +174,9 @@ export const ERDiagramPanel: React.FC<ERDiagramPanelProps> = ({
     if (mergedForeignKeys.length === 0) return [];
 
     const visibleNameSet = new Set(visibleTables.map((t) => t.name.toLowerCase()));
-    const edgeColor = isDark ? '#A78BFA' : '#6712DC';
-    const edgeLabelColor = isDark ? '#E0E7FF' : '#6712DC';
-    const edgeLabelBg = isDark ? '#1E1E2C' : '#FFFFFF';
+    const edgeColor = isDark ? '#c4b5fd' : '#4d2f87';
+    const edgeLabelColor = isDark ? '#c4b5fd' : '#4d2f87';
+    const edgeLabelBg = isDark ? '#1e1e1e' : '#ffffff';
 
     return mergedForeignKeys
       .filter((fk) => visibleNameSet.has(fk.from_table.toLowerCase()) && visibleNameSet.has(fk.to_table.toLowerCase()))
@@ -228,8 +228,8 @@ export const ERDiagramPanel: React.FC<ERDiagramPanelProps> = ({
 
   return (
     <div
-      className={`w-full h-full rounded-none overflow-hidden relative shadow-inner ${
-        isDark ? 'border border-white/15 bg-[#101018]' : 'border border-[#DDE1E8] bg-[#E8E8EC]'
+      className={`w-full h-full rounded-[var(--radius-panel)] overflow-hidden relative shadow-inner ${
+        isDark ? 'border border-white/15 bg-[var(--flow-bg)]' : 'border border-[var(--border-hairline)] bg-[var(--border-hairline)]'
       }`}
     >
       <ReactFlow
@@ -253,60 +253,60 @@ export const ERDiagramPanel: React.FC<ERDiagramPanelProps> = ({
         <Controls
           className={
             isDark
-              ? '!bg-[#181824] !border !border-white/20 !shadow-2xl !rounded-none overflow-hidden [&_button]:!bg-[#181824] [&_button]:!border-white/15 [&_button]:!fill-slate-300 [&_button:hover]:!bg-[#222232] [&_path]:!fill-slate-300'
-              : '!bg-white !border !border-[#EBE6EE] !shadow-lg !rounded-none overflow-hidden [&_button]:!bg-white [&_button]:!border-[#EBE6EE] [&_button]:!fill-slate-600 [&_button:hover]:!bg-[#F4F4F6]'
+              ? '!bg-[var(--er-node-bg)] !border !border-white/20 !shadow-2xl !rounded-[var(--radius-control)] overflow-hidden [&_button]:!bg-[var(--er-node-bg)] [&_button]:!border-white/15 [&_button]:!fill-[var(--text-body)] [&_button:hover]:!bg-[var(--bg-ghost)] [&_path]:!fill-[var(--text-body)]'
+              : '!bg-white !border !border-[var(--er-node-border)] !shadow-lg !rounded-[var(--radius-control)] overflow-hidden [&_button]:!bg-white [&_button]:!border-[var(--er-node-border)] [&_button]:!fill-slate-600 [&_button:hover]:!bg-[var(--bg-panel-alt)]'
           }
         />
         <MiniMap
           nodeColor={(n) => {
-            if (n.data?.isNewlyGenerated) return isDark ? '#10B981' : '#059669';
-            if (n.data?.impactLevel === 'direct') return isDark ? '#F43F5E' : '#E11D48';
-            return isDark ? '#8E94F2' : '#6712DC';
+            if (n.data?.isNewlyGenerated) return isDark ? '#34d399' : '#15803d';
+            if (n.data?.impactLevel === 'direct') return isDark ? '#f87171' : '#b91c1c';
+            return isDark ? '#c4b5fd' : '#4d2f87';
           }}
           maskColor={isDark ? 'rgba(16, 16, 24, 0.75)' : 'rgba(232, 232, 236, 0.7)'}
           className={
             isDark
-              ? '!bg-[#181824] !border !border-white/20 !rounded-none !shadow-xl'
-              : '!bg-white !border !border-[#EBE6EE] !rounded-none !shadow-md'
+              ? '!bg-[var(--er-node-bg)] !border !border-white/20 !rounded-[var(--radius-control)] !shadow-xl'
+              : '!bg-white !border !border-[var(--er-node-border)] !rounded-[var(--radius-control)] !shadow-md'
           }
         />
       </ReactFlow>
 
       {/* Floating Toolbar & Legend Overlay */}
       <div
-        className={`absolute top-3 left-3 backdrop-blur-md rounded-none p-2 text-[11px] font-sans shadow-lg flex flex-wrap items-center gap-3 z-10 ${
+        className={`absolute top-3 left-3 backdrop-blur-md rounded-[var(--radius-panel)] p-2 text-[11px] font-sans shadow-lg flex flex-wrap items-center gap-3 z-10 ${
           isDark
-            ? 'bg-[#181824]/95 border border-white/15 text-slate-200'
-            : 'bg-white/95 border border-[#EBE6EE] text-[#1E1E24]'
+            ? 'bg-[var(--er-node-bg)]/95 border border-white/15 text-[var(--text-body)]'
+            : 'bg-white/95 border border-[var(--er-node-border)] text-[var(--text-primary)]'
         }`}
       >
         {/* Scope Switcher: Focused View (Query Scope) vs Entire Database */}
         {hasQueryScope && (
-          <div className="flex items-center gap-1 p-0.5 rounded-none border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5">
+          <div className="flex items-center gap-1 p-0.5 rounded-[var(--radius-pill)] border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5">
             <button
               type="button"
               onClick={() => setScope('query')}
-              className={`flex items-center gap-1.5 px-2 py-1 text-[10px] font-semibold transition-all cursor-pointer rounded-none ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-semibold transition-colors duration-200 cursor-pointer rounded-[var(--radius-pill)] ${
                 scope === 'query'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-[var(--success)] text-white shadow-xs'
+                  : 'text-[var(--text-recessive)] hover:text-white'
               }`}
               title="Show only tables touched by this query"
             >
-              <Eye className="w-3 h-3" />
+              <Eye className="w-3 h-3" aria-hidden="true" />
               <span>Query Scope ({visibleTables.length})</span>
             </button>
             <button
               type="button"
               onClick={() => setScope('all')}
-              className={`flex items-center gap-1.5 px-2 py-1 text-[10px] font-semibold transition-all cursor-pointer rounded-none ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-semibold transition-colors duration-200 cursor-pointer rounded-[var(--radius-pill)] ${
                 scope === 'all'
-                  ? isDark ? 'bg-indigo-600 text-white shadow-xs' : 'bg-[#6712DC] text-white shadow-xs'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-[var(--accent-primary)] text-white shadow-xs'
+                  : 'text-[var(--text-recessive)] hover:text-white'
               }`}
               title="Show all tables in the database"
             >
-              <Layers className="w-3 h-3" />
+              <Layers className="w-3 h-3" aria-hidden="true" />
               <span>Whole Database ({mergedTables.length})</span>
             </button>
           </div>
@@ -314,43 +314,39 @@ export const ERDiagramPanel: React.FC<ERDiagramPanelProps> = ({
 
         {/* Legend: New Table distinction */}
         {newTableSet.size > 0 && (
-          <div className="flex items-center gap-1.5 font-medium text-emerald-400">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <div className="flex items-center gap-1.5 font-medium text-[var(--success)]">
+            <span className="w-2 h-2 rounded-full bg-[var(--success)]" />
             <span className="flex items-center gap-0.5 font-bold">
-              <Sparkles className="w-2.5 h-2.5" />
+              <Sparkles className="w-2.5 h-2.5" aria-hidden="true" />
               New Table
             </span>
           </div>
         )}
 
-        <div className="flex items-center gap-1.5 text-slate-400">
-          <span className="w-2 h-2 rounded-none border border-slate-400 bg-slate-500/20" />
+        <div className="flex items-center gap-1.5 text-[var(--text-recessive)]">
+          <span className="w-2 h-2 rounded-none border border-[var(--text-recessive)] bg-[var(--text-recessive)]/20" />
           <span>Existing Table</span>
         </div>
 
         <div className="flex items-center gap-1.5">
           <span
-            className={`w-4 h-4 rounded-none text-white text-[8px] font-bold flex items-center justify-center ${
-              isDark ? 'bg-[#7B2CBF]' : 'bg-[#6712DC]'
-            }`}
+            className={`w-4 h-4 rounded-none text-white text-[8px] font-bold flex items-center justify-center bg-[var(--er-pk-badge)]`}
           >
             PK
           </span>
-          <span className={`font-medium ${isDark ? 'text-slate-200' : 'text-[#1E1E24]'}`}>PK</span>
+          <span className={`font-medium ${isDark ? 'text-[var(--text-body)]' : 'text-[var(--text-primary)]'}`}>PK</span>
         </div>
 
         <div className="flex items-center gap-1.5">
           <span
-            className={`w-4 h-4 rounded-none text-white text-[8px] font-bold flex items-center justify-center ${
-              isDark ? 'bg-[#9D4EDD]' : 'bg-[#8D3CFF]'
-            }`}
+            className={`w-4 h-4 rounded-none text-white text-[8px] font-bold flex items-center justify-center bg-[var(--accent-primary)]`}
           >
             FK
           </span>
-          <span className={`font-medium ${isDark ? 'text-slate-200' : 'text-[#1E1E24]'}`}>FK</span>
+          <span className={`font-medium ${isDark ? 'text-[var(--text-body)]' : 'text-[var(--text-primary)]'}`}>FK</span>
         </div>
 
-        <div className={`text-[10px] font-mono ${isDark ? 'text-slate-500' : 'text-[#ABABAB]'}`}>
+        <div className={`text-[10px] font-mono text-[var(--text-recessive)]`}>
           {visibleTables.length}T · {initialEdges.length}FK
         </div>
       </div>

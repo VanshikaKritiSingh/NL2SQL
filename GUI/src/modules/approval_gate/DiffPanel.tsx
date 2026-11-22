@@ -17,7 +17,7 @@ export const DiffPanel: React.FC<DiffPanelProps> = ({ diffData }) => {
   if (diff_type === 'none') {
     return (
       <div
-        className="bento-card p-4 text-center text-xs text-[var(--text-muted)] rounded-none"
+        className="bento-card p-4 text-center text-xs text-[var(--text-recessive)] rounded-[var(--radius-panel)]"
         style={{
           backgroundColor: isDark ? 'var(--bg-card)' : 'var(--bg-card)',
           border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid var(--border-subtle)',
@@ -30,7 +30,7 @@ export const DiffPanel: React.FC<DiffPanelProps> = ({ diffData }) => {
 
   return (
     <div
-      className="bento-card overflow-hidden shadow-lg flex flex-col h-64 transition-all duration-300 rounded-none"
+      className="bento-card overflow-hidden shadow-lg flex flex-col h-64 transition-colors duration-200 rounded-[var(--radius-panel)]"
       style={{
         backgroundColor: isDark ? 'var(--bg-card)' : 'var(--bg-card)',
         border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid var(--border-subtle)',
@@ -38,7 +38,7 @@ export const DiffPanel: React.FC<DiffPanelProps> = ({ diffData }) => {
     >
       {/* Header */}
       <div
-        className={`h-9 px-3 border-b flex items-center justify-between shrink-0 transition-colors rounded-none ${
+        className={`h-9 px-3 border-b flex items-center justify-between shrink-0 transition-colors duration-200 rounded-t-[var(--radius-panel)] ${
           isDark
             ? 'border-[var(--border-main)] bg-[var(--bg-card-header)]'
             : 'border-[var(--border-subtle)] bg-[var(--bg-card-header)]'
@@ -46,16 +46,16 @@ export const DiffPanel: React.FC<DiffPanelProps> = ({ diffData }) => {
       >
         <div className="flex items-center gap-2">
           {diff_type === 'ddl' ? (
-            <GitCompare className={`w-4 h-4 ${isDark ? 'text-[var(--accent-primary)]' : 'text-[#111111]'}`} />
+            <GitCompare className={`w-4 h-4 ${isDark ? 'text-[var(--accent-primary)]' : 'text-[var(--accent-primary)]'}`} aria-hidden="true" />
           ) : (
-            <Table2 className="w-4 h-4 text-emerald-500" />
+            <Table2 className="w-4 h-4 text-emerald-500" aria-hidden="true" />
           )}
           <span className="text-xs font-semibold text-[var(--text-main)]">
             {diff_type === 'ddl' ? 'Schema Migration Diff (Dolt Checkpoint)' : 'Data Row Diff Preview (DML)'}
           </span>
         </div>
         <span
-          className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded-none ${
+          className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded-[var(--radius-pill)] ${
             isDark
               ? 'bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border-main)]'
               : 'bg-white text-[var(--text-muted)] border border-[var(--border-subtle)]'
@@ -116,9 +116,7 @@ export const DiffPanel: React.FC<DiffPanelProps> = ({ diffData }) => {
                 return cols.map((colName, idx) => (
                   <tr
                     key={`${row.row_id}-${colName}`}
-                    className={`transition-colors ${
-                      isDark ? 'hover:bg-[var(--bg-hover)]' : 'hover:bg-[#EDF0F7]'
-                    }`}
+                    className="transition-colors duration-150 hover:bg-[var(--bg-hover)]"
                   >
                     {idx === 0 && (
                       <>
@@ -126,7 +124,7 @@ export const DiffPanel: React.FC<DiffPanelProps> = ({ diffData }) => {
                           #{String(row.row_id)}
                         </td>
                         <td rowSpan={cols.length} className="px-2 py-1.5 align-top">
-                          <span className={`text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded-none ${
+                          <span className={`text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded-[var(--radius-pill)] ${
                             isDark
                               ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                               : 'bg-amber-50 text-amber-700 border border-amber-200'
@@ -143,7 +141,7 @@ export const DiffPanel: React.FC<DiffPanelProps> = ({ diffData }) => {
                       {String(row.columns[colName].before)}
                     </td>
                     <td className="px-1 py-1.5 text-[var(--text-muted)] text-center">
-                      <ArrowRight className="w-3 h-3 inline" />
+                      <ArrowRight className="w-3 h-3 inline" aria-hidden="true" />
                     </td>
                     <td className="px-2 py-1.5 text-emerald-500 font-bold">
                       {String(row.columns[colName].after)}

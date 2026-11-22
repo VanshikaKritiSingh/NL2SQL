@@ -14,5 +14,5 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ size = 'md', cla
     lg: 'w-8 h-8',
   }[size];
 
-  return <Loader2 className={`animate-spin text-indigo-400 ${sizeClass} ${className}`} />;
+  return <Loader2 className={`animate-spin text-[var(--accent-primary)] ${sizeClass} ${className}`} aria-hidden="true" />;
 };

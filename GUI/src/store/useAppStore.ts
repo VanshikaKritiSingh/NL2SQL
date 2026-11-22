@@ -23,6 +23,9 @@ interface AppState {
   setThinkingEnabled: (enabled: boolean | null) => void;
   currentView: 'query' | 'approval';
   setCurrentView: (view: 'query' | 'approval') => void;
+  rightPanelTab: 'results' | 'er_diagram';
+  setRightPanelTab: (tab: 'results' | 'er_diagram') => void;
+  toggleRightPanelTab: () => void;
   theme: AppTheme;
   setTheme: (theme: AppTheme) => void;
   toggleTheme: () => void;
@@ -68,6 +71,11 @@ export const useAppStore = create<AppState>((set) => ({
   setThinkingEnabled: (enabled) => set({ thinkingEnabled: enabled }),
   currentView: 'query',
   setCurrentView: (view) => set({ currentView: view }),
+  rightPanelTab: 'results',
+  setRightPanelTab: (tab) => set({ rightPanelTab: tab }),
+  toggleRightPanelTab: () => set((state) => ({
+    rightPanelTab: state.rightPanelTab === 'er_diagram' ? 'results' : 'er_diagram',
+  })),
   theme: getStoredTheme(),
   setTheme: (theme) => {
     if (typeof window !== 'undefined') {

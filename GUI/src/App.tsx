@@ -21,15 +21,22 @@ export default function App() {
   // Initialize live WebSocket pipeline streaming
   useWebSocket();
 
-  // Keep HTML document theme class synchronized
+  // Keep HTML document theme attribute and meta tag synchronized
   useEffect(() => {
     const root = document.documentElement;
+    root.setAttribute('data-theme', theme);
+    // Also keep legacy class for any remaining Tailwind dark: prefixes
     if (theme === 'dark') {
       root.classList.add('dark');
       root.classList.remove('light');
     } else {
       root.classList.add('light');
       root.classList.remove('dark');
+    }
+    // Sync theme-color meta tag
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) {
+      metaTheme.setAttribute('content', theme === 'dark' ? '#121212' : '#ffffff');
     }
   }, [theme]);
 
@@ -58,18 +65,13 @@ export default function App() {
   const isDark = theme === 'dark';
 
   return (
-    <div className={`h-screen w-screen flex items-center justify-center overflow-hidden transition-colors duration-300 ${isDark ? 'bg-[#0E0E14]' : 'bg-[#E5E8EF]'}`}>
-      <div className={`h-full w-full flex flex-col overflow-hidden transition-colors duration-300 ${isDark ? 'bg-[var(--bg-app)]' : 'floating-app'} text-[var(--text-main)]`}>
-        {/* Ambient glow overlay for dark theme header */}
-        {isDark && (
-          <div className="absolute inset-x-0 top-0 h-40 pointer-events-none ambient-glow-header z-0" />
-        )}
-
+    <div className={`h-screen w-screen flex items-center justify-center overflow-hidden transition-colors duration-300 ${isDark ? 'bg-[var(--bg-canvas)]' : 'bg-[var(--bg-outer)]'}`}>
+      <div className={`h-full w-full flex flex-col overflow-hidden transition-colors duration-300 ${isDark ? 'bg-[var(--bg-canvas)]' : 'floating-app'} text-[var(--text-main)]`}>
         {/* Global Top Bar */}
         <TopBar />
 
         {/* Main View Router */}
-        <main className="flex-1 min-h-0 flex flex-col overflow-hidden relative z-10">
+        <main id="main-content" className="flex-1 min-h-0 flex flex-col overflow-hidden relative z-10">
           {currentView === 'query' && <QueryIntakePage />}
           {currentView === 'approval' && <ApprovalGatePage />}
         </main>

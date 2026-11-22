@@ -1,157 +1,195 @@
-/* theme.css — Light: Monochromatic Soft-UI & Jet-Black Contrast
-                  Dark: Obsidian Bento & Ambient Plum-Violet Glow */
-
-/* ═══════════════════════════════════════════════════════
-   DARK THEME — Obsidian Bento & Ambient Plum-Violet Glow
-   ═══════════════════════════════════════════════════════ */
+/* ==========================================================================
+   DESIGN TOKENS — EDITORIAL TECHNICAL SYSTEM (DARK DEFAULT + LIGHT VARIANT)
+   NL2SQL Studio — Humanized Technical Presence
+   ========================================================================== */
 :root,
-:root.dark {
-  /* Obsidian Surfaces */
-  --bg-app: #0E0E14;
-  --bg-outer: #0E0E14;
-  --bg-header: #151520;
-  --bg-card: #1B1B24;
-  --bg-card-header: #22222E;
-  --bg-input: #16161E;
-  --bg-subtle: #252530;
-  --bg-hover: #2C2C3A;
-
-  /* Hairline borders */
-  --border-main: rgba(255,255,255,0.14);
-  --border-subtle: rgba(255,255,255,0.10);
-  --border-focus: #8E94F2;
+:root.dark,
+html[data-theme="dark"] {
+  color-scheme: dark;
 
   /* Typography */
-  --text-main: #FFFFFF;
-  --text-secondary: #C8C8D4;
-  --text-muted: #9A9AA6;
+  --font-serif: 'Signifier', 'Newsreader', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Sohne', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
 
-  /* Accent — periwinkle / lavender */
-  --accent-primary: #8E94F2;
-  --accent-secondary: #B48EBA;
-  --accent-hover: #A5AAFF;
-  --accent-glow: rgba(157, 123, 255, 0.22);
+  /* Dark Mode Neutrals (Default) */
+  --bg-canvas: #121212;
+  --bg-atmosphere: #15101e;
+  --bg-panel: #1a1a1a;
+  --bg-panel-alt: #161616;
+  --bg-ghost: #1e1e1e;
+  --bg-header: rgba(34, 34, 34, 0.78);
+  --border-hairline: #252525;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-focus: #c4b5fd;
 
-  /* Semantic */
-  --danger: #F87171;
-  --danger-bg: rgba(248, 113, 113, 0.12);
-  --success: #2ECC71;
-  --success-bg: rgba(46, 204, 113, 0.12);
-  --warning: #FBBF24;
+  --text-primary: #ffffff;
+  --text-heading: #e7e7e7;
+  --text-body: #a0a0a0;
+  --text-recessive: #898989;
+  --text-footer: #9e9e9e;
+
+  /* Legacy aliases for existing components */
+  --bg-app: #121212;
+  --bg-outer: #121212;
+  --bg-card: #1a1a1a;
+  --bg-card-header: #1e1e1e;
+  --bg-input: #161616;
+  --bg-subtle: #252525;
+  --bg-hover: #2a2a2a;
+  --border-main: #252525;
+  --text-main: #e7e7e7;
+  --text-secondary: #a0a0a0;
+  --text-muted: #898989;
+
+  /* Primary Control Inversion */
+  --btn-primary-bg: #ffffff;
+  --btn-primary-text: #000000;
+  --btn-primary-hover: #e7e7e7;
+
+  /* Accent — restrained violet (behind objects only) */
+  --accent-primary: #c4b5fd;
+  --accent-secondary: #a78bfa;
+  --accent-hover: #ddd6fe;
+  --accent-violet-glow: rgba(77, 47, 135, 0.34);
+  --accent-violet-text: #4d2f87;
+
+  /* Editorial Accents */
+  --accent-peach-bg: #fbe1d1;
+  --accent-peach-ink: #5d2a1a;
+  --accent-blue-bg: #d3e3fc;
+  --accent-cream-bg: #f8f5e2;
+  --accent-ink-card: #17191c;
+  --accent-yellow-quote: #fcf0b6;
+
+  /* Honest App-Mode Status Tokens (AA Contrast) */
+  --status-ok: #34d399;
+  --status-warn: #fbbf24;
+  --status-danger: #f87171;
+  --success: #34d399;
+  --success-bg: rgba(52, 211, 153, 0.12);
+  --warning: #fbbf24;
   --warning-bg: rgba(251, 191, 36, 0.12);
+  --danger: #f87171;
+  --danger-bg: rgba(248, 113, 113, 0.12);
 
-  /* Positive delta green */
-  --delta-positive: #2ECC71;
+  /* Positive delta */
+  --delta-positive: #34d399;
 
-  /* CTA button colors */
-  --btn-primary-bg: #8E94F2;
-  --btn-primary-text: #FFFFFF;
-  --btn-primary-hover: #A5AAFF;
-  --btn-primary-glow: rgba(142,148,242,0.35);
+  /* Layout & Radii */
+  --stage-max: 1200px;
+  --content-max: 1120px;
+  --gutter-media: 40px;
+  --gutter-footer: 24px;
+  --radius-pill: 9999px;
+  --radius-panel: 16px;
+  --radius-stage: 18px;
+  --radius-control: 10px;
+  --nav-height: 48px;
+  --control-primary-h: 44px;
+  --control-nav-h: 32px;
 
   /* React Flow & Diagrams (ER Canvas) */
-  --flow-bg: #101018;
-  --flow-grid: rgba(255, 255, 255, 0.12);
+  --flow-bg: #161616;
+  --flow-grid: rgba(255, 255, 255, 0.06);
+  --er-node-bg: #1a1a1a;
+  --er-node-border: #252525;
+  --er-node-shadow: 0 4px 20px rgba(0,0,0,0.40);
+  --er-pk-badge: #a78bfa;
+  --er-attr-bg: #161616;
+  --er-attr-text: #e7e7e7;
+  --er-attr-type: #898989;
+  --er-header-gradient-from: #a78bfa;
+  --er-header-gradient-to: #1a1a1a;
+  --er-edge-color-from: #c4b5fd;
+  --er-edge-color-to: #a78bfa;
 
-  /* Table Node ER */
-  --er-node-bg: #181824;
-  --er-node-border: rgba(255, 255, 255, 0.15);
-  --er-node-shadow: 0 8px 30px rgba(0,0,0,0.50);
-  --er-pk-badge: #7B2CBF;
-  --er-attr-bg: #13131C;
-  --er-attr-text: #FFFFFF;
-  --er-attr-type: #9A9AA6;
-  --er-header-gradient-from: #7B2CBF;
-  --er-header-gradient-to: #1E1E2C;
-  --er-edge-color-from: #8E94F2;
-  --er-edge-color-to: #B48EBA;
-
-  /* Bento card styling */
-  --card-radius: 0px;
-  --card-hairline: 1px solid rgba(255,255,255,0.12);
-
-  /* Ambient glow */
-  --ambient-glow: rgba(157, 123, 255, 0.22);
+  /* Card styling */
+  --card-hairline: 1px solid #252525;
 
   /* Scrollbar */
-  --scrollbar-track: #0E0E14;
-  --scrollbar-thumb: #2C2C3A;
-  --scrollbar-thumb-hover: #8E94F2;
+  --scrollbar-track: #121212;
+  --scrollbar-thumb: #2a2a2a;
+  --scrollbar-thumb-hover: #898989;
 }
 
 /* ═══════════════════════════════════════════════════════
-   LIGHT THEME — Monochromatic Soft-UI & Jet-Black Contrast
+   LIGHT THEME
    ═══════════════════════════════════════════════════════ */
-:root.light {
-  /* Surfaces */
-  --bg-app: #FFFFFF;
-  --bg-outer: #E5E8EF;
-  --bg-header: #FFFFFF;
-  --bg-card: #F4F6F9;
-  --bg-card-header: #ECEEF3;
-  --bg-input: #F4F6F9;
-  --bg-subtle: #E8EBF0;
-  --bg-hover: #EDF0F7;
+:root.light,
+html[data-theme="light"] {
+  color-scheme: light;
 
-  /* Borders */
-  --border-main: #DDE1E8;
-  --border-subtle: #E8EBF0;
-  --border-focus: #111111;
+  --bg-canvas: #ffffff;
+  --bg-atmosphere: #fafafb;
+  --bg-panel: #fafafb;
+  --bg-panel-alt: #f7f7f8;
+  --bg-ghost: rgba(23, 25, 28, 0.05);
+  --bg-header: rgba(255, 255, 255, 0.86);
+  --border-hairline: #e7e8ea;
+  --border-subtle: rgba(10, 23, 43, 0.1);
+  --border-focus: #4d2f87;
 
-  /* Typography — jet-black contrast */
-  --text-main: #111111;
-  --text-secondary: #333333;
-  --text-muted: #888C94;
+  --text-primary: #17191c;
+  --text-heading: #17191c;
+  --text-body: #5c606a;
+  --text-recessive: #696e7a;
+  --text-footer: #5c606a;
 
-  /* Accent — jet-black for high contrast */
-  --accent-primary: #111111;
-  --accent-secondary: #333333;
-  --accent-hover: #000000;
-  --accent-glow: rgba(17, 17, 17, 0.08);
+  /* Legacy aliases */
+  --bg-app: #ffffff;
+  --bg-outer: #f7f7f8;
+  --bg-card: #fafafb;
+  --bg-card-header: #f7f7f8;
+  --bg-input: #fafafb;
+  --bg-subtle: #f2f2f3;
+  --bg-hover: #f2f2f3;
+  --border-main: #e7e8ea;
+  --text-main: #17191c;
+  --text-secondary: #5c606a;
+  --text-muted: #696e7a;
 
-  /* Semantic */
-  --danger: #DC2626;
-  --danger-bg: rgba(220, 38, 38, 0.08);
-  --success: #16A34A;
-  --success-bg: rgba(22, 163, 74, 0.08);
-  --warning: #D97706;
-  --warning-bg: rgba(217, 119, 6, 0.08);
+  --btn-primary-bg: #17191c;
+  --btn-primary-text: #ffffff;
+  --btn-primary-hover: #2c2f36;
 
-  /* Positive delta */
-  --delta-positive: #16A34A;
+  --accent-primary: #4d2f87;
+  --accent-secondary: #5c606a;
+  --accent-hover: #3a1f6d;
+  --accent-violet-glow: rgba(77, 47, 135, 0.10);
 
-  /* CTA button — solid jet-black with white text */
-  --btn-primary-bg: #111111;
-  --btn-primary-text: #FFFFFF;
-  --btn-primary-hover: #000000;
-  --btn-primary-glow: rgba(17, 17, 17, 0.08);
+  --status-ok: #15803d;
+  --status-warn: #b45309;
+  --status-danger: #b91c1c;
+  --success: #15803d;
+  --success-bg: rgba(21, 128, 61, 0.08);
+  --warning: #b45309;
+  --warning-bg: rgba(180, 83, 9, 0.08);
+  --danger: #b91c1c;
+  --danger-bg: rgba(185, 28, 28, 0.08);
 
-  /* React Flow & Diagrams (ER Canvas) */
-  --flow-bg: #E8E8EC;
-  --flow-grid: #D2D2D8;
+  --delta-positive: #15803d;
 
-  /* Table Node ER */
-  --er-node-bg: #FFFFFF;
-  --er-node-border: #EBE6EE;
-  --er-node-shadow: 0 4px 24px rgba(0,0,0,0.08);
-  --er-pk-badge: #6712DC;
-  --er-attr-bg: #F4F4F6;
-  --er-attr-text: #1E1E24;
-  --er-attr-type: #8E8E98;
-  --er-header-gradient-from: #8D3CFF;
-  --er-header-gradient-to: #FAF7FC;
-  --er-edge-color-from: #6712DC;
-  --er-edge-color-to: #8D3CFF;
+  /* React Flow & Diagrams */
+  --flow-bg: #f7f7f8;
+  --flow-grid: #e7e8ea;
+  --er-node-bg: #ffffff;
+  --er-node-border: #e7e8ea;
+  --er-node-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  --er-pk-badge: #4d2f87;
+  --er-attr-bg: #fafafb;
+  --er-attr-text: #17191c;
+  --er-attr-type: #696e7a;
+  --er-header-gradient-from: #4d2f87;
+  --er-header-gradient-to: #fafafb;
+  --er-edge-color-from: #4d2f87;
+  --er-edge-color-to: #7c5cbf;
 
-  /* Bento card styling */
-  --card-radius: 0px;
-  --card-hairline: 1px solid #DDE1E8;
-
-  /* Ambient glow — N/A for light, kept subtle */
-  --ambient-glow: rgba(17, 17, 17, 0.04);
+  /* Card styling */
+  --card-hairline: 1px solid #e7e8ea;
 
   /* Scrollbar */
-  --scrollbar-track: #F4F6F9;
-  --scrollbar-thumb: #CCD0D8;
-  --scrollbar-thumb-hover: #111111;
+  --scrollbar-track: #fafafb;
+  --scrollbar-thumb: #d0d2d6;
+  --scrollbar-thumb-hover: #696e7a;
 }

@@ -45,14 +45,14 @@ export const TableNode = memo(({ data }: TableNodeProps) => {
 
   return (
     <div
-      className={`w-72 rounded-none overflow-hidden font-sans transition-all select-none border ${
+      className={`w-72 rounded-[var(--radius-panel)] overflow-hidden font-sans transition-colors duration-200 select-none border ${
         isNewlyGenerated
           ? isDark
-            ? 'bg-[#141E18] border-emerald-500/80 shadow-[0_8px_30px_rgba(16,185,129,0.25)] hover:border-emerald-400'
-            : 'bg-[#F4FAF6] border-emerald-600 shadow-[0_8px_30px_rgba(16,185,129,0.18)] hover:border-emerald-500'
+            ? 'bg-[var(--bg-panel-alt)] border-[var(--success)]/80 shadow-[0_8px_30px_rgba(52,211,153,0.23)] hover:border-[var(--success)]'
+            : 'bg-[var(--bg-panel-alt)] border-[var(--success)] shadow-[0_8px_30px_rgba(21,128,61,0.18)] hover:border-[var(--success)]'
           : isDark
-          ? 'bg-[#181824] border-white/15 shadow-[0_8px_30px_rgba(0,0,0,0.6)] hover:border-[#8E94F2]/50 hover:shadow-[0_12px_36px_rgba(142,148,242,0.18)]'
-          : 'bg-[#FFFFFF] border-[#EBE6EE] shadow-[0_8px_30px_rgba(0,0,0,0.08)] hover:border-[#8D3CFF]/40 hover:shadow-[0_12px_36px_rgba(103,18,220,0.12)]'
+          ? 'bg-[var(--er-node-bg)] border-[var(--er-node-border)] shadow-[0_8px_30px_rgba(0,0,0,0.6)] hover:border-[var(--accent-primary)]/50 hover:shadow-[0_12px_36px_rgba(196,181,253,0.12)]'
+          : 'bg-[var(--er-node-bg)] border-[var(--er-node-border)] shadow-[0_8px_30px_rgba(0,0,0,0.08)] hover:border-[var(--accent-primary)]/40 hover:shadow-[0_12px_36px_rgba(77,47,135,0.10)]'
       }`}
     >
       {/* Node-level Fallback Handles */}
@@ -64,50 +64,50 @@ export const TableNode = memo(({ data }: TableNodeProps) => {
         className={`px-3.5 py-2.5 flex items-center justify-between border-b ${
           isNewlyGenerated
             ? isDark
-              ? 'bg-gradient-to-r from-emerald-700 via-teal-800 to-[#10241A] border-emerald-500/40 text-white'
-              : 'bg-gradient-to-r from-emerald-600 via-teal-600 to-[#E8F8F0] border-emerald-300 text-white'
+              ? 'bg-gradient-to-r from-[var(--success)] via-teal-800 to-[var(--bg-ghost)] border-[var(--success)]/40 text-[var(--text-primary)]'
+              : 'bg-gradient-to-r from-[var(--success)] via-teal-600 to-[var(--bg-ghost)] border-[var(--success)] text-[var(--text-primary)]'
             : isPrimaryOrSelected
             ? isDark
-              ? 'bg-gradient-to-r from-[#7B2CBF] to-[#201A30] border-white/15 text-white'
-              : 'bg-gradient-to-r from-[#8D3CFF] to-[#FAF7FC] border-[#EBE6EE] text-white'
+              ? 'bg-gradient-to-r from-[var(--er-header-gradient-from)] to-[var(--er-header-gradient-to)] border-[var(--er-node-border)] text-[var(--text-primary)]'
+              : 'bg-gradient-to-r from-[var(--er-header-gradient-from)] to-[var(--er-header-gradient-to)] border-[var(--er-node-border)] text-[var(--text-primary)]'
             : isDark
-            ? 'bg-[#1E1E2C] border-white/15 text-slate-100'
-            : 'bg-[#FAF7FC] border-[#EBE6EE] text-[#1E1E24]'
+            ? 'bg-[var(--bg-ghost)] border-[var(--er-node-border)] text-[var(--text-heading)]'
+            : 'bg-[var(--bg-ghost)] border-[var(--er-node-border)] text-[var(--text-primary)]'
         }`}
       >
         <div className="flex items-center gap-2 truncate">
           <span
             className={`font-bold text-sm tracking-tight truncate ${
               isNewlyGenerated || isPrimaryOrSelected
-                ? 'text-white drop-shadow-xs'
+                ? 'text-[var(--text-primary)] drop-shadow-xs'
                 : isDark
-                ? 'text-white'
-                : 'text-[#1E1E24]'
+                ? 'text-[var(--text-primary)]'
+                : 'text-[var(--text-heading)]'
             }`}
           >
             {table.name}
           </span>
           {isNewlyGenerated && (
-            <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-none bg-emerald-500 text-white shadow-xs flex items-center gap-0.5">
-              <Sparkles className="w-2.5 h-2.5" />
+            <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-[var(--radius-pill)] bg-[var(--success)] text-white shadow-xs flex items-center gap-0.5">
+              <Sparkles className="w-2.5 h-2.5" aria-hidden="true" />
               <span>NEW</span>
             </span>
           )}
           {!isNewlyGenerated && (
-            <span className={`text-[8px] font-mono font-medium px-1.5 py-0.2 rounded-none border ${
-              isDark ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-black/5 border-black/10 text-slate-500'
+            <span className={`text-[8px] font-mono font-medium px-1.5 py-0.2 rounded-[var(--radius-pill)] border ${
+              isDark ? 'bg-white/5 border-white/10 text-[var(--text-recessive)]' : 'bg-black/5 border-black/10 text-[var(--text-recessive)]'
             }`}>
               EXISTING
             </span>
           )}
           {table.row_count !== undefined && table.row_count !== null && (
             <span
-              className={`text-[9px] font-mono font-medium px-1.5 py-0.2 rounded-none border ${
+              className={`text-[9px] font-mono font-medium px-1.5 py-0.2 rounded-[var(--radius-pill)] border ${
                 isNewlyGenerated || isPrimaryOrSelected
                   ? 'bg-white/20 border-white/30 text-white'
                   : isDark
-                  ? 'bg-white/5 border-white/10 text-slate-300'
-                  : 'bg-black/5 border-black/10 text-slate-600'
+                  ? 'bg-white/5 border-white/10 text-[var(--text-body)]'
+                  : 'bg-black/5 border-black/10 text-[var(--text-body)]'
               }`}
               title={`${table.row_count} rows in table`}
             >
@@ -115,7 +115,7 @@ export const TableNode = memo(({ data }: TableNodeProps) => {
             </span>
           )}
           {operation && (
-            <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-none bg-rose-600 text-white shadow-xs">
+            <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-[var(--radius-pill)] bg-[var(--danger)] text-white shadow-xs">
               {operation}
             </span>
           )}
@@ -125,30 +125,30 @@ export const TableNode = memo(({ data }: TableNodeProps) => {
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             type="button"
-            className={`p-1 rounded-none transition-colors cursor-pointer ${
+            className={`p-1 rounded-[var(--radius-control)] transition-colors duration-200 cursor-pointer ${
               isPrimaryOrSelected
                 ? 'text-white/80 hover:text-white hover:bg-white/20'
                 : isDark
-                ? 'text-slate-400 hover:text-white hover:bg-white/10'
-                : 'text-[#8E8E98] hover:text-[#1E1E24] hover:bg-[#F4F4F6]'
+                ? 'text-[var(--text-recessive)] hover:text-white hover:bg-white/10'
+                : 'text-[var(--text-recessive)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-panel-alt)]'
             }`}
             title="Add attribute"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
           <div
             className={`cursor-grab active:cursor-grabbing p-1 ${
-              isPrimaryOrSelected ? 'text-white/80' : isDark ? 'text-slate-400' : 'text-[#8E8E98]'
+              isPrimaryOrSelected ? 'text-white/80' : isDark ? 'text-[var(--text-recessive)]' : 'text-[var(--text-recessive)]'
             }`}
             title="Drag table"
           >
-            <GripVertical className="w-3.5 h-3.5" />
+            <GripVertical className="w-3.5 h-3.5" aria-hidden="true" />
           </div>
         </div>
       </div>
 
       {/* Attributes List */}
-      <div className={`p-2 space-y-1.5 ${isDark ? 'bg-[#181824]' : 'bg-[#FFFFFF]'}`}>
+      <div className="p-2 space-y-1.5 bg-[var(--er-node-bg)]">
         {table.columns.map((col) => {
           const isExpanded = expandedCols.has(col.name);
           const isHidden = hiddenCols.has(col.name);
@@ -160,61 +160,49 @@ export const TableNode = memo(({ data }: TableNodeProps) => {
                 type="target"
                 id={`${table.name}-${col.name}`}
                 position={Position.Left}
-                className={`!w-2 !h-2 !border-none !-left-[9px] !top-1/2 !-translate-y-1/2 !rounded-none ${
-                  isDark ? '!bg-[#8E94F2]' : '!bg-[#6712DC]'
-                }`}
+                className="!w-2 !h-2 !border-none !-left-[9px] !top-1/2 !-translate-y-1/2 !rounded-none !bg-[var(--er-edge-color-from)]"
                 title={`Target: ${table.name}.${col.name}`}
               />
               <Handle
                 type="source"
                 id={`${table.name}-${col.name}`}
                 position={Position.Right}
-                className={`!w-2 !h-2 !border-none !-right-[9px] !top-1/2 !-translate-y-1/2 !rounded-none ${
-                  isDark ? '!bg-[#C4B5FD]' : '!bg-[#8D3CFF]'
-                }`}
+                className="!w-2 !h-2 !border-none !-right-[9px] !top-1/2 !-translate-y-1/2 !rounded-none !bg-[var(--er-edge-color-from)]"
                 title={`Source: ${table.name}.${col.name}`}
               />
 
-              {/* Recessed row with sharp 90-degree corners */}
+              {/* Recessed row */}
               <div
                 onClick={() => toggleExpand(col.name)}
-                className={`group px-2.5 py-1.5 rounded-none transition-all cursor-pointer flex items-center justify-between border ${
-                  isDark
-                    ? 'bg-[#12121A] hover:bg-[#1E1E2C] border-transparent hover:border-white/12'
-                    : 'bg-[#F4F4F6] hover:bg-[#ECECEF] border-transparent hover:border-[#E4E4E8]'
-                } ${isHidden ? 'opacity-40' : ''}`}
+                className={`group px-2.5 py-1.5 rounded-[var(--radius-control)] transition-colors duration-200 cursor-pointer flex items-center justify-between border bg-[var(--er-attr-bg)] hover:bg-[var(--bg-ghost)] border-transparent hover:border-[var(--border-hairline)] ${
+                  isHidden ? 'opacity-40' : ''
+                }`}
               >
                 {/* Left side: Square Key Badge + Attribute Name */}
                 <div className="flex items-center gap-2 truncate min-w-0">
                   {col.is_primary_key ? (
                     <span
-                      className={`w-5 h-5 rounded-none text-white font-bold text-[9px] flex items-center justify-center shrink-0 shadow-xs ${
-                        isDark ? 'bg-[#7B2CBF]' : 'bg-[#6712DC]'
-                      }`}
+                      className="w-5 h-5 rounded-none text-white font-bold text-[9px] flex items-center justify-center shrink-0 shadow-xs bg-[var(--er-pk-badge)]"
                       title="Primary Key"
                     >
                       PK
                     </span>
                   ) : col.is_foreign_key ? (
                     <span
-                      className={`w-5 h-5 rounded-none text-white font-bold text-[9px] flex items-center justify-center shrink-0 shadow-xs ${
-                        isDark ? 'bg-[#9D4EDD]' : 'bg-[#8D3CFF]'
-                      }`}
+                      className="w-5 h-5 rounded-none text-white font-bold text-[9px] flex items-center justify-center shrink-0 shadow-xs bg-[var(--accent-primary)]"
                       title={`Foreign Key -> ${col.fk_references || ''}`}
                     >
                       FK
                     </span>
                   ) : (
                     <span
-                      className={`w-5 h-5 rounded-none font-mono text-[9px] flex items-center justify-center shrink-0 ${
-                        isDark ? 'bg-[#222232] text-slate-400' : 'bg-[#E8E8EE] text-[#8E8E98]'
-                      }`}
+                      className="w-5 h-5 rounded-none font-mono text-[9px] flex items-center justify-center shrink-0 bg-[var(--bg-ghost)] text-[var(--text-recessive)]"
                     >
                       •
                     </span>
                   )}
 
-                  <span className={`text-xs font-semibold truncate ${isDark ? 'text-slate-100' : 'text-[#1E1E24]'}`}>
+                  <span className="text-xs font-semibold truncate text-[var(--er-attr-text)]">
                     {col.name}
                   </span>
                 </div>
@@ -222,11 +210,7 @@ export const TableNode = memo(({ data }: TableNodeProps) => {
                 {/* Right side: Data type pill + Visibility Eye + Remove '-' Icon */}
                 <div className="flex items-center gap-1.5 shrink-0 ml-2">
                   <span
-                    className={`text-[10px] font-mono px-1.5 py-0.5 rounded-none border ${
-                      isDark
-                        ? 'text-slate-300 bg-[#1E1E2C] border-white/10'
-                        : 'text-[#8E8E98] bg-white border-[#E8E8EC]'
-                    }`}
+                    className="text-[10px] font-mono px-1.5 py-0.5 rounded-[var(--radius-pill)] border text-[var(--er-attr-type)] bg-[var(--bg-ghost)] border-[var(--border-hairline)]"
                   >
                     {col.data_type}
                   </span>
@@ -234,12 +218,12 @@ export const TableNode = memo(({ data }: TableNodeProps) => {
                   <button
                     type="button"
                     onClick={(e) => toggleVisibility(e, col.name)}
-                    className={`p-0.5 rounded-none transition-colors opacity-70 group-hover:opacity-100 ${
-                      isDark ? 'text-slate-400 hover:text-white' : 'text-[#8E8E98] hover:text-[#1E1E24]'
+                    className={`p-0.5 rounded-[var(--radius-control)] transition-colors duration-200 opacity-70 group-hover:opacity-100 ${
+                      isDark ? 'text-[var(--text-recessive)] hover:text-white' : 'text-[var(--text-recessive)] hover:text-[var(--text-primary)]'
                     }`}
                     title={isHidden ? 'Show attribute' : 'Hide attribute'}
                   >
-                    {isHidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                    {isHidden ? <EyeOff className="w-3 h-3" aria-hidden="true" /> : <Eye className="w-3 h-3" aria-hidden="true" />}
                   </button>
 
                   <button
@@ -247,16 +231,14 @@ export const TableNode = memo(({ data }: TableNodeProps) => {
                     onClick={(e) => {
                       e.stopPropagation();
                     }}
-                    className={`p-0.5 rounded-none transition-colors opacity-70 group-hover:opacity-100 ${
-                      isDark ? 'text-slate-400 hover:text-rose-400' : 'text-[#8E8E98] hover:text-rose-500'
-                    }`}
+                    className="p-0.5 rounded-[var(--radius-control)] transition-colors duration-200 opacity-70 group-hover:opacity-100 text-[var(--text-recessive)] hover:text-[var(--danger)]"
                     title="Remove attribute"
                   >
-                    <Minus className="w-3 h-3" />
+                    <Minus className="w-3 h-3" aria-hidden="true" />
                   </button>
 
-                  <div className={isDark ? 'text-slate-400' : 'text-[#8E8E98]'}>
-                    {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  <div className="text-[var(--text-recessive)]">
+                    {isExpanded ? <ChevronUp className="w-3 h-3" aria-hidden="true" /> : <ChevronDown className="w-3 h-3" aria-hidden="true" />}
                   </div>
                 </div>
               </div>
@@ -264,19 +246,15 @@ export const TableNode = memo(({ data }: TableNodeProps) => {
               {/* Expandable 2-column sub-rows for secondary metadata */}
               {isExpanded && (
                 <div
-                  className={`mt-1 p-2 rounded-none text-[10px] space-y-2 shadow-xs animate-fade-in border ${
-                    isDark
-                      ? 'bg-[#14141E] border-white/12 text-slate-300'
-                      : 'bg-white border-[#EBE6EE] text-[#555560]'
-                  }`}
+                  className="mt-1 p-2 rounded-[var(--radius-control)] text-[10px] space-y-2 shadow-xs animate-fade-in border bg-[var(--er-attr-bg)] border-[var(--border-hairline)] text-[var(--text-body)]"
                 >
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
                       <div>
-                        <span className={`block text-[9px] uppercase font-bold ${isDark ? 'text-slate-400' : 'text-[#8E8E98]'}`}>
+                        <span className="block text-[9px] uppercase font-bold text-[var(--text-recessive)]">
                           Default:
                         </span>
-                        <span className={`font-mono font-medium ${isDark ? 'text-slate-100' : 'text-[#1E1E24]'}`}>
+                        <span className="font-mono font-medium text-[var(--er-attr-text)]">
                           {col.default_value !== undefined && col.default_value !== null
                             ? col.default_value
                             : col.is_primary_key
@@ -285,28 +263,28 @@ export const TableNode = memo(({ data }: TableNodeProps) => {
                         </span>
                       </div>
                       <div>
-                        <span className={`block text-[9px] uppercase font-bold ${isDark ? 'text-slate-400' : 'text-[#8E8E98]'}`}>
+                        <span className="block text-[9px] uppercase font-bold text-[var(--text-recessive)]">
                           Index:
                         </span>
-                        <span className={`font-mono font-medium ${isDark ? 'text-slate-100' : 'text-[#1E1E24]'}`}>
+                        <span className="font-mono font-medium text-[var(--er-attr-text)]">
                           {col.is_primary_key ? 'PRIMARY (BTREE)' : col.is_foreign_key ? 'INDEX (FK)' : 'NONE'}
                         </span>
                       </div>
                     </div>
                     <div className="space-y-1">
                       <div>
-                        <span className={`block text-[9px] uppercase font-bold ${isDark ? 'text-slate-400' : 'text-[#8E8E98]'}`}>
+                        <span className="block text-[9px] uppercase font-bold text-[var(--text-recessive)]">
                           Nullable:
                         </span>
-                        <span className={`font-mono font-medium ${isDark ? 'text-slate-100' : 'text-[#1E1E24]'}`}>
+                        <span className="font-mono font-medium text-[var(--er-attr-text)]">
                           {col.nullable ? 'YES' : 'NO'}
                         </span>
                       </div>
                       <div>
-                        <span className={`block text-[9px] uppercase font-bold ${isDark ? 'text-slate-400' : 'text-[#8E8E98]'}`}>
+                        <span className="block text-[9px] uppercase font-bold text-[var(--text-recessive)]">
                           {col.is_foreign_key ? 'References:' : 'Collation:'}
                         </span>
-                        <span className={`font-mono font-medium truncate block ${isDark ? 'text-slate-100' : 'text-[#1E1E24]'}`}>
+                        <span className="font-mono font-medium truncate block text-[var(--er-attr-text)]">
                           {col.is_foreign_key ? col.fk_references || 'FOREIGN KEY' : 'utf8mb4_bin'}
                         </span>
                       </div>
@@ -315,19 +293,15 @@ export const TableNode = memo(({ data }: TableNodeProps) => {
 
                   {/* Sample data values row (if populated by introspection) */}
                   {col.sample_values && col.sample_values.length > 0 && (
-                    <div className={`pt-1 border-t ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
-                      <span className={`block text-[9px] uppercase font-bold mb-0.5 ${isDark ? 'text-slate-400' : 'text-[#8E8E98]'}`}>
+                    <div className="pt-1 border-t border-[var(--border-hairline)]">
+                      <span className="block text-[9px] uppercase font-bold mb-0.5 text-[var(--text-recessive)]">
                         Sample Data:
                       </span>
                       <div className="flex flex-wrap gap-1">
                         {col.sample_values.map((val, idx) => (
                           <span
                             key={idx}
-                            className={`text-[9px] font-mono px-1 py-0.2 rounded-none border ${
-                              isDark
-                                ? 'bg-white/5 border-white/10 text-emerald-300'
-                                : 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                            }`}
+                            className="text-[9px] font-mono px-1 py-0.2 rounded-[var(--radius-pill)] border bg-[var(--success)]/10 border-[var(--success)]/20 text-[var(--success)]"
                           >
                             {String(val)}
                           </span>

@@ -1,5 +1,5 @@
 // src/shared/ConnectionModal.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Database, X, CheckCircle2, AlertCircle, RefreshCw, Unlink, Link2, Server, Download, Package, Info, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
@@ -120,6 +120,46 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
 
   const currentInfo = PORT_INSTRUCTIONS[connectorType] || PORT_INSTRUCTIONS['mysql'];
   const currentConnectorMeta = CONNECTOR_TYPES.find((c) => c.id === connectorType);
+
+  // ── Focus trap and keyboard handling ──
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      // Focus trap
+      if (e.key === 'Tab' && modalRef.current) {
+        const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+    },
+    [onClose]
+  );
+
+  useEffect(() => {
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isOpen, handleKeyDown]);
 
   // ── Check Dependencies on connector change ──
   const checkDeps = async (ct?: string) => {
@@ -463,7 +503,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
 
       setFeedback({
         type: 'success',
-        message: `✓ All done! Dependencies installed, connection verified, and socket attached to ${connectorType.toUpperCase()} [${database}].`,
+        message: `All done! Dependencies installed, connection verified, and socket attached to ${connectorType.toUpperCase()} [${database}].`,
       });
       await fetchStatus();
       // Trigger ER diagram refresh after one-click setup
@@ -478,28 +518,32 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
   if (!isOpen) return null;
 
   const modalBg = isDark
-    ? 'bg-[#181824] text-white border-white/20 shadow-black/80'
+    ? 'bg-[var(--bg-panel)] text-[var(--text-primary)] border-[var(--border-hairline)] shadow-black/80'
     : 'bg-white text-slate-900 border-slate-300 shadow-2xl';
-  const inputBg = isDark ? 'bg-[#12121A]' : 'bg-[#F4F6F9]';
-  const inputBorder = isDark ? 'border-white/15' : 'border-slate-300';
-  const muted = isDark ? 'text-slate-400' : 'text-slate-500';
-  const mutedHover = isDark ? 'hover:text-white' : 'hover:text-slate-900';
-  const labelClass = isDark ? 'text-slate-300' : 'text-slate-600';
-  const sectionBorder = isDark ? 'border-white/12' : 'border-slate-200';
-  const successBg = isDark ? 'bg-emerald-950/50 border-emerald-500/50 text-emerald-300' : 'bg-emerald-50 border-emerald-300 text-emerald-800';
-  const errorBg = isDark ? 'bg-rose-950/50 border-rose-500/50 text-rose-300' : 'bg-rose-50 border-rose-300 text-rose-800';
-  const infoBg = isDark ? 'bg-indigo-950/50 border-indigo-500/50 text-indigo-300' : 'bg-indigo-50 border-indigo-300 text-indigo-800';
+  const inputBg = isDark ? 'bg-[var(--bg-panel-alt)]' : 'bg-[var(--bg-panel-alt)]';
+  const inputBorder = isDark ? 'border-[var(--border-hairline)]' : 'border-slate-300';
+  const muted = isDark ? 'text-[var(--text-recessive)]' : 'text-slate-500';
+  const mutedHover = isDark ? 'hover:text-[var(--text-primary)]' : 'hover:text-slate-900';
+  const labelClass = isDark ? 'text-[var(--text-body)]' : 'text-slate-600';
+  const sectionBorder = isDark ? 'border-[var(--border-hairline)]' : 'border-slate-200';
+  const successBg = isDark ? 'bg-[var(--success)]/10 border-[var(--success)]/50 text-[var(--success)]' : 'bg-emerald-50 border-emerald-300 text-emerald-800';
+  const errorBg = isDark ? 'bg-[var(--danger)]/10 border-[var(--danger)]/50 text-[var(--danger)]' : 'bg-rose-50 border-rose-300 text-rose-800';
+  const infoBg = isDark ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)]/50 text-[var(--accent-primary)]' : 'bg-indigo-50 border-indigo-300 text-indigo-800';
 
   return createPortal(
     <div className="modal-overlay bg-black/80 backdrop-blur-sm animate-fade-in">
       <div
-        className={`w-full max-w-2xl border rounded-none shadow-2xl p-6 transition-all overflow-y-auto max-h-[calc(100vh-48px)] my-auto ${modalBg}`}
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="connection-modal-title"
+        className={`w-full max-w-2xl border rounded-[var(--radius-panel)] shadow-2xl p-6 transition-colors duration-200 overflow-y-auto max-h-[calc(100vh-48px)] my-auto ${modalBg}`}
       >
         {/* Connection Steps Escort Hint Box */}
-        <div className={`mb-4 p-3.5 rounded-none border text-[11px] font-mono leading-snug shadow-sm ${
+        <div className={`mb-4 p-3.5 rounded-[var(--radius-panel)] border text-[11px] font-mono leading-snug shadow-sm ${
           isDark
-            ? 'bg-[#1E1E2C] border-white/12 text-slate-300'
-            : 'bg-[#F1F3F8] border-slate-300 text-slate-700'
+            ? 'bg-[var(--bg-ghost)] border-[var(--border-hairline)] text-[var(--text-body)]'
+            : 'bg-[var(--bg-panel-alt)] border-[var(--border-hairline)] text-[var(--text-body)]'
         }`}>
           <div className="font-bold text-[var(--accent-primary)] mb-1.5 flex items-center gap-1.5">
             <CheckCircle2 className="w-3.5 h-3.5" /> How to Connect to Your Database
@@ -509,26 +553,27 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
             <li><strong>2.</strong> Click <strong>Install Dependencies</strong> to auto-install the required Python driver.</li>
             <li><strong>3.</strong> Enter host, port, database name, username, and password.</li>
             <li><strong>4.</strong> Click <strong>Test Connection</strong> to verify socket handshake, then <strong>Attach Socket</strong> to bind.</li>
-            <li><strong>5.</strong> Or use <strong>⚡ One-Click Setup</strong> to do all steps automatically!</li>
+            <li><strong>5.</strong> Or use <strong>One-Click Setup</strong> to do all steps automatically!</li>
           </ol>
         </div>
 
         {/* Header */}
         <div className={`flex items-center justify-between pb-3 border-b ${sectionBorder}`}>
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 flex items-center justify-center bg-indigo-600/20 text-indigo-400">
+            <div className="w-8 h-8 flex items-center justify-center bg-[var(--accent-primary)]/20 text-[var(--accent-primary)]">
               <Server className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-bold tracking-tight">Myspire — Live DBMS Socket Connector</h2>
+              <h2 id="connection-modal-title" className="text-sm font-bold tracking-tight">Myspire — Live DBMS Socket Connector</h2>
               <p className={`text-[11px] ${muted}`}>
-                Session: <code className="font-mono text-indigo-400">{userId}</code>
+                Session: <code className="font-mono text-[var(--accent-primary)]">{userId}</code>
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className={`p-1.5 transition-colors cursor-pointer ${muted} ${mutedHover}`}
+            aria-label="Close connection modal"
+            className={`p-1.5 transition-colors duration-200 cursor-pointer rounded-[var(--radius-pill)] ${muted} ${mutedHover}`}
           >
             <X className="w-4 h-4" />
           </button>
@@ -536,12 +581,12 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
 
         {/* Status Indicator */}
         <div
-          className={`mt-4 p-3 flex items-center justify-between text-xs font-mono border ${
-            status.connected ? 'bg-[var(--success-bg)] border-[var(--success)] text-[var(--success)]' : `${inputBg} ${inputBorder} ${muted}`
+          className={`mt-4 p-3 flex items-center justify-between text-xs font-mono border rounded-[var(--radius-panel)] ${
+            status.connected ? 'bg-[var(--success)]/10 border-[var(--success)] text-[var(--success)]' : `${inputBg} ${inputBorder} ${muted}`
           }`}
         >
           <div className="flex items-center gap-2">
-            <span className={`w-2.5 h-2.5 inline-block ${status.connected ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
+            <span className={`w-2.5 h-2.5 inline-block rounded-full ${status.connected ? 'bg-[var(--success)]' : 'bg-[var(--text-recessive)]'}`} />
             <span>
               {status.connected
                 ? `Connected: ${status.connector_type?.toUpperCase()} (${status.database})`
@@ -552,7 +597,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
             <button
               onClick={handleDetach}
               disabled={isLoading}
-              className="text-rose-400 hover:text-rose-300 flex items-center gap-1 font-semibold cursor-pointer text-[11px]"
+              className="text-[var(--danger)] hover:opacity-80 flex items-center gap-1 font-semibold cursor-pointer text-[11px] transition-colors duration-200"
             >
               <Unlink className="w-3 h-3" />
               <span>Detach</span>
@@ -568,10 +613,10 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
             <select
               value={connectorType}
               onChange={(e) => handleTypeChange(e.target.value)}
-              className={`w-full px-3 py-2 border rounded-none focus:outline-none focus:ring-1 focus:ring-[#8E94F2] focus:border-[#8E94F2] font-mono text-xs ${inputBg} ${inputBorder} ${isDark ? 'text-white' : 'text-slate-900'}`}
+              className={`w-full px-3 py-2 border rounded-[var(--radius-pill)] focus:outline-none focus:ring-1 focus:ring-[var(--border-focus)] focus:border-[var(--border-focus)] font-mono text-xs transition-colors duration-200 ${inputBg} ${inputBorder} ${isDark ? 'text-[var(--text-primary)]' : 'text-slate-900'}`}
             >
               {CONNECTOR_TYPES.map((c) => (
-                <option key={c.id} value={c.id} className={isDark ? 'bg-[#181824] text-white' : 'bg-white text-slate-900'}>
+                <option key={c.id} value={c.id} className={isDark ? 'bg-[var(--bg-panel)] text-[var(--text-primary)]' : 'bg-white text-slate-900'}>
                   {c.label}
                 </option>
               ))}
@@ -579,27 +624,27 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
           </div>
 
           {/* ── Install Dependencies Section ── */}
-          <div className={`p-3.5 border rounded-none ${isDark ? 'bg-[#1E1E2C] border-white/12' : 'bg-[#F8FAFC] border-slate-300'}`}>
+          <div className={`p-3.5 border rounded-[var(--radius-panel)] ${isDark ? 'bg-[var(--bg-ghost)] border-[var(--border-hairline)]' : 'bg-[var(--bg-panel-alt)] border-[var(--border-hairline)]'}`}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <Package className="w-3.5 h-3.5 text-indigo-400" />
+                <Package className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
                 <span className="text-[11px] font-semibold text-[var(--text-secondary)]">
                   Python Driver Dependencies
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                {isCheckingDeps && <Loader2 className="w-3 h-3 animate-spin text-indigo-400" />}
+                {isCheckingDeps && <Loader2 className="w-3 h-3 animate-spin text-[var(--accent-primary)]" />}
                 {depStatus && (
-                  <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-none ${
+                  <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-[var(--radius-pill)] ${
                     depStatus.allInstalled
                       ? isDark
-                        ? 'bg-emerald-950/60 border border-emerald-500/40 text-emerald-300'
+                        ? 'bg-[var(--success)]/10 border border-[var(--success)]/40 text-[var(--success)]'
                         : 'bg-emerald-50 border border-emerald-300 text-emerald-700'
                       : isDark
-                        ? 'bg-amber-950/60 border border-amber-500/40 text-amber-300'
+                        ? 'bg-[var(--warning)]/10 border border-[var(--warning)]/40 text-[var(--warning)]'
                         : 'bg-amber-50 border border-amber-300 text-amber-700'
                   }`}>
-                    {depStatus.allInstalled ? '✓ Ready' : '⚠ Missing'}
+                    {depStatus.allInstalled ? 'Ready' : 'Missing'}
                   </span>
                 )}
               </div>
@@ -611,17 +656,17 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
                 {depStatus.packages.map((p) => (
                   <div
                     key={p.package}
-                    className={`flex items-center justify-between px-2.5 py-1.5 rounded-none text-[10px] font-mono border ${
+                    className={`flex items-center justify-between px-2.5 py-1.5 rounded-[var(--radius-panel)] text-[10px] font-mono border ${
                       p.installed
                         ? isDark
-                          ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'
+                          ? 'bg-[var(--success)]/10 border-[var(--success)]/30 text-[var(--success)]'
                           : 'bg-emerald-50 border-emerald-200 text-emerald-700'
                         : isDark
-                          ? 'bg-rose-950/40 border-rose-500/30 text-rose-300'
+                          ? 'bg-[var(--danger)]/10 border-[var(--danger)]/30 text-[var(--danger)]'
                           : 'bg-rose-50 border-rose-200 text-rose-700'
                     }`}
                   >
-                    <span>📦 {p.package}</span>
+                    <span className="flex items-center gap-1"><Package className="w-3 h-3" /> {p.package}</span>
                     <span>{p.installed ? `v${p.version || '?'}` : 'Not installed'}</span>
                   </div>
                 ))}
@@ -645,10 +690,10 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
                 type="button"
                 onClick={handleInstallDeps}
                 disabled={isInstallingDeps || (depStatus?.allInstalled === true)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold border cursor-pointer transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold border cursor-pointer rounded-[var(--radius-pill)] transition-colors duration-200 ${
                   depStatus?.allInstalled
-                    ? 'bg-[var(--success-bg)] border-[var(--success)] text-[var(--success)] opacity-70 cursor-default'
-                    : 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300 hover:bg-indigo-600/30'
+                    ? 'bg-[var(--success)]/10 border-[var(--success)] text-[var(--success)] opacity-70 cursor-default'
+                    : 'bg-[var(--accent-primary)]/20 border-[var(--accent-primary)]/50 text-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/30'
                 }`}
               >
                 {isInstallingDeps ? (
@@ -659,14 +704,14 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
                 {isInstallingDeps
                   ? 'Installing...'
                   : depStatus?.allInstalled
-                    ? 'All Installed ✓'
+                    ? 'All Installed'
                     : 'Install Dependencies'}
               </button>
               <button
                 type="button"
                 onClick={() => checkDeps()}
                 disabled={isCheckingDeps}
-                className={`p-1.5 border cursor-pointer transition-colors ${inputBg} ${inputBorder} ${muted} ${mutedHover}`}
+                className={`p-1.5 border cursor-pointer rounded-[var(--radius-pill)] transition-colors duration-200 ${inputBg} ${inputBorder} ${muted} ${mutedHover}`}
                 title="Re-check dependency status"
               >
                 <RefreshCw className={`w-3 h-3 ${isCheckingDeps ? 'animate-spin' : ''}`} />
@@ -675,16 +720,16 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
           </div>
 
           {/* ── How to Find Port & Server — Collapsible Instructions ── */}
-          <div className={`border rounded-none overflow-hidden ${inputBorder}`}>
+          <div className={`border rounded-[var(--radius-panel)] overflow-hidden ${inputBorder}`}>
             <button
               type="button"
               onClick={() => setShowInstructions(!showInstructions)}
-              className={`w-full flex items-center justify-between px-3 py-2 text-[11px] font-semibold cursor-pointer transition-colors ${
+              className={`w-full flex items-center justify-between px-3 py-2 text-[11px] font-semibold cursor-pointer transition-colors duration-200 ${
                 isDark ? 'bg-[var(--bg-card-header)] hover:bg-[var(--bg-subtle)]' : 'bg-[var(--bg-card-header)] hover:bg-[var(--bg-subtle)]'
               } text-[var(--text-secondary)]`}
             >
               <div className="flex items-center gap-1.5">
-                <Info className="w-3.5 h-3.5 text-indigo-400" />
+                <Info className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
                 <span>How to Find Your Port Number & Server Address</span>
               </div>
               {showInstructions ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -703,10 +748,10 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
                   <span className="font-bold text-[var(--accent-primary)]">Server / Host:</span>
                   <p className="mt-0.5 text-[var(--text-muted)] whitespace-pre-wrap">{currentInfo.serverHint}</p>
                 </div>
-                <div className={`mt-2 p-2 rounded-none border text-[9px] ${
-                  isDark ? 'bg-slate-900/50 border-slate-700/50 text-slate-400' : 'bg-amber-50 border-amber-200 text-amber-800'
+                <div className={`mt-2 p-2 rounded-[var(--radius-panel)] border text-[9px] ${
+                  isDark ? 'bg-[var(--bg-panel-alt)] border-[var(--border-subtle)] text-[var(--text-recessive)]' : 'bg-amber-50 border-amber-200 text-amber-800'
                 }`}>
-                  💡 <strong>Quick Reference — Default Ports:</strong>
+                  <strong>Quick Reference — Default Ports:</strong>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 mt-1">
                     <span>MySQL / MariaDB: <strong>3306</strong></span>
                     <span>PostgreSQL: <strong>5432</strong></span>
@@ -731,9 +776,9 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
                 value={host}
                 onChange={(e) => setHost(e.target.value)}
                 placeholder="127.0.0.1 or hostname"
-                className={`w-full px-3 py-2 border rounded-none font-mono text-xs focus:outline-none focus:ring-1 focus:ring-[#8E94F2] focus:border-[#8E94F2] ${
+                className={`w-full px-3 py-2 border rounded-[var(--radius-pill)] font-mono text-xs focus:outline-none focus:ring-1 focus:ring-[var(--border-focus)] focus:border-[var(--border-focus)] transition-colors duration-200 ${
                   isDark
-                    ? 'bg-[#12121A] border-white/15 text-white placeholder-slate-500'
+                    ? 'bg-[var(--bg-panel-alt)] border-[var(--border-hairline)] text-[var(--text-primary)] placeholder-[var(--text-recessive)]'
                     : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
                 }`}
               />
@@ -745,9 +790,9 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
                 value={port}
                 onChange={(e) => setPort(e.target.value)}
                 placeholder={currentInfo.port.split(' ')[0] || 'Optional'}
-                className={`w-full px-3 py-2 border rounded-none font-mono text-xs focus:outline-none focus:ring-1 focus:ring-[#8E94F2] focus:border-[#8E94F2] ${
+                className={`w-full px-3 py-2 border rounded-[var(--radius-pill)] font-mono text-xs focus:outline-none focus:ring-1 focus:ring-[var(--border-focus)] focus:border-[var(--border-focus)] transition-colors duration-200 ${
                   isDark
-                    ? 'bg-[#12121A] border-white/15 text-white placeholder-slate-500'
+                    ? 'bg-[var(--bg-panel-alt)] border-[var(--border-hairline)] text-[var(--text-primary)] placeholder-[var(--text-recessive)]'
                     : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
                 }`}
               />
@@ -770,18 +815,18 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
                       setDatabase(e.target.value);
                     }
                   }}
-                  className={`w-full px-3 py-2 border rounded-none focus:outline-none focus:ring-1 focus:ring-[#8E94F2] focus:border-[#8E94F2] font-mono text-xs ${
+                  className={`w-full px-3 py-2 border rounded-[var(--radius-pill)] focus:outline-none focus:ring-1 focus:ring-[var(--border-focus)] focus:border-[var(--border-focus)] font-mono text-xs transition-colors duration-200 ${
                     isDark
-                      ? 'bg-[#12121A] border-white/15 text-white'
+                      ? 'bg-[var(--bg-panel-alt)] border-[var(--border-hairline)] text-[var(--text-primary)]'
                       : 'bg-white border-slate-300 text-slate-900'
                   }`}
                 >
-                  <option value="__none__" className={isDark ? 'bg-[#181824] text-amber-300 font-semibold' : 'bg-white text-amber-700 font-semibold'}>
-                    ✨ No Database (Create New DB / Scratch)
+                  <option value="__none__" className={isDark ? 'bg-[var(--bg-panel)] text-[var(--warning)] font-semibold' : 'bg-white text-amber-700 font-semibold'}>
+                    No Database (Create New DB / Scratch)
                   </option>
                   <optgroup label="Available Databases">
                     {availableDbs.map((d) => (
-                      <option key={d} value={d} className={isDark ? 'bg-[#181824] text-white' : 'bg-white text-slate-900'}>
+                      <option key={d} value={d} className={isDark ? 'bg-[var(--bg-panel)] text-[var(--text-primary)]' : 'bg-white text-slate-900'}>
                         {d}
                       </option>
                     ))}
@@ -792,9 +837,9 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
                   onClick={fetchDatabases}
                   disabled={isFetchingDbs}
                   title="Re-list accessible databases"
-                  className={`shrink-0 p-2 border rounded-none cursor-pointer transition-colors ${
+                  className={`shrink-0 p-2 border rounded-[var(--radius-pill)] cursor-pointer transition-colors duration-200 ${
                     isDark
-                      ? 'bg-[#1E1E2C] border-white/15 text-slate-300 hover:text-white hover:bg-white/10'
+                      ? 'bg-[var(--bg-ghost)] border-[var(--border-hairline)] text-[var(--text-body)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-panel-alt)]'
                       : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
                   }`}
                 >
@@ -807,9 +852,9 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
                 value={database}
                 onChange={(e) => setDatabase(e.target.value)}
                 placeholder=":memory: or catalog name"
-                className={`w-full px-3 py-2 border rounded-none font-mono text-xs focus:outline-none focus:ring-1 focus:ring-[#8E94F2] focus:border-[#8E94F2] ${
+                className={`w-full px-3 py-2 border rounded-[var(--radius-pill)] font-mono text-xs focus:outline-none focus:ring-1 focus:ring-[var(--border-focus)] focus:border-[var(--border-focus)] transition-colors duration-200 ${
                   isDark
-                    ? 'bg-[#12121A] border-white/15 text-white placeholder-slate-500'
+                    ? 'bg-[var(--bg-panel-alt)] border-[var(--border-hairline)] text-[var(--text-primary)] placeholder-[var(--text-recessive)]'
                     : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
                 }`}
               />
@@ -825,9 +870,9 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder={currentConnectorMeta?.needsCreds ? 'Required' : 'Optional'}
-                className={`w-full px-3 py-2 border rounded-none font-mono text-xs focus:outline-none focus:ring-1 focus:ring-[#8E94F2] focus:border-[#8E94F2] ${
+                className={`w-full px-3 py-2 border rounded-[var(--radius-pill)] font-mono text-xs focus:outline-none focus:ring-1 focus:ring-[var(--border-focus)] focus:border-[var(--border-focus)] transition-colors duration-200 ${
                   isDark
-                    ? 'bg-[#12121A] border-white/15 text-white placeholder-slate-500'
+                    ? 'bg-[var(--bg-panel-alt)] border-[var(--border-hairline)] text-[var(--text-primary)] placeholder-[var(--text-recessive)]'
                     : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
                 }`}
               />
@@ -839,9 +884,9 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={currentConnectorMeta?.needsCreds ? 'Required' : 'Optional'}
-                className={`w-full px-3 py-2 border rounded-none font-mono text-xs focus:outline-none focus:ring-1 focus:ring-[#8E94F2] focus:border-[#8E94F2] ${
+                className={`w-full px-3 py-2 border rounded-[var(--radius-pill)] font-mono text-xs focus:outline-none focus:ring-1 focus:ring-[var(--border-focus)] focus:border-[var(--border-focus)] transition-colors duration-200 ${
                   isDark
-                    ? 'bg-[#12121A] border-white/15 text-white placeholder-slate-500'
+                    ? 'bg-[var(--bg-panel-alt)] border-[var(--border-hairline)] text-[var(--text-primary)] placeholder-[var(--text-recessive)]'
                     : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
                 }`}
               />
@@ -857,22 +902,22 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
             </label>
             {tables.length > 0 ? (
               <div
-                className={`max-h-36 overflow-y-auto px-3 py-2 border rounded-none font-mono text-[10px] ${
+                className={`max-h-36 overflow-y-auto px-3 py-2 border rounded-[var(--radius-panel)] font-mono text-[10px] ${
                   isDark
-                    ? 'bg-[#12121A] border-white/15 text-slate-200'
+                    ? 'bg-[var(--bg-panel-alt)] border-[var(--border-hairline)] text-[var(--text-body)]'
                     : 'bg-white border-slate-300 text-slate-800'
                 }`}
               >
                 {tables.map((t) => (
-                  <div key={t} className={`py-0.5 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+                  <div key={t} className={`py-0.5 ${isDark ? 'text-[var(--text-body)]' : 'text-slate-700'}`}>
                     • {t}
                   </div>
                 ))}
               </div>
             ) : (
-              <div className={`p-2.5 border rounded-none font-mono text-[11px] ${
+              <div className={`p-2.5 border rounded-[var(--radius-panel)] font-mono text-[11px] ${
                 isDark
-                  ? 'bg-[#12121A] border-white/15 text-slate-400'
+                  ? 'bg-[var(--bg-panel-alt)] border-[var(--border-hairline)] text-[var(--text-recessive)]'
                   : 'bg-white border-slate-300 text-slate-500'
               }`}>
                 Database '{database}' has no tables yet. Run CREATE TABLE below to create tables.
@@ -884,7 +929,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
         {/* Direct SQL Executor (Make changes to selected DB) */}
         {status.connected && (
           <div className={`mt-3 pt-3 border-t ${sectionBorder}`}>
-            <label className="block text-[11px] font-semibold text-emerald-400 mb-1">
+            <label className="block text-[11px] font-semibold text-[var(--success)] mb-1">
               Direct DB Mutation & Changes [{database}]:
             </label>
             <div className="space-y-1.5">
@@ -893,9 +938,9 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
                 value={directSql}
                 onChange={(e) => setDirectSql(e.target.value)}
                 placeholder="e.g. CREATE TABLE test_table (id INT PRIMARY KEY, name VARCHAR(50)); or INSERT INTO ...;"
-                className={`w-full px-2.5 py-1.5 border rounded-none font-mono text-xs focus:outline-none focus:border-[#8E94F2] focus:ring-1 focus:ring-[#8E94F2] ${
+                className={`w-full px-2.5 py-1.5 border rounded-[var(--radius-panel)] font-mono text-xs focus:outline-none focus:border-[var(--border-focus)] focus:ring-1 focus:ring-[var(--border-focus)] transition-colors duration-200 ${
                   isDark
-                    ? 'bg-[#12121A] border-white/15 text-white placeholder-slate-500'
+                    ? 'bg-[var(--bg-panel-alt)] border-[var(--border-hairline)] text-[var(--text-primary)] placeholder-[var(--text-recessive)]'
                     : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
                 }`}
               />
@@ -907,7 +952,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
                   type="button"
                   onClick={handleExecuteDirect}
                   disabled={isExecutingSql || !directSql.trim()}
-                  className="px-3 py-1 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer border border-emerald-500 transition-colors rounded-none"
+                  className="px-3 py-1 text-xs font-semibold bg-[var(--success)] hover:opacity-90 text-[var(--text-heading)] cursor-pointer border border-[var(--success)] transition-colors duration-200 rounded-[var(--radius-pill)]"
                 >
                   {isExecutingSql ? 'Executing...' : `Execute on '${database}'`}
                 </button>
@@ -919,7 +964,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
           {/* Feedback message */}
         {feedback && (
           <div
-            className={`mt-4 p-2.5 border text-xs flex items-center gap-2 ${
+            className={`mt-4 p-2.5 border rounded-[var(--radius-panel)] text-xs flex items-center gap-2 ${
               feedback.type === 'success' ? successBg : feedback.type === 'info' ? infoBg : errorBg
             }`}
           >
@@ -940,20 +985,20 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
           <button
             onClick={handleOneClickSetup}
             disabled={isLoading}
-            className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold border cursor-pointer transition-all bg-gradient-to-r from-indigo-600/30 to-violet-600/30 border-indigo-500/50 text-indigo-200 hover:from-indigo-600/50 hover:to-violet-600/50 shadow-md"
+            className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold border cursor-pointer rounded-[var(--radius-pill)] transition-colors duration-200 bg-[var(--accent-primary)]/20 border-[var(--accent-primary)]/50 text-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/30 shadow-md"
             title="Auto-install dependencies, test connection, and attach socket in one click"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>⚡ One-Click Setup</span>
+            <span>One-Click Setup</span>
           </button>
 
           <div className="flex items-center gap-2.5">
             <button
               onClick={handleTest}
               disabled={isLoading}
-              className={`px-3 py-1.5 text-xs font-semibold border cursor-pointer transition-colors ${
+              className={`px-3 py-1.5 text-xs font-semibold border cursor-pointer rounded-[var(--radius-pill)] transition-colors duration-200 ${
                 isDark
-                  ? 'bg-[#1E1E2C] border-white/15 text-white hover:bg-white/10'
+                  ? 'bg-[var(--bg-ghost)] border-[var(--border-hairline)] text-[var(--text-primary)] hover:bg-[var(--bg-panel-alt)]'
                   : 'bg-slate-100 border-slate-300 text-slate-800 hover:bg-slate-200'
               }`}
             >
@@ -963,7 +1008,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClos
             <button
               onClick={handleAttach}
               disabled={isLoading}
-              className="px-4 py-1.5 text-xs font-semibold bg-[#8E94F2] hover:bg-[#7D84EE] text-slate-950 font-bold cursor-pointer shadow-md transition-colors flex items-center gap-1.5"
+              className="px-4 py-1.5 text-xs font-semibold bg-[var(--accent-primary)] hover:opacity-90 text-[var(--text-heading)] font-bold cursor-pointer shadow-md rounded-[var(--radius-pill)] transition-colors duration-200 flex items-center gap-1.5"
             >
               <Link2 className="w-3.5 h-3.5" />
               <span>Attach Socket</span>

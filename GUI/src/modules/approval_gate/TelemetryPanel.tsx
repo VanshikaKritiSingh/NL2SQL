@@ -101,7 +101,7 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
     <div className="flex flex-col gap-3 font-sans">
       {/* 2×2 Nested Sub-Card Grid inside parent Bento card */}
       <div
-        className="bento-card p-4 transition-all duration-300 shadow-md rounded-none"
+        className="bento-card p-4 transition-colors duration-200 shadow-md rounded-[var(--radius-panel)]"
         style={{
           backgroundColor: isDark ? 'var(--bg-card)' : 'var(--bg-card)',
           border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid var(--border-subtle)',
@@ -109,15 +109,15 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
       >
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Calculator className={`w-4 h-4 ${isDark ? 'text-[var(--accent-primary)]' : 'text-[#111111]'}`} />
+            <Calculator className={`w-4 h-4 ${isDark ? 'text-[var(--accent-primary)]' : 'text-[var(--accent-primary)]'}`} aria-hidden="true" />
             <span className="text-xs font-bold text-[var(--text-main)]">
               Pre-Flight Telemetry & Concurrency Guardrail
             </span>
           </div>
-          <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-none ${
+          <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-[var(--radius-pill)] ${
             isDark
               ? 'bg-[var(--accent-primary)]/15 text-[var(--accent-primary)] border border-[var(--accent-primary)]/30'
-              : 'bg-[#111111] text-white'
+              : 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)]'
           }`}>
             Live Pre-Check
           </span>
@@ -127,16 +127,16 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
         <div className="grid grid-cols-2 gap-2.5">
           {/* Sub-Card 1: Relative Cost */}
           <div
-            className="p-3 rounded-none flex flex-col justify-between transition-all"
+            className="p-3 rounded-[var(--radius-panel)] flex flex-col justify-between transition-colors duration-200"
             style={{
-              backgroundColor: isDark ? '#14141C' : '#FFFFFF',
+              backgroundColor: isDark ? 'var(--bg-panel-alt)' : 'var(--bg-canvas)',
               border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid var(--border-subtle)',
             }}
           >
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-medium text-[var(--text-muted)]">EXPLAIN Cost</span>
-              <span className="text-[10px] font-semibold text-[#2ECC71] flex items-center gap-0.5">
-                <TrendingUp className="w-2.5 h-2.5" /> +12.4%
+              <span className="text-[10px] font-semibold text-[var(--delta-positive)] flex items-center gap-0.5">
+                <TrendingUp className="w-2.5 h-2.5" aria-hidden="true" /> +12.4%
               </span>
             </div>
             <div className="mt-2">
@@ -146,7 +146,7 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
               <span className="text-[10px] text-[var(--text-muted)] ml-1">units</span>
             </div>
             <div className="mt-1 flex items-center gap-1.5">
-              <span className={`text-[9px] font-mono uppercase px-1.5 py-0.2 rounded-none ${
+              <span className={`text-[9px] font-mono uppercase px-1.5 py-0.2 rounded-[var(--radius-pill)] ${
                 costEstimate.scan_type === 'index_only' || costEstimate.scan_type === 'index_scan'
                   ? isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-700'
                   : isDark ? 'bg-rose-500/10 text-rose-400' : 'bg-rose-50 text-rose-700'
@@ -158,16 +158,16 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
 
           {/* Sub-Card 2: Estimated Rows */}
           <div
-            className="p-3 rounded-none flex flex-col justify-between transition-all"
+            className="p-3 rounded-[var(--radius-panel)] flex flex-col justify-between transition-colors duration-200"
             style={{
-              backgroundColor: isDark ? '#14141C' : '#FFFFFF',
+              backgroundColor: isDark ? 'var(--bg-panel-alt)' : 'var(--bg-canvas)',
               border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid var(--border-subtle)',
             }}
           >
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-medium text-[var(--text-muted)]">Estimated Rows</span>
-              <span className="text-[10px] font-semibold text-[#2ECC71] flex items-center gap-0.5">
-                <TrendingUp className="w-2.5 h-2.5" /> +4.8%
+              <span className="text-[10px] font-semibold text-[var(--delta-positive)] flex items-center gap-0.5">
+                <TrendingUp className="w-2.5 h-2.5" aria-hidden="true" /> +4.8%
               </span>
             </div>
             <div className="mt-2">
@@ -185,15 +185,15 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
 
           {/* Sub-Card 3: Lock Granularity */}
           <div
-            className="p-3 rounded-none flex flex-col justify-between transition-all"
+            className="p-3 rounded-[var(--radius-panel)] flex flex-col justify-between transition-colors duration-200"
             style={{
-              backgroundColor: isDark ? '#14141C' : '#FFFFFF',
+              backgroundColor: isDark ? 'var(--bg-panel-alt)' : 'var(--bg-canvas)',
               border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid var(--border-subtle)',
             }}
           >
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-medium text-[var(--text-muted)]">Lock Granularity</span>
-              <Lock className="w-3 h-3 text-[var(--text-muted)]" />
+              <Lock className="w-3 h-3 text-[var(--text-muted)]" aria-hidden="true" />
             </div>
             <div className="mt-2">
               <span className="text-sm font-bold uppercase text-[var(--text-main)]">
@@ -209,20 +209,20 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
 
           {/* Sub-Card 4: Concurrency & Deadlock */}
           <div
-            className="p-3 rounded-none flex flex-col justify-between transition-all"
+            className="p-3 rounded-[var(--radius-panel)] flex flex-col justify-between transition-colors duration-200"
             style={{
-              backgroundColor: isDark ? '#14141C' : '#FFFFFF',
+              backgroundColor: isDark ? 'var(--bg-panel-alt)' : 'var(--bg-canvas)',
               border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid var(--border-subtle)',
             }}
           >
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-medium text-[var(--text-muted)]">Deadlock Risk</span>
-              <CheckCircle2 className="w-3 h-3 text-[#2ECC71]" />
+              <CheckCircle2 className="w-3 h-3 text-[var(--delta-positive)]" aria-hidden="true" />
             </div>
             <div className="mt-2">
               <span className={`text-sm font-bold uppercase ${
                 securityCheck.deadlock_risk === 'none' || securityCheck.deadlock_risk === 'low'
-                  ? 'text-[#2ECC71]'
+                  ? 'text-[var(--delta-positive)]'
                   : 'text-rose-500'
               }`}>
                 {securityCheck.deadlock_risk}
@@ -242,13 +242,13 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
             {costEstimate.warnings.map((w, i) => (
               <div
                 key={i}
-                className={`flex items-center gap-1.5 text-[11px] p-2 rounded-none border ${
+                className={`flex items-center gap-1.5 text-[11px] p-2 rounded-[var(--radius-control)] border ${
                   isDark
                     ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
                     : 'text-amber-700 bg-amber-50 border-amber-200'
                 }`}
               >
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                 <span>{w}</span>
               </div>
             ))}
@@ -260,7 +260,7 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* Segmented radial tick-mark progress circle */}
         <div
-          className="bento-card p-3.5 flex flex-col items-center justify-center transition-all duration-300 shadow-md rounded-none"
+          className="bento-card p-3.5 flex flex-col items-center justify-center transition-colors duration-200 shadow-md rounded-[var(--radius-panel)]"
           style={{
             backgroundColor: isDark ? 'var(--bg-card)' : 'var(--bg-card)',
             border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid var(--border-subtle)',
@@ -268,7 +268,7 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
         >
           <div className="w-full flex items-center justify-between text-xs font-bold text-[var(--text-main)] mb-1">
             <span>Safety & Cache Efficiency</span>
-            <span className="text-[10px] font-mono text-[#2ECC71]">OPTIMAL</span>
+            <span className="text-[10px] font-mono text-[var(--delta-positive)]">OPTIMAL</span>
           </div>
 
           <div className="relative w-36 h-36 flex items-center justify-center my-1">
@@ -295,13 +295,13 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
                     stroke={
                       isActive
                         ? isDark
-                          ? '#8E94F2'
-                          : '#111111'
+                          ? 'var(--accent-primary)'
+                          : 'var(--btn-primary-bg)'
                         : isDark
                         ? 'rgba(255,255,255,0.08)'
-                        : '#E5E8EF'
+                        : 'var(--border-hairline)'
                     }
-                    className="transition-all duration-300"
+                    className="transition-colors duration-200"
                   />
                 );
               })}
@@ -322,9 +322,9 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
 
         {/* Inverted Jet-Black Card Containing a Grayscale Donut Chart */}
         <div
-          className="rounded-none p-4 flex flex-col justify-between transition-all duration-300 shadow-xl"
+          className="rounded-[var(--radius-panel)] p-4 flex flex-col justify-between transition-colors duration-200 shadow-xl"
           style={{
-            backgroundColor: '#111111',
+            backgroundColor: isDark ? 'var(--bg-panel-alt)' : 'var(--btn-primary-bg)',
             color: '#FFFFFF',
             border: '1px solid rgba(255,255,255,0.12)',
           }}
@@ -332,9 +332,9 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
           <div className="flex items-center justify-between mb-2">
             <div>
               <span className="text-xs font-bold text-white tracking-tight">Workload Distribution</span>
-              <p className="text-[10px] text-[#888C94]">By query execution mode</p>
+              <p className="text-[10px] text-[var(--text-recessive)]">By query execution mode</p>
             </div>
-            <span className="text-[9px] font-mono px-2 py-0.5 rounded-none bg-white/10 text-white border border-white/15">
+            <span className="text-[9px] font-mono px-2 py-0.5 rounded-[var(--radius-pill)] bg-white/10 text-white border border-white/15">
               Live
             </span>
           </div>
@@ -385,21 +385,21 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
             {/* Legend */}
             <div className="space-y-1.5 text-[10px]">
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-none bg-white shrink-0" />
+                <span className="w-2.5 h-2.5 rounded-[var(--radius-pill)] bg-white shrink-0" />
                 <span className="text-white font-medium">Read/Select (64%)</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-none bg-[#8E8E94] shrink-0" />
-                <span className="text-[#C8C8D0] font-medium">Mutation DML (22%)</span>
+                <span className="w-2.5 h-2.5 rounded-[var(--radius-pill)] bg-[#8E8E94] shrink-0" />
+                <span className="text-[var(--text-body)] font-medium">Mutation DML (22%)</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-none bg-[#383840] shrink-0" />
-                <span className="text-[#888C94] font-medium">DDL Alter (14%)</span>
+                <span className="w-2.5 h-2.5 rounded-[var(--radius-pill)] bg-[#383840] shrink-0" />
+                <span className="text-[var(--text-recessive)] font-medium">DDL Alter (14%)</span>
               </div>
             </div>
           </div>
 
-          <div className="text-[9px] text-[#888C94] text-right font-mono mt-1">
+          <div className="text-[9px] text-[var(--text-recessive)] text-right font-mono mt-1">
             Total Queries: 1,842 sampled
           </div>
         </div>
@@ -407,7 +407,7 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
 
       {/* Bottom Time-Series Spline Chart */}
       <div
-        className="bento-card p-4 transition-all duration-300 shadow-md relative overflow-hidden rounded-none"
+        className="bento-card p-4 transition-colors duration-200 shadow-md relative overflow-hidden rounded-[var(--radius-panel)]"
         style={{
           backgroundColor: isDark ? 'var(--bg-card)' : 'var(--bg-card)',
           border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid var(--border-subtle)',
@@ -419,7 +419,7 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
               <span className="text-xs font-bold text-[var(--text-main)]">
                 Query Latency & Cost Time-Series
               </span>
-              <span className="text-[10px] font-semibold text-[#2ECC71] px-2 py-0.5 rounded-none bg-[#2ECC71]/10">
+              <span className="text-[10px] font-semibold text-[var(--delta-positive)] px-2 py-0.5 rounded-[var(--radius-pill)] bg-[var(--delta-positive)]/10">
                 {activePoint.delta}
               </span>
             </div>
@@ -429,10 +429,10 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
           </div>
 
           {/* Time range switcher */}
-          <div className={`flex items-center gap-1 p-0.5 rounded-none text-[10px] font-medium ${
-            isDark ? 'bg-[var(--bg-subtle)]' : 'bg-[#E5E8EF]'
+          <div className={`flex items-center gap-1 p-0.5 rounded-[var(--radius-pill)] text-[10px] font-medium ${
+            isDark ? 'bg-[var(--bg-subtle)]' : 'bg-[var(--bg-subtle)]'
           }`}>
-            <span className={`px-2 py-0.5 rounded-none ${isDark ? 'bg-[var(--accent-primary)] text-white' : 'bg-[#111111] text-white'}`}>
+            <span className={`px-2 py-0.5 rounded-[var(--radius-pill)] ${isDark ? 'bg-[var(--accent-primary)] text-white' : 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)]'}`}>
               7D
             </span>
             <span className="px-2 py-0.5 text-[var(--text-muted)] cursor-pointer">
@@ -452,14 +452,14 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
             <defs>
               {/* Dark Theme Purple Gradient Area Fill */}
               <linearGradient id="darkPurpleAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#8E94F2" stopOpacity="0.30" />
-                <stop offset="100%" stopColor="#8E94F2" stopOpacity="0.0" />
+                <stop offset="0%" stopColor="var(--accent-primary)" stopOpacity="0.30" />
+                <stop offset="100%" stopColor="var(--accent-primary)" stopOpacity="0.0" />
               </linearGradient>
 
               {/* Light Theme Subtle Gray Gradient Area Fill */}
               <linearGradient id="lightGrayAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#111111" stopOpacity="0.09" />
-                <stop offset="100%" stopColor="#111111" stopOpacity="0.0" />
+                <stop offset="0%" stopColor="var(--btn-primary-bg)" stopOpacity="0.09" />
+                <stop offset="100%" stopColor="var(--btn-primary-bg)" stopOpacity="0.0" />
               </linearGradient>
 
               {/* Glowing lavender filter for Dark mode */}
@@ -470,9 +470,9 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
             </defs>
 
             {/* Grid horizontal guidelines */}
-            <line x1={paddingX} y1={paddingY} x2={width - paddingX} y2={paddingY} stroke={isDark ? 'rgba(255,255,255,0.05)' : '#E5E8EF'} strokeDasharray="3 3" />
-            <line x1={paddingX} y1={height / 2} x2={width - paddingX} y2={height / 2} stroke={isDark ? 'rgba(255,255,255,0.05)' : '#E5E8EF'} strokeDasharray="3 3" />
-            <line x1={paddingX} y1={height - paddingY} x2={width - paddingX} y2={height - paddingY} stroke={isDark ? 'rgba(255,255,255,0.08)' : '#E5E8EF'} />
+            <line x1={paddingX} y1={paddingY} x2={width - paddingX} y2={paddingY} stroke={isDark ? 'rgba(255,255,255,0.05)' : 'var(--border-hairline)'} strokeDasharray="3 3" />
+            <line x1={paddingX} y1={height / 2} x2={width - paddingX} y2={height / 2} stroke={isDark ? 'rgba(255,255,255,0.05)' : 'var(--border-hairline)'} strokeDasharray="3 3" />
+            <line x1={paddingX} y1={height - paddingY} x2={width - paddingX} y2={height - paddingY} stroke={isDark ? 'rgba(255,255,255,0.08)' : 'var(--border-hairline)'} />
 
             {/* Gradient Area Fill */}
             <path
@@ -484,7 +484,7 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
             <path
               d={splineD}
               fill="none"
-              stroke={isDark ? '#E0D8FF' : '#111111'}
+              stroke={isDark ? 'var(--accent-primary)' : 'var(--text-primary)'}
               strokeWidth={isDark ? 2.5 : 2.5}
               strokeLinecap="round"
               filter={isDark ? 'url(#splineGlow)' : undefined}
@@ -496,7 +496,7 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
               y1={paddingY}
               x2={activePoint.x}
               y2={height - paddingY}
-              stroke={isDark ? '#8E94F2' : '#111111'}
+              stroke={isDark ? 'var(--accent-primary)' : 'var(--text-primary)'}
               strokeWidth={1.5}
               strokeDasharray="4 4"
             />
@@ -504,11 +504,11 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
             {/* Glowing Hover Node */}
             {isDark ? (
               <g>
-                <circle cx={activePoint.x} cy={activePoint.y} r={8} fill="#8E94F2" fillOpacity={0.3} className="animate-pulse" />
-                <circle cx={activePoint.x} cy={activePoint.y} r={4.5} fill="#FFFFFF" stroke="#8E94F2" strokeWidth={2.5} />
+                <circle cx={activePoint.x} cy={activePoint.y} r={8} fill="var(--accent-primary)" fillOpacity={0.3} />
+                <circle cx={activePoint.x} cy={activePoint.y} r={4.5} fill="#FFFFFF" stroke="var(--accent-primary)" strokeWidth={2.5} />
               </g>
             ) : (
-              <circle cx={activePoint.x} cy={activePoint.y} r={4.5} fill="#111111" stroke="#FFFFFF" strokeWidth={2} />
+              <circle cx={activePoint.x} cy={activePoint.y} r={4.5} fill="var(--btn-primary-bg)" stroke="#FFFFFF" strokeWidth={2} />
             )}
 
             {/* X-Axis Tick Labels */}
@@ -520,7 +520,7 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
                 textAnchor="middle"
                 fontSize="9"
                 fontFamily="sans-serif"
-                fill={i === activeIndex ? (isDark ? '#FFFFFF' : '#111111') : '#888C94'}
+                fill={i === activeIndex ? (isDark ? '#FFFFFF' : 'var(--text-primary)') : 'var(--text-recessive)'}
                 fontWeight={i === activeIndex ? 'bold' : 'normal'}
               >
                 {pt.date}
@@ -537,7 +537,7 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
                 top: `${(activePoint.y / height) * 100 - 28}%`,
               }}
             >
-              <div className="bg-[#111111] text-white text-[10px] font-mono px-2 py-0.5 rounded-none shadow-md flex items-center gap-1.5 whitespace-nowrap">
+              <div className="bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] text-[10px] font-mono px-2 py-0.5 rounded-[var(--radius-pill)] shadow-md flex items-center gap-1.5 whitespace-nowrap">
                 <span>{activePoint.date}:</span>
                 <span className="font-bold">{activePoint.value} ms</span>
               </div>
@@ -553,12 +553,12 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({ costEstimate, se
                 top: `${(activePoint.y / height) * 100 - 10}%`,
               }}
             >
-              <div className="bg-[#14141C] border border-white/15 text-white p-2 rounded-none shadow-2xl flex items-center gap-2 text-[10px] font-sans whitespace-nowrap">
+              <div className="bg-[var(--bg-panel-alt)] border border-white/15 text-white p-2 rounded-[var(--radius-panel)] shadow-2xl flex items-center gap-2 text-[10px] font-sans whitespace-nowrap">
                 <div>
-                  <span className="text-[#9A9AA6] block text-[9px]">{activePoint.date}</span>
+                  <span className="text-[var(--text-recessive)] block text-[9px]">{activePoint.date}</span>
                   <span className="font-bold text-sm text-white">{activePoint.value} ms</span>
                 </div>
-                <span className="text-[10px] font-bold text-[#2ECC71] bg-[#2ECC71]/15 border border-[#2ECC71]/30 px-1.5 py-0.5 rounded-none">
+                <span className="text-[10px] font-bold text-[var(--delta-positive)] bg-[var(--delta-positive)]/15 border border-[var(--delta-positive)]/30 px-1.5 py-0.5 rounded-[var(--radius-pill)]">
                   {activePoint.delta}
                 </span>
               </div>

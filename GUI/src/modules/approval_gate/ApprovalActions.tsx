@@ -19,6 +19,7 @@ export const ApprovalActions: React.FC<ApprovalActionsProps> = ({ queryId, riskT
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showRejectBox, setShowRejectBox] = useState(false);
   const [settledResult, setSettledResult] = useState<{ type: 'approved' | 'rejected'; message: string } | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const userId = useAppStore((s) => s.userId);
   const setCurrentView = useAppStore((s) => s.setCurrentView);
@@ -30,6 +31,7 @@ export const ApprovalActions: React.FC<ApprovalActionsProps> = ({ queryId, riskT
 
   const handleDecision = async (decision: 'approve' | 'reject') => {
     setIsSubmitting(true);
+    setSubmitError(null);
     try {
       const res = await submitApproval(queryId, {
         query_id: queryId,
@@ -117,7 +119,7 @@ export const ApprovalActions: React.FC<ApprovalActionsProps> = ({ queryId, riskT
         }
       }
     } catch {
-      alert('Failed to submit approval decision.');
+      setSubmitError('Failed to submit approval decision. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -144,21 +146,21 @@ export const ApprovalActions: React.FC<ApprovalActionsProps> = ({ queryId, riskT
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-xs font-semibold">
             {settledResult.type === 'approved' ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" aria-hidden="true" />
             ) : (
-              <XCircle className="w-5 h-5 text-rose-400 shrink-0" />
+              <XCircle className="w-5 h-5 text-rose-400 shrink-0" aria-hidden="true" />
             )}
             <span>{settledResult.message}</span>
           </div>
           <button
             onClick={handleFinish}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-none text-xs font-semibold transition-all cursor-pointer shadow ${
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-[var(--radius-pill)] text-xs font-semibold transition-colors duration-200 cursor-pointer shadow ${
               isDark
-                ? 'bg-[var(--accent-primary)] hover:bg-[var(--accent-hover)] text-white ambient-glow-btn'
-                : 'bg-[#111111] hover:bg-black text-white'
+                ? 'bg-[var(--accent-primary)] hover:bg-[var(--accent-hover)] text-white'
+                : 'bg-[var(--btn-primary-bg)] hover:bg-[var(--btn-primary-hover)] text-[var(--btn-primary-text)]'
             }`}
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4" aria-hidden="true" />
             <span>Return to Query Intake</span>
           </button>
         </div>
@@ -184,7 +186,13 @@ export const ApprovalActions: React.FC<ApprovalActionsProps> = ({ queryId, riskT
         </div>
 
         {/* Center/Right: Action Buttons */}
-        <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+        <div className="flex flex-col items-end gap-1.5 w-full md:w-auto">
+          {submitError && (
+            <div className="w-full text-xs font-medium text-[var(--danger)] bg-[var(--danger-bg)] border border-[var(--danger)] px-3 py-1 rounded-[var(--radius-control)]">
+              {submitError}
+            </div>
+          )}
+          <div className="flex items-center gap-3 w-full md:w-auto justify-end">
           {showRejectBox ? (
             <div className="flex items-center gap-2 w-full md:w-96">
               <input
@@ -192,16 +200,16 @@ export const ApprovalActions: React.FC<ApprovalActionsProps> = ({ queryId, riskT
                 placeholder="Feedback for model retry (e.g. 'Add active status filter')..."
                 value={feedback}
                 onChange={(e) => setFeedback(e.target.value)}
-                className={`flex-1 rounded-none px-3 py-2 text-xs border focus:outline-none focus:ring-2 font-sans ${
+                className={`flex-1 rounded-[var(--radius-control)] px-3 py-2 text-xs border focus:outline-none focus:ring-2 font-sans ${
                   isDark
                     ? 'bg-[var(--bg-input)] text-[var(--text-main)] placeholder-[var(--text-muted)] border-[var(--border-main)] focus:border-rose-500 focus:ring-rose-500/20'
-                    : 'bg-[#F4F6F9] text-[var(--text-main)] placeholder-[var(--text-muted)] border-[var(--border-subtle)] focus:border-rose-500 focus:ring-rose-500/10'
+                    : 'bg-[var(--bg-panel-alt)] text-[var(--text-main)] placeholder-[var(--text-muted)] border-[var(--border-subtle)] focus:border-[var(--danger)] focus:ring-[var(--danger)]/10'
                 }`}
               />
               <button
                 onClick={() => handleDecision('reject')}
                 disabled={isSubmitting}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-none text-xs font-semibold shadow transition-all cursor-pointer whitespace-nowrap"
+                className="px-4 py-2 bg-[var(--danger)] hover:opacity-90 text-white rounded-[var(--radius-pill)] text-xs font-semibold shadow transition-colors duration-200 cursor-pointer whitespace-nowrap"
               >
                 {isSubmitting ? <LoadingSpinner size="sm" /> : 'Confirm Reject'}
               </button>
@@ -217,13 +225,13 @@ export const ApprovalActions: React.FC<ApprovalActionsProps> = ({ queryId, riskT
               <button
                 onClick={() => setShowRejectBox(true)}
                 disabled={isSubmitting}
-                className={`flex items-center gap-1.5 px-4 py-2.5 rounded-none text-xs font-semibold transition-all cursor-pointer border ${
+                className={`flex items-center gap-1.5 px-4 py-2.5 rounded-[var(--radius-pill)] text-xs font-semibold transition-colors duration-200 cursor-pointer border ${
                   isDark
                     ? 'bg-[var(--bg-card)] hover:bg-rose-500/10 hover:border-rose-500/40 text-[var(--text-muted)] hover:text-rose-400 border-[var(--border-main)]'
-                    : 'bg-[#F4F6F9] hover:bg-rose-50 hover:border-rose-200 text-[var(--text-main)] hover:text-rose-600 border-[var(--border-subtle)]'
+                    : 'bg-[var(--bg-panel-alt)] hover:bg-rose-50 hover:border-rose-200 text-[var(--text-main)] hover:text-rose-600 border-[var(--border-subtle)]'
                 }`}
               >
-                <XCircle className="w-4 h-4 text-rose-500" />
+                <XCircle className="w-4 h-4 text-rose-500" aria-hidden="true" />
                 <span>Reject with Feedback</span>
               </button>
 
@@ -231,10 +239,10 @@ export const ApprovalActions: React.FC<ApprovalActionsProps> = ({ queryId, riskT
               <button
                 onClick={() => handleDecision('approve')}
                 disabled={isSubmitting}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-none text-xs font-bold transition-all cursor-pointer disabled:opacity-50 ${
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-[var(--radius-pill)] text-xs font-bold transition-colors duration-200 cursor-pointer disabled:opacity-50 ${
                   isDark
-                    ? 'bg-gradient-to-r from-[#8E94F2] to-[#B48EBA] hover:opacity-95 text-white ambient-glow-btn'
-                    : 'bg-[#111111] hover:bg-black text-white shadow-lg shadow-black/10'
+                    ? 'bg-[var(--btn-primary-bg)] hover:bg-[var(--btn-primary-hover)] text-[var(--btn-primary-text)]'
+                    : 'bg-[var(--btn-primary-bg)] hover:bg-[var(--btn-primary-hover)] text-[var(--btn-primary-text)] shadow-lg shadow-black/10'
                 }`}
               >
                 {isSubmitting ? (
@@ -244,7 +252,7 @@ export const ApprovalActions: React.FC<ApprovalActionsProps> = ({ queryId, riskT
                   </>
                 ) : (
                   <>
-                    <CheckCircle2 className="w-4 h-4" />
+                    <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
                     <span>Approve & Execute</span>
                   </>
                 )}
@@ -252,6 +260,7 @@ export const ApprovalActions: React.FC<ApprovalActionsProps> = ({ queryId, riskT
             </>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

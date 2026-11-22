@@ -1,5 +1,5 @@
 // src/shared/ERDiagramModal.tsx — On-Demand ER Schema Graph Popup
-import React from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Database, RefreshCw } from 'lucide-react';
 import { ERDiagramPanel } from '../modules/approval_gate/ERDiagramPanel';
@@ -32,34 +32,43 @@ export const ERDiagramModal: React.FC<ERDiagramModalProps> = ({
   const bumpSchemaVersion = useSchemaStore((s) => s.bumpSchemaVersion);
   const isFetching = useSchemaStore((s) => s.isFetching);
 
+  // Escape key handler
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') onClose();
+  }, [onClose]);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isOpen, handleKeyDown]);
+
   if (!isOpen) return null;
 
   const totalColumns = schema?.tables
     ? schema.tables.reduce((acc, t) => acc + t.columns.length, 0)
     : 0;
 
+  const modalTitleId = 'er-diagram-modal-title';
+
   return createPortal(
     <div className="modal-overlay bg-black/80 backdrop-blur-md animate-fade-in">
       <div
-        className="w-full max-w-6xl h-[min(88vh,calc(100vh-48px))] max-h-[calc(100vh-48px)] rounded-none shadow-2xl flex flex-col overflow-hidden transition-all duration-300 my-auto"
-        style={{
-          backgroundColor: isDark ? '#181824' : '#FFFFFF',
-          border: isDark ? '1px solid rgba(255,255,255,0.18)' : '1px solid #DDE1E8',
-        }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={modalTitleId}
+        className="w-full max-w-6xl h-[min(88vh,calc(100vh-48px))] max-h-[calc(100vh-48px)] rounded-[var(--radius-panel)] shadow-2xl flex flex-col overflow-hidden transition-colors duration-200 my-auto bg-[var(--bg-panel)] border border-[var(--border-hairline)] text-[var(--text-body)]"
       >
         {/* Header */}
-        <div className={`h-14 px-5 border-b flex items-center justify-between shrink-0 ${
-          isDark ? 'bg-[#1E1E2C] border-white/12 text-white' : 'bg-[#FAF7FC] border-[#EBE6EE] text-[#1E1E24]'
-        }`}>
+        <div className="h-14 px-5 border-b flex items-center justify-between shrink-0 bg-[var(--bg-panel-alt)] border-[var(--border-subtle)] text-[var(--text-heading)]">
           <div className="flex items-center gap-3">
-            <div className={`w-8 h-8 rounded-none flex items-center justify-center text-white shadow-md ${
-              isDark ? 'bg-gradient-to-tr from-[#7B2CBF] to-[#9D4EDD]' : 'bg-gradient-to-tr from-[#6712DC] to-[#8D3CFF]'
-            }`}>
-              <Database className="w-4 h-4" />
+            <div className="w-8 h-8 rounded-[var(--radius-control)] flex items-center justify-center bg-[var(--accent-primary)] text-[var(--btn-primary-text)] shadow-md">
+              <Database className="w-4 h-4" aria-hidden="true" />
             </div>
             <div>
-              <h2 className={`text-sm font-bold tracking-tight ${isDark ? 'text-white' : 'text-[#1E1E24]'}`}>{title}</h2>
-              <p className={`text-[10px] font-mono ${isDark ? 'text-slate-400' : 'text-[#8E8E98]'}`}>
+              <h2 id={modalTitleId} className="text-sm font-bold tracking-tight text-[var(--text-heading)]">{title}</h2>
+              <p className="text-[10px] font-mono text-[var(--text-recessive)]">
                 {schema?.tables
                   ? `${schema.database_name} · ${schema.tables.length} tables · ${totalColumns} columns · ${schema.foreign_keys?.length || 0} FK relations`
                   : 'Loading schema topology...'}
@@ -72,27 +81,23 @@ export const ERDiagramModal: React.FC<ERDiagramModalProps> = ({
             <button
               onClick={() => bumpSchemaVersion()}
               disabled={isFetching}
-              className={`p-1.5 rounded-none transition-colors cursor-pointer ${
-                isDark ? 'text-slate-400 hover:text-white hover:bg-white/10' : 'text-[#8E8E98] hover:text-[#1E1E24] hover:bg-[#F4F4F6]'
-              }`}
+              className="p-1.5 rounded-[var(--radius-control)] transition-colors duration-200 cursor-pointer text-[var(--text-recessive)] hover:text-[var(--text-heading)] hover:bg-[var(--bg-ghost)]"
               title="Refresh schema from database"
             >
-              <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} aria-hidden="true" />
             </button>
             <button
               onClick={onClose}
-              className={`p-1.5 rounded-none transition-colors cursor-pointer ${
-                isDark ? 'text-slate-400 hover:text-white hover:bg-white/10' : 'text-[#8E8E98] hover:text-[#1E1E24] hover:bg-[#F4F4F6]'
-              }`}
+              className="p-1.5 rounded-[var(--radius-control)] transition-colors duration-200 cursor-pointer text-[var(--text-recessive)] hover:text-[var(--text-heading)] hover:bg-[var(--bg-ghost)]"
               title="Close Diagram"
             >
-              <X className="w-4 h-4" />
+              <X className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
         </div>
 
         {/* Canvas Body — ER Diagram Canvas View */}
-        <div className={`flex-1 min-h-0 p-3 ${isDark ? 'bg-[#101018]' : 'bg-[#E8E8EC]'}`}>
+        <div className="flex-1 min-h-0 p-3 bg-[var(--bg-canvas)]">
           {schema && schema.tables.length > 0 ? (
             <ERDiagramPanel
               schema={schema}
@@ -101,8 +106,8 @@ export const ERDiagramModal: React.FC<ERDiagramModalProps> = ({
               initialScope={defaultScope}
             />
           ) : (
-            <div className={`flex flex-col items-center justify-center h-full gap-3 ${isDark ? 'text-slate-400' : 'text-[#8E8E98]'}`}>
-              <Database className="w-10 h-10 opacity-40" />
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-[var(--text-recessive)]">
+              <Database className="w-10 h-10 opacity-40" aria-hidden="true" />
               <p className="text-sm font-medium">No tables found in the current database</p>
               <p className="text-xs opacity-70">
                 {schema

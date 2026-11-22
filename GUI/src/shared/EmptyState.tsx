@@ -16,16 +16,16 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ icon, title, description
   return (
     <div className="flex flex-col items-center justify-center p-8 text-center h-full">
       <div
-        className={`p-3.5 rounded-none border mb-3 shadow-xs ${
+        className={`p-3.5 rounded-[var(--radius-panel)] border mb-3 ${
           isDark
-            ? 'bg-[var(--bg-card-header)] border-[var(--border-main)] text-[var(--accent-primary)]'
-            : 'bg-[#F4F6F9] border-[var(--border-subtle)] text-[#111111]'
+            ? 'bg-[var(--bg-ghost)] border-[var(--border-hairline)] text-[var(--accent-primary)]'
+            : 'bg-[var(--bg-panel)] border-[var(--border-hairline)] text-[var(--accent-primary)]'
         }`}
       >
         {icon}
       </div>
-      <h3 className="text-sm font-bold mb-1 text-[var(--text-main)]">{title}</h3>
-      <p className="text-xs max-w-sm mb-4 text-[var(--text-muted)] leading-relaxed">{description}</p>
+      <h3 className="text-sm font-semibold mb-1 text-[var(--text-heading)]">{title}</h3>
+      <p className="text-xs max-w-sm mb-4 text-[var(--text-recessive)] leading-relaxed">{description}</p>
       {action && <div>{action}</div>}
     </div>
   );
