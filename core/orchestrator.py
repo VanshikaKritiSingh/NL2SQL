@@ -19,6 +19,7 @@ from sqlglot import exp
 from core.dialect_converter import DeterministicDialectConverter, TranspilationResult
 from core.paradigm_suggestor import DatabaseParadigm, ParadigmSuggestion, SpeculativeParadigmSuggestor
 from core.schema_linker import ColumnMeta, LinkedSchemaContext, SchemaLinker, TableMeta
+from core.sanitizer import sanitizeAndExtractParametersFromSqlAst, ParameterizedStatement, SanitizationError
 from core.validator.contracts import Issue, Layer, Severity, StatementType, Status, ValidationResult
 from core.validator.engine import run_validation
 from core.validator.interfaces import FakeSchemaProvider
@@ -779,9 +780,27 @@ class EndToEndNL2SQLOrchestrator:
                 metadata={"error": str(e)}
             )
 
-        # 5. Stage 9: 6-Layer Static Validation (Software / Sarthak)
+        # 5. Stage 8: Parameterized Query Sanitization (IMP-01 — Sarthak)
+        sanitized_statement: Optional[ParameterizedStatement] = None
+        if transpilation_res.is_native_sql:
+            transpiled_sql = transpilation_res.compiled_query
+            if isinstance(transpiled_sql, str):
+                try:
+                    sanitized_statement = sanitizeAndExtractParametersFromSqlAst(
+                        transpiled_sql,
+                        dialect=resolved_engine if resolved_engine in ("postgres", "mysql", "sqlite") else "postgres",
+                    )
+                except SanitizationError:
+                    pass  # Fall back to raw SQL; the validator will catch actual injection attempts
+
+        # 6. Stage 9: 6-Layer Static Validation (FIX-01 — validate TRANSPILED SQL, not canonical)
+        if transpilation_res.is_native_sql:
+            validation_target = transpilation_res.compiled_query if isinstance(transpilation_res.compiled_query, str) else canonical_sql
+        else:
+            validation_target = canonical_sql  # Non-SQL targets (openCypher, MongoDB) — validate canonical
+
         validation_res: ValidationResult = run_validation(
-            sql=canonical_sql,
+            sql=validation_target,
             dialect=resolved_engine if resolved_engine in ("postgres", "mysql", "sqlite") else "postgres",
             schema=self._schema_provider,
         )

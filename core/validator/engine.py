@@ -54,8 +54,13 @@ def executeParseLayerValidation(sql: str, dialect: str = "postgres") -> Tuple[Li
         ))
         return issues, None
 
-    # Multi-statement check
-    statements = [s.strip() for s in stripped.split(";") if s.strip()]
+    # Multi-statement check — use quote/comment-aware splitter instead of naive split(";")
+    try:
+        from core.sanitizer import split_sql_script
+        statements = split_sql_script(stripped, dialect=dialect)
+    except Exception:
+        # Fallback to naive split only if the robust splitter is unavailable
+        statements = [s.strip() for s in stripped.split(";") if s.strip()]
     if len(statements) > 1:
         issues.append(issue(
             IssueCode.PARSE_01, Layer.PARSE, Severity.ERROR,
@@ -229,12 +234,19 @@ def executeSchemaLayerValidation(parsed: exp.Expression, schema: Optional[Schema
             tables_in_query[alias] = t_name
 
     # Check column existence
+    # FIX-07: Deduplicate by physical table identity to avoid false SCHEMA_03
+    # on aliased JOINs. Track which physical table each alias maps to so that
+    # aliases and table names resolving to the same physical table are not
+    # counted as separate tables when checking for ambiguous columns.
     all_known_cols: Dict[str, Set[str]] = {}
+    alias_to_physical: Dict[str, str] = {}  # alias_or_name -> physical table name
     for alias, t_name in tables_in_query.items():
         if t_name in known_tables:
             cols = {col_name.lower() for col_name, _ in schema.get_columns(t_name)}
             all_known_cols[alias] = cols
             all_known_cols[t_name] = cols
+            alias_to_physical[alias] = t_name
+            alias_to_physical[t_name] = t_name
 
     for col_node in parsed.find_all(exp.Column):
         c_name = col_node.name.lower()
@@ -271,14 +283,20 @@ def executeSchemaLayerValidation(parsed: exp.Expression, schema: Optional[Schema
                     ))
             elif len(tables_in_query) > 1:
                 matching_tables = [t for t, cols in all_known_cols.items() if c_name in cols]
-                if len(matching_tables) == 0:
+                # FIX-07: Deduplicate by physical table to avoid false positives
+                # when alias and table name both point to the same physical table
+                matching_physical = set()
+                for t in matching_tables:
+                    phys = alias_to_physical.get(t, t)
+                    matching_physical.add(phys)
+                if len(matching_physical) == 0:
                     issues.append(issue(
                         IssueCode.SCHEMA_02, Layer.SCHEMA, Severity.ERROR,
                         f"Column '{c_name}' does not exist in any joined tables ({', '.join(tables_in_query.values())})",
                         "Verify column name against joined table schemas",
                         ("READ", "WRITE")
                     ))
-                elif len(matching_tables) > 1:
+                elif len(matching_physical) > 1:
                     issues.append(issue(
                         IssueCode.SCHEMA_03, Layer.SCHEMA, Severity.ERROR,
                         f"Ambiguous column '{c_name}' present in multiple joined tables",
@@ -414,6 +432,74 @@ def executeQueryAntiPatternValidation(parsed: exp.Expression) -> List[Issue]:
             except ValueError:
                 pass
 
+        # 6. Function wrapping indexed column in WHERE (QUERY_AP_04)
+        where_clause = parsed.args.get("where")
+        if where_clause:
+            _SARGABLE_BREAKING_FUNCS = {
+                "upper", "lower", "trim", "ltrim", "rtrim", "coalesce",
+                "cast", "convert", "substring", "substr", "left", "right",
+                "replace", "concat", "date", "year", "month", "day",
+                "extract", "to_char", "to_date", "abs", "round", "ceil",
+                "floor", "length", "len", "char_length",
+            }
+            for func_node in where_clause.find_all(exp.Func):
+                fname = (getattr(func_node, "name", None) or func_node.__class__.__name__).lower()
+                if fname in _SARGABLE_BREAKING_FUNCS:
+                    has_col_arg = any(
+                        isinstance(a, exp.Column)
+                        for a in func_node.args.values()
+                        if isinstance(a, exp.Expression)
+                    )
+                    if has_col_arg:
+                        issues.append(issue(
+                            IssueCode.QUERY_AP_04, Layer.QUERY_AP, Severity.WARNING,
+                            f"Function '{fname}()' wrapping column in WHERE clause prevents index scan",
+                            "Rewrite predicate as sargable expression (apply function to value, not column)",
+                            ("READ", "WRITE")
+                        ))
+                        break
+
+        # 7. NOT IN with nullable subquery (QUERY_AP_05)
+        for not_node in parsed.find_all(exp.Not):
+            inner = not_node.this
+            if isinstance(inner, exp.In):
+                for child in inner.args.values():
+                    if isinstance(child, exp.Expression) and child.find(exp.Select):
+                        issues.append(issue(
+                            IssueCode.QUERY_AP_05, Layer.QUERY_AP, Severity.WARNING,
+                            "NOT IN with subquery risks returning empty set if subquery column is nullable",
+                            "Use NOT EXISTS or ensure subquery columns are NOT NULL",
+                            ("READ",)
+                        ))
+                        break
+
+        # 8. Correlated subquery detection (QUERY_AP_08)
+        outer_tables = {t.alias_or_name.lower() for t in parsed.find_all(exp.Table) if t.alias_or_name}
+        for subquery in parsed.find_all(exp.Subquery):
+            inner_select = subquery.find(exp.Select)
+            if inner_select:
+                inner_tables = {t.alias_or_name.lower() for t in inner_select.find_all(exp.Table) if t.alias_or_name}
+                for col in inner_select.find_all(exp.Column):
+                    if col.table and col.table.lower() in outer_tables and col.table.lower() not in inner_tables:
+                        issues.append(issue(
+                            IssueCode.QUERY_AP_08, Layer.QUERY_AP, Severity.WARNING,
+                            f"Correlated subquery references outer table '{col.table}' — may execute once per row",
+                            "Refactor to JOIN or Window Function for better performance",
+                            ("READ",)
+                        ))
+                        break
+
+        # 9. DISTINCT masking bad JOINs (QUERY_AP_09)
+        is_distinct = parsed.args.get("distinct")
+        has_joins = bool(parsed.args.get("joins"))
+        if is_distinct and has_joins:
+            issues.append(issue(
+                IssueCode.QUERY_AP_09, Layer.QUERY_AP, Severity.WARNING,
+                "DISTINCT used on a joined query may mask duplicate rows from incorrect JOIN cardinality",
+                "Verify join cardinality and join keys; remove DISTINCT if duplicates are from bad JOINs",
+                ("READ",)
+            ))
+
     return issues
 
 
@@ -444,6 +530,139 @@ def executeSchemaAntiPatternValidation(parsed: exp.Expression) -> List[Issue]:
                     "Add PRIMARY KEY constraint to ensure entity integrity",
                     ("DDL",)
                 ))
+
+            # --- Remaining schema anti-pattern checks ---
+            only_col_defs = [c for c in col_defs if isinstance(c, exp.ColumnDef)]
+            col_names_lower = [c.name.lower() for c in only_col_defs]
+            col_types_lower = {}
+            for c in only_col_defs:
+                c_type = str(c.kind).upper() if c.kind else ""
+                col_types_lower[c.name.lower()] = c_type
+
+            # SCHEMA_AP_02: Missing foreign-key reference
+            # Columns that look like foreign keys (ending in _id) but have no FK constraint
+            has_fk_constraint = set()
+            for c in only_col_defs:
+                for constraint in c.find_all(exp.Reference):
+                    has_fk_constraint.add(c.name.lower())
+            for fk_constraint in schema_def.find_all(exp.ForeignKey):
+                for fk_expr in fk_constraint.expressions:
+                    if hasattr(fk_expr, "name"):
+                        has_fk_constraint.add(fk_expr.name.lower())
+
+            pk_cols = set()
+            if has_pk:
+                for c in only_col_defs:
+                    if any(isinstance(con, exp.PrimaryKeyColumnConstraint) for con in c.find_all(exp.PrimaryKeyColumnConstraint)):
+                        pk_cols.add(c.name.lower())
+                for pk_node in schema_def.find_all(exp.PrimaryKey):
+                    for pk_expr in pk_node.expressions:
+                        if hasattr(pk_expr, "name"):
+                            pk_cols.add(pk_expr.name.lower())
+
+            for cname in col_names_lower:
+                if cname.endswith("_id") and cname not in pk_cols and cname not in has_fk_constraint:
+                    issues.append(issue(
+                        IssueCode.SCHEMA_AP_02, Layer.SCHEMA_AP, Severity.WARNING,
+                        f"Column '{cname}' looks like a foreign key but has no FOREIGN KEY constraint",
+                        f"Add FOREIGN KEY REFERENCES constraint for '{cname}'",
+                        ("DDL",)
+                    ))
+
+            # SCHEMA_AP_03: EAV-style table (entity-attribute-value)
+            eav_markers = {"entity_type", "attribute_name", "attribute_value"}
+            if eav_markers.issubset(set(col_names_lower)):
+                issues.append(issue(
+                    IssueCode.SCHEMA_AP_03, Layer.SCHEMA_AP, Severity.WARNING,
+                    f"Table '{schema_def.name}' appears to use Entity-Attribute-Value (EAV) anti-pattern",
+                    "Consider using dedicated columns per attribute for type safety and query performance",
+                    ("DDL",)
+                ))
+
+            # SCHEMA_AP_04: Polymorphic type columns (*_type + *_id together)
+            type_cols = [cn for cn in col_names_lower if cn.endswith("_type")]
+            for tc in type_cols:
+                prefix = tc[:-5]  # strip "_type"
+                if f"{prefix}_id" in col_names_lower:
+                    issues.append(issue(
+                        IssueCode.SCHEMA_AP_04, Layer.SCHEMA_AP, Severity.WARNING,
+                        f"Columns '{tc}' + '{prefix}_id' suggest a polymorphic association anti-pattern",
+                        "Use separate foreign key columns per referenced table or a join table",
+                        ("DDL",)
+                    ))
+
+            # SCHEMA_AP_06: FLOAT used for monetary columns
+            _MONETARY_KEYWORDS = {"price", "amount", "cost", "balance", "salary", "fee", "total", "revenue", "wage", "payment"}
+            _FLOAT_TYPES = {"FLOAT", "REAL", "DOUBLE", "DOUBLE PRECISION", "FLOAT4", "FLOAT8"}
+            for cname, ctype in col_types_lower.items():
+                if any(mk in cname for mk in _MONETARY_KEYWORDS):
+                    if any(ft in ctype for ft in _FLOAT_TYPES):
+                        issues.append(issue(
+                            IssueCode.SCHEMA_AP_06, Layer.SCHEMA_AP, Severity.WARNING,
+                            f"Column '{cname}' uses {ctype} for monetary/currency data — precision loss risk",
+                            "Use NUMERIC or DECIMAL type for monetary values",
+                            ("DDL",)
+                        ))
+
+            # SCHEMA_AP_07: Excessive nullable columns (>70% of columns are nullable)
+            if len(only_col_defs) >= 3:
+                not_null_count = 0
+                for c in only_col_defs:
+                    has_not_null = any(
+                        isinstance(con, exp.NotNullColumnConstraint)
+                        for con in c.find_all(exp.NotNullColumnConstraint)
+                    )
+                    has_pk_constraint = any(
+                        isinstance(con, exp.PrimaryKeyColumnConstraint)
+                        for con in c.find_all(exp.PrimaryKeyColumnConstraint)
+                    )
+                    if has_not_null or has_pk_constraint or c.name.lower() in pk_cols:
+                        not_null_count += 1
+
+                nullable_count = len(only_col_defs) - not_null_count
+                nullable_ratio = nullable_count / len(only_col_defs)
+                if nullable_ratio > 0.70:
+                    issues.append(issue(
+                        IssueCode.SCHEMA_AP_07, Layer.SCHEMA_AP, Severity.WARNING,
+                        f"Table '{schema_def.name}' has {nullable_count}/{len(only_col_defs)} nullable columns ({nullable_ratio:.0%})",
+                        "Review column nullability; mark required columns NOT NULL for data integrity",
+                        ("DDL",)
+                    ))
+
+            # SCHEMA_AP_05: Comma-separated values in column default
+            # Detect columns whose DEFAULT contains commas — suggests storing lists in a single column
+            for c in only_col_defs:
+                for default_node in c.find_all(exp.ColumnConstraint):
+                    default_kind = default_node.args.get("kind")
+                    if isinstance(default_kind, exp.DefaultColumnConstraint):
+                        default_val = default_kind.this
+                        if default_val and isinstance(default_val, exp.Literal):
+                            val_str = str(default_val.this or "")
+                            if "," in val_str and len(val_str.split(",")) >= 2:
+                                issues.append(issue(
+                                    IssueCode.SCHEMA_AP_05, Layer.SCHEMA_AP, Severity.WARNING,
+                                    f"Column '{c.name}' has a DEFAULT value with comma-separated data",
+                                    "Store multi-value data in a separate normalized table, not as CSV in a single column",
+                                    ("DDL",)
+                                ))
+
+            # SCHEMA_AP_08: FK column without backing index
+            # Columns with FK constraints but no matching index defined in table constraints
+            indexed_cols: Set[str] = set()
+            for idx_node in schema_def.find_all(exp.Index):
+                for idx_col in idx_node.find_all(exp.Column):
+                    indexed_cols.add(idx_col.name.lower())
+            # Also count PK columns as indexed
+            indexed_cols.update(pk_cols)
+
+            for fk_col_name in has_fk_constraint:
+                if fk_col_name not in indexed_cols:
+                    issues.append(issue(
+                        IssueCode.SCHEMA_AP_08, Layer.SCHEMA_AP, Severity.WARNING,
+                        f"Foreign key column '{fk_col_name}' has no backing index",
+                        f"Create an index on '{fk_col_name}' to speed up JOIN and DELETE operations",
+                        ("DDL",)
+                    ))
 
     return issues
 

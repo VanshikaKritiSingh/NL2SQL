@@ -241,3 +241,99 @@ class HeuristicCostEngine:
             method="heuristic",
             method_detail=t_name,
         )
+
+    # ------------------------------------------------------------------
+    # Workload-Driven Index Advisor
+    # ------------------------------------------------------------------
+
+    def adviseIndexesForQuery(
+        self,
+        sql_or_ast: sqlglot.Expression | str,
+        dialect: str = "postgres",
+    ) -> List[Dict[str, Any]]:
+        """Analyzes a query and recommends indexes that would improve performance.
+
+        Returns a list of index recommendation dicts, each with:
+          - table: table name
+          - columns: list of column names to index
+          - reason: human-readable justification
+          - estimated_improvement: qualitative score ("high", "medium", "low")
+        """
+        if isinstance(sql_or_ast, str):
+            try:
+                parsed = sqlglot.parse_one(sql_or_ast, read=dialect)
+            except Exception:
+                return []
+        else:
+            parsed = sql_or_ast
+
+        recommendations: List[Dict[str, Any]] = []
+
+        if not isinstance(parsed, exp.Select):
+            return recommendations
+
+        tables = [t.name for t in parsed.find_all(exp.Table) if t.name]
+        where_clause = parsed.args.get("where")
+        order_clause = parsed.args.get("order")
+        joins = parsed.args.get("joins", [])
+
+        # 1. Recommend indexes on WHERE clause columns
+        if where_clause:
+            where_cols: Dict[str, List[str]] = {}
+            for col_node in where_clause.find_all(exp.Column):
+                tbl = col_node.table or (tables[0] if len(tables) == 1 else None)
+                if tbl:
+                    where_cols.setdefault(tbl, []).append(col_node.name)
+            for tbl, cols in where_cols.items():
+                unique_cols = list(dict.fromkeys(cols))
+                table_rows = self._get_table_rows(tbl)
+                if table_rows >= self.thresholds.full_scan_min_table_rows:
+                    recommendations.append({
+                        "table": tbl,
+                        "columns": unique_cols,
+                        "reason": f"WHERE clause filters on {', '.join(unique_cols)} with {table_rows:,} estimated rows",
+                        "estimated_improvement": "high",
+                    })
+
+        # 2. Recommend indexes on JOIN columns
+        for join in joins:
+            on_clause = join.args.get("on")
+            if on_clause:
+                for eq_node in on_clause.find_all(exp.EQ):
+                    for side in (eq_node.left, eq_node.right):
+                        if isinstance(side, exp.Column) and side.table:
+                            table_rows = self._get_table_rows(side.table)
+                            if table_rows >= 10_000:
+                                recommendations.append({
+                                    "table": side.table,
+                                    "columns": [side.name],
+                                    "reason": f"JOIN condition on {side.table}.{side.name}",
+                                    "estimated_improvement": "high" if table_rows >= 100_000 else "medium",
+                                })
+
+        # 3. Recommend indexes on ORDER BY columns (unbounded sorts)
+        if order_clause and not parsed.args.get("limit"):
+            for o_exp in order_clause.expressions:
+                col = o_exp.this
+                if isinstance(col, exp.Column):
+                    tbl = col.table or (tables[0] if len(tables) == 1 else None)
+                    if tbl:
+                        recommendations.append({
+                            "table": tbl,
+                            "columns": [col.name],
+                            "reason": f"Unbounded ORDER BY on {col.name} requires full sort",
+                            "estimated_improvement": "medium",
+                        })
+
+        # Deduplicate recommendations by (table, frozenset(columns))
+        seen: Set[tuple] = set()
+        unique_recs: List[Dict[str, Any]] = []
+        for rec in recommendations:
+            key = (rec["table"], tuple(sorted(rec["columns"])))
+            if key not in seen:
+                seen.add(key)
+                unique_recs.append(rec)
+
+        return unique_recs
+
+    advise_indexes = adviseIndexesForQuery
