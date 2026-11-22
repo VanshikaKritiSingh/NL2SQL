@@ -7,11 +7,13 @@
 
 ## Checklists
 
-| File | Created | Status | Purpose |
-|---|---|---|---|
-| [`checklists/2026-10-30_developer_todo_checklist_[STATUS_ACTIVE].md`](checklists/2026-10-30_developer_todo_checklist_[STATUS_ACTIVE].md) | 2026-10-30 | **ACTIVE** | Developer action plan derived from adversarial & ponytail audits. 41 tasks across Fix, Implement, Alternative, and Delete categories. |
+| File | Created | Revised | Status | Purpose |
+|---|---|---|---|---|
+| [`checklists/2026-10-30_developer_todo_checklist_[STATUS_ACTIVE].md`](checklists/2026-10-30_developer_todo_checklist_[STATUS_ACTIVE].md) | 2026-10-30 | 2026-11-22 (Rev 2) | **ACTIVE** | **Master status & action register.** Rev 2 reconciles the Phase-III report claim-by-claim against `HEAD = eb4902c` and adds the Phase-IV AI/LLM programme. Records what is verified done (12 subsystems), defective (17), claimed-but-absent (7), and planned (9). Single source of truth for pending and completed work. |
 
 **Quick alias:** [`DEVELOPER_CHECKLIST.md`](DEVELOPER_CHECKLIST.md)
+
+> **Rev 2 scope note:** supersedes the Phase-III report's progress figures as a reference for status. Where they conflict, this register wins, because every line here carries a verified file/line citation. See its `§Appendix — Phase-III report reconciliation summary`.
 
 ---
 
