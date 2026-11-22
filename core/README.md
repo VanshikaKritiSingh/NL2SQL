@@ -267,7 +267,7 @@ PYTHONPATH=. ./.venv/bin/pytest tests/ -v
 - **Cross-Platform Script Automation:** [`../scripts/README.md`](../scripts/README.md)
 - **Offline Model Checkpoint Registry:** [`../offline/models/README.md`](../offline/models/README.md)
 - **Static AST Validator Engine:** [`validator/`](validator/) (and legacy shim [`../validator/`](../validator/))
-- **Query Cost & Blast Radius Engine:** [`cost_estimator/`](cost_estimator/) (and legacy shim [`../cost_estimator/`](../cost_estimator/))
+- **Query Cost & Blast Radius Engine:** [`cost_estimator/`](cost_estimator/)
 
 ---
 

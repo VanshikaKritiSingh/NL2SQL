@@ -130,6 +130,29 @@ _GENERAL_KN_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+# Veto 1: Explicit column specifications in the natural language text.
+# If the user provides column types, constraints, or a paren-enclosed column
+# list, they are not asking for a free-form architecture synthesis — they are
+# specifying an exact DDL statement.  Must go to the LLM (MODE_SQL_QUERY).
+_EXPLICIT_DDL_SPEC_PATTERNS = re.compile(
+    r"(?:"
+    r"with\s+columns?[:\s]|"                                        # "with columns:"
+    r"\(\s*\w+\s+(?:INT|VARCHAR|CHAR|TEXT|DECIMAL|NUMERIC|BIGINT|" # "(col_name INT..."
+    r"SERIAL|TIMESTAMP|DATETIME|BOOLEAN|FLOAT|DOUBLE)\b|"
+    r"\b(?:PRIMARY\s+KEY|FOREIGN\s+KEY|AUTO_INCREMENT|NOT\s+NULL|" # explicit constraints
+    r"UNIQUE|DEFAULT\s+['\w]|REFERENCES\s+\w+|CHECK\s*\()\b"
+    r")",
+    re.IGNORECASE,
+)
+
+# Veto 2: Direct CREATE DATABASE / CREATE SCHEMA instructions with a named identifier.
+# "Create a new MySQL database named CampusDB..." is a single-statement DDL command,
+# not an architectural modeling task.
+_NAMED_DATABASE_DIRECTIVE = re.compile(
+    r"\b(?:create|make|build)\s+(?:a\s+)?(?:new\s+)?(?:[a-zA-Z0-9_]+\s+)?(?:database|schema)\s+(?:named|called)\s+[a-zA-Z0-9_`\"]+",
+    re.IGNORECASE,
+)
+
 
 class SemanticIntentClassifier:
     """
@@ -168,8 +191,22 @@ class SemanticIntentClassifier:
                 confidence=0.90,
             )
 
-        # 3. Architecture intent (requires explicit schema design vocabulary)
-        if _ARCH_PATTERNS.search(q) and len(q.split()) > 6:
+        # 3. Architecture intent.
+        #
+        # ARCHITECTURE mode means "the user described a system in prose and wants
+        # a whole multi-table design synthesised".  It must NOT fire when the user
+        # has already spelled out the DDL precisely — in that case the request is a
+        # direct SQL generation task and belongs in MODE_SQL_QUERY so the real
+        # language model, not the template synthesiser, produces the statement.
+        #
+        # Two hard vetoes prevent the misclassification that used to route every
+        # CREATE TABLE / CREATE DATABASE request into the template synthesizer:
+        #   (a) explicit column type specifications → precise DDL
+        #   (b) an explicit CREATE DATABASE / CREATE SCHEMA directive → precise DDL
+        if _ARCH_PATTERNS.search(q) and len(q.split()) > 6 and not (
+            _EXPLICIT_DDL_SPEC_PATTERNS.search(q)
+            or _NAMED_DATABASE_DIRECTIVE.search(q)
+        ):
             has_select = bool(re.search(r"\b(select|from|where|show|list|find)\b", q_lower))
             has_create = bool(re.search(r"\bcreate\s+table\b", q_lower))
             if not (has_select and not has_create):
@@ -177,7 +214,7 @@ class SemanticIntentClassifier:
                     mode=MODE_ARCHITECTURE,
                     refusal_tag=None,
                     refusal_comment="",
-                    explanation="Architecture design intent detected.",
+                    explanation="Architecture design intent detected (prose description, no explicit DDL).",
                     confidence=0.88,
                 )
 

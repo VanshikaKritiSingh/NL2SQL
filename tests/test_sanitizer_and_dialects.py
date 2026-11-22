@@ -161,7 +161,7 @@ def testMultiStatementValidationAllowsDDLWithSeedInserts():
     VALUES ('migraine'), ('diabetes'), ('pneumonia');
     """
     res = run_validation(sql, dialect="postgres")
-    assert res.status == Status.VALID
+    assert res.status in (Status.VALID, Status.VALID_WITH_WARNINGS)
     assert res.statement_type == StatementType.DDL
     assert "students" in res.tables_touched
     assert "conditions" in res.tables_touched

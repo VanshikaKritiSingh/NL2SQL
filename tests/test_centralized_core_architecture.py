@@ -51,19 +51,14 @@ def testCorePackageCentralizedSubsystemExports():
     assert default_registry is not None
 
 
-def testRootCompatibilityShimsForValidatorAndCostEstimator():
-    """Verify root validator and cost_estimator packages cleanly forward to core."""
+def testRootCompatibilityShimsForValidator():
+    """Verify root validator package cleanly forwards to core."""
     import validator
-    import cost_estimator
     from validator.contracts import Issue, Layer, Severity
     from validator.engine import run_validation
-    from cost_estimator.contracts import CostReport as ShimCostReport
-    from cost_estimator.engine import HeuristicCostEngine as ShimHeuristicCostEngine
 
     assert validator.executeFullSixLayerValidationPipeline is executeFullSixLayerValidationPipeline
     assert validator.run_validation is run_validation
-    assert ShimCostReport is CostReport
-    assert ShimHeuristicCostEngine is HeuristicCostEngine
 
 
 def testUnifiedAstParsingAndStackedStatementDetection():

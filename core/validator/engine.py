@@ -930,6 +930,17 @@ def executeFullSixLayerValidationPipeline(
     return result
 
 
+def parseSqlStatementIntoAbstractSyntaxTree(sql: str, dialect: str = "postgres") -> exp.Expression:
+    """Parse a single SQL statement into a sqlglot Expression AST.
+    Used by tests and callers needing direct AST access without full validation.
+    """
+    return sqlglot.parse_one(sql.strip(), read=dialect)
+
+
+# Re-export from sanitizer so callers importing from validator.engine find it
+from core.sanitizer import detectMultipleStackedSqlStatements  # noqa: E402
+
+
 # Aliases for backward compatibility
 validate_parse = executeParseLayerValidation
 validate_policy = executePolicyLayerValidation
@@ -949,6 +960,8 @@ __all__ = [
     "executeQueryAntiPatternValidation",
     "executeSchemaAntiPatternValidation",
     "executeFullSixLayerValidationPipeline",
+    "parseSqlStatementIntoAbstractSyntaxTree",
+    "detectMultipleStackedSqlStatements",
     "issue",
     "validate_parse",
     "validate_policy",
