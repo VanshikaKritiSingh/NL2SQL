@@ -8,7 +8,7 @@
 [![Platforms](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey?style=flat-square)](https://github.com/VanshikaKritiSingh/NL2SQL)
 [![Interactive Spec](https://img.shields.io/badge/Architecture-Interactive%20HTML%20Spec-blueviolet?style=flat-square&logo=html5&logoColor=white)](../docs/html/nl2sql.html)
 [![Vector Blueprint](https://img.shields.io/badge/Vector%20Blueprint-SVG%20High--Res-ff69b4?style=flat-square&logo=inkscape&logoColor=white)](../docs/diagrams/SVG_DIAGRAM.svg)
-[![Shell](https://img.shields.io/badge/Shell-Bash%20%7C%20Python-4EAA25?style=flat-square&logo=gnu-bash&logoColor=white)](https://github.com/VanshikaKritiSingh/NL2SQL)
+[![Shell](https://img.shields.io/badge/Shell-Bash%20%7C%20Python%20%7C%20PowerShell-4EAA25?style=flat-square&logo=gnu-bash&logoColor=white)](https://github.com/VanshikaKritiSingh/NL2SQL)
 [![Volume Protection](https://img.shields.io/badge/Repo%20Volume-Protected%20%28%3C%2015MB%29-blue?style=flat-square)](https://github.com/VanshikaKritiSingh/NL2SQL)
 
 <br />
@@ -23,7 +23,7 @@
 
 ## Architecture & Script Matrix
 
-Every workflow in the NL2SQL repository provides native executable scripts for **Linux/macOS (`.sh`)** and **Python (`.py`)**, with Windows support via WSL or virtualization:
+Scripts in this directory orchestrate complete environment setup, backend/frontend launching, ML pipeline, dataset generation, model downloading, and benchmarking. **Supported platforms: Linux/macOS (`.sh`), Windows (`.ps1`), and Python (`.py`).**
 
 ```mermaid
 flowchart TD
@@ -33,138 +33,123 @@ flowchart TD
     SCRIPTS --> RUNNERS[2. Full-Stack & Service Launchers]
     SCRIPTS --> ML[3. AI/ML Training & Downloader]
     SCRIPTS --> TESTS[4. Verification & Benchmarking]
+    SCRIPTS --> UTILS[5. Utilities & Demos]
 
     SETUP --> S1[setup_linux.sh]
-
     RUNNERS --> R1[start_all.sh]
     RUNNERS --> R2[start_backend.sh]
     RUNNERS --> R3[start_gui.sh]
+    RUNNERS --> R4[start_all.ps1]
+    RUNNERS --> R5[start_backend.ps1]
+    RUNNERS --> R6[start_gui.ps1]
 
-    ML --> M1[download_model.sh]
+    ML --> M1[download_model.sh/.py]
     ML --> M2[start_train.sh]
     ML --> M3[start_export.sh]
     ML --> M4[generate_dataset.py]
 
     TESTS --> T1[run_tests.sh]
     TESTS --> T2[start_eval.sh]
+
+    UTILS --> U1[pipeline_stepper.py]
 ```
 
-> **Note:** Windows `.ps1` and `.bat` wrapper scripts were removed to reduce duplication. Windows users can run these scripts on Linux via WSL, Docker, or a virtual machine.
+> **Note:** For each workflow, both Bash and PowerShell scripts are available for Linux/macOS and Windows. All key pipelines can also be driven using the provided Python entrypoints.
+
 ---
 
 ## Complete Script Catalog
 
-| Task / Purpose | Linux & macOS (Bash) | Python (Cross-Platform) | Description |
-| :--- | :--- | :--- | :--- |
-| **Full Environment Setup** | `./scripts/setup_linux.sh` | — | Installs `.venv`, core pip packages, GUI npm packages, and creates local dataset |
-| **Start Full Stack** | `./scripts/start_all.sh` | — | Launches FastAPI backend (8000) and Web Studio UI (5173) concurrently |
-| **Start Backend Server** | `./scripts/start_backend.sh` | — | Launches FastAPI backend server on `127.0.0.1:8000` with hot-reload |
-| **Start Frontend UI** | `./scripts/start_gui.sh` | — | Launches Vite Web Studio UI or Electron desktop app (`--desktop`) |
-| **Download Base Model** | `./scripts/download_model.sh` | `python scripts/download_model.py` | Downloads Qwen2.5-Coder model presets from Hugging Face into `offline/models/` |
-| **Run All Tests** | `./scripts/run_tests.sh` | — | Runs 17/17 pytest suite + FastAPI backend integration test suite |
-| **Fine-Tune Model (QLoRA)** | `./scripts/start_train.sh` | — | Initiates 4-bit NF4 QLoRA fine-tuning on consumer GPU / CPU |
-| **Benchmark Evaluation** | `./scripts/start_eval.sh` | — | Benchmarks AST Exact Match (EM) and SQLite Execution Accuracy (EX) |
-| **LoRA Merge & GGUF Export** | `./scripts/start_export.sh` | — | Merges LoRA adapters and prepares GGUF / Ollama Modelfile |
-| **Generate Synthetic Dataset**| — | `python scripts/generate_dataset.py` | Synthesizes multi-domain instruction dataset locally in `offline/datasets/` |
+| Task / Purpose                    | Linux/macOS (Bash)                 | Windows (PowerShell)                | Python (Cross-Platform)          | Description |
+| :-------------------------------- | :--------------------------------- | :---------------------------------- | :------------------------------- | :---------- |
+| **Full Environment Setup**        | `setup_linux.sh`                   | —                                  | —                               | Installs .venv, pip packages, GUI npm packages, creates dataset |
+| **Start Full Stack**              | `start_all.sh`                     | `start_all.ps1`                    | —                               | Launches backend (8000) + Web Studio (5173)/Electron |
+| **Start Backend Server**          | `start_backend.sh`                 | `start_backend.ps1`                | —                               | Launches FastAPI backend at 127.0.0.1:8000 (hot-reload) |
+| **Start Frontend UI**             | `start_gui.sh`                     | `start_gui.ps1`                    | —                               | Launches Vite Web Studio/Electron desktop (`--desktop`) |
+| **Download Base Model**           | `download_model.sh`                | —                                  | `download_model.py`             | Downloads Qwen2.5-Coder presets from Hugging Face |
+| **Generate Synthetic Dataset**    | —                                  | —                                  | `generate_dataset.py`           | Creates instruction-tuning datasets in `offline/datasets/` |
+| **Run All Tests**                 | `run_tests.sh`                     | —                                  | —                               | Runs `pytest` and backend integration test suite |
+| **Fine-Tune Model (QLoRA)**       | `start_train.sh`                   | —                                  | —                               | QLoRA 4-bit fine-tuning on consumer GPU/CPU |
+| **Benchmark Evaluation**          | `start_eval.sh`                    | —                                  | —                               | Benchmarks SQL AST/EX accuracy |
+| **LoRA Merge & GGUF Export**      | `start_export.sh`                  | —                                  | —                               | Merges LoRA, prepares GGUF/Ollama modelfiles |
+| **Pipeline Step Demo (TUI)**      | —                                  | —                                  | `pipeline_stepper.py`           | Interactive step-by-step terminal pipeline demo |
 
 ---
 
-## Detailed Usage Guides
+## Usage Quick Reference
 
-### 1. Unified Full-Stack Launcher (`start_all`)
-Launches the full pipeline (FastAPI backend + Vite Web Studio) in a single terminal. On Linux/macOS, handles `SIGINT`/`SIGTERM` to gracefully kill background processes:
-
-```bash
+### Unified Full-Stack Launcher
+```sh
 # Linux / macOS
 ./scripts/start_all.sh
-
-# Launch with Electron Desktop GUI
+# Windows PowerShell
+./scripts/start_all.ps1
+# With Electron GUI (both platforms)
 ./scripts/start_all.sh --desktop
-
-> **Note:** Windows users can run via WSL, Docker, or a virtual machine.
+./scripts/start_all.ps1 -Desktop
 ```
 
-### 2. Base Model Downloader (`download_model`)
-Downloads foundation models directly from Hugging Face into `offline/models/` without exceeding git volume restrictions:
-
-```bash
-# Linux / macOS
-./scripts/download_model.sh --preset 0.5b      # Rapid download (0.93GB, edge & CPU testing)
-./scripts/download_model.sh --preset 1.5b      # Balanced model (3.1GB)
-./scripts/download_model.sh --preset 7b        # SOTA Flagship (14.2GB, target for QLoRA)
-./scripts/download_model.sh --preset 7b-gguf   # Quantized Q4_K_M (~4.3GB, zero-GPU CPU inference)
-./scripts/download_model.sh --list             # List available presets
-
-# Cross-Platform Python
-python scripts/download_model.py --preset 0.5b
+### Start Backend/API
+```sh
+./scripts/start_backend.sh
+./scripts/start_backend.ps1           # PowerShell
 ```
 
-### 3. Verification & Integration Test Suite (`run_tests`)
-Executes the full test suite across the repository:
-1. `tests/test_core_modules.py` (17 unit and integration tests)
-2. `GUI/server/test_backend.py` (FastAPI router endpoints & orchestrator verification)
+### Start Frontend/UI
+```sh
+./scripts/start_gui.sh
+./scripts/start_gui.ps1               # PowerShell
+./scripts/start_gui.sh --desktop      # Electron GUI
+./scripts/start_gui.ps1 -Desktop
+```
 
-```bash
-# Linux / macOS
+### Download Foundational Models
+```sh
+./scripts/download_model.sh --preset 7b
+python scripts/download_model.py --preset 7b
+```
+
+### Generate Synthetic Dataset
+```sh
+python scripts/generate_dataset.py
+```
+
+### Run Tests & Evaluate
+```sh
 ./scripts/run_tests.sh
-
-# Windows PowerShell
-.\scripts\run_tests.ps1
-
-# Windows Command Prompt
-scripts\run_tests.bat
-```
-
-### 4. Offline Fine-Tuning Launcher (`start_train`)
-Launches 4-bit NF4 QLoRA instruction tuning on the local dataset:
-
-```bash
-# Linux / macOS
-./scripts/start_train.sh                                     # Uses local offline/models/ base model
-./scripts/start_train.sh --model Qwen/Qwen2.5-Coder-7B-Instruct --epochs 3
-
-# Windows PowerShell
-.\scripts\start_train.ps1
-.\scripts\start_train.ps1 -Model "Qwen/Qwen2.5-Coder-7B-Instruct" -Epochs 3
-
-# Windows Command Prompt
-scripts\start_train.bat
-```
-
-### 5. Benchmark Evaluator (`start_eval`)
-Measures SQL structural accuracy and real-world execution correctness:
-
-```bash
-# Linux / macOS
 ./scripts/start_eval.sh
+```
 
-# Windows PowerShell
-.\scripts\start_eval.ps1
+### Fine-Tune/Export Models (QLoRA)
+```sh
+./scripts/start_train.sh
+./scripts/start_export.sh
+```
 
-# Windows Command Prompt
-scripts\start_eval.bat
+### Interactive Pipeline Stepper Demo (TUI)
+```sh
+python scripts/pipeline_stepper.py
 ```
 
 ---
 
 ## Volume Protection & `.gitignore` Compliance
 
-All scripts adhere strictly to the repository volume protection policy:
-- **`offline/models/*`**: Large model weights (`.safetensors`, `.bin`, `.gguf`) stay locally in `offline/models/` and are never committed to git.
-- **`offline/checkpoints/*`**: Training checkpoint weights are excluded from version control.
-- **`offline/datasets/*.json` & `*.jsonl`**: Synthetic datasets are generated on demand via `scripts/generate_dataset.py` (0 bytes committed to git).
-- **Repository Size**: Maintained strictly under 15 MB for instant cloning on student and researcher machines.
+- Large models: kept in `offline/models/`, not committed.
+- Training checkpoints: `offline/checkpoints/`, not committed.
+- Synthetic datasets: generated in `offline/datasets/`, git-ignored.
+- Total repository size kept under 15 MB for easy cloning.
 
 ---
 
-## Related Subsystem Documentation & Specifications
+## Related Documentation
 
-- **Root Pipeline Overview:** [`../README.md`](../README.md)
-- **Interactive Architecture Specification:** [`../docs/html/nl2sql.html`](../docs/html/nl2sql.html)
-- **High-Resolution Master Blueprint:** [`../docs/diagrams/SVG_DIAGRAM.svg`](../docs/diagrams/SVG_DIAGRAM.svg)
-- **Core AI/ML Engine & Transpiler Handbook:** [`../core/README.md`](../core/README.md)
-- **Desktop & Web Studio Handbook:** [`../GUI/README.md`](../GUI/README.md)
-- **Offline Model Checkpoint Registry:** [`../offline/models/README.md`](../offline/models/README.md)
+- [Root Pipeline Overview](../README.md)
+- [Interactive HTML Architecture Spec](../docs/html/nl2sql.html)
+- [Master Blueprint (SVG)](../docs/diagrams/SVG_DIAGRAM.svg)
+- [Core AI/ML Engine Handbook](../core/README.md)
+- [Desktop & Web Studio Handbook](../GUI/README.md)
+- [Offline Model Registry](../offline/models/README.md)
 
 ---
 
