@@ -71,8 +71,8 @@ export const ResultPanel: React.FC = () => {
       >
         <EmptyState
           icon={<Table aria-hidden="true" className={`w-6 h-6 ${isDark ? 'text-[var(--accent-primary)]' : 'text-[var(--accent-primary)]'}`} />}
-          title="Sandbox Execution Results"
-          description="Read-only query outputs or execution statuses will display here."
+          title="Blank SQLite Sandbox"
+          description="In-memory SQLite sandbox is clean and empty (0 tables). Run a natural language prompt or SQL cell to create tables and execute queries."
         />
       </div>
     );
@@ -123,7 +123,7 @@ export const ResultPanel: React.FC = () => {
             className={`px-3 py-1.5 text-xs font-medium border rounded-[var(--radius-pill)] flex items-center gap-1.5 transition-colors duration-200 cursor-pointer ${
               isDark
                 ? 'bg-[var(--bg-panel)] border-[var(--border-subtle)] text-[var(--text-main)] hover:bg-[var(--bg-hover)]'
-                : 'bg-white border-[var(--border-subtle)] text-[var(--text-main)] hover:bg-[var(--bg-hover)]'
+                : 'bg-[var(--bg-card)] border-[var(--border-subtle)] text-[var(--text-main)] hover:bg-[var(--bg-hover)]'
             }`}
           >
             <Database aria-hidden="true" className="w-3.5 h-3.5" />
@@ -219,7 +219,7 @@ export const ResultPanel: React.FC = () => {
             className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-[var(--radius-pill)] text-xs font-semibold transition-colors duration-200 cursor-pointer ${
               isDark
                 ? 'bg-[var(--bg-card-header)] border border-[var(--border-main)] text-[var(--text-main)] hover:bg-[var(--bg-hover)]'
-                : 'bg-white border border-[var(--border-subtle)] text-[var(--text-main)] hover:bg-[var(--bg-hover)]'
+                : 'bg-[var(--bg-card)] border border-[var(--border-subtle)] text-[var(--text-main)] hover:bg-[var(--bg-hover)]'
             }`}
           >
             <Database aria-hidden="true" className={`w-3.5 h-3.5 ${isDark ? 'text-[var(--accent-primary)]' : 'text-[var(--accent-primary)]'}`} />

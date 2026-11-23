@@ -69,7 +69,7 @@ export const NLQueryInput: React.FC = () => {
         setConnectedEngine(null);
       }
 
-      if (data && Array.isArray(data.databases) && data.databases.length > 0) {
+      if (connected && data && Array.isArray(data.databases) && data.databases.length > 0) {
         setDatabases(data.databases);
         setAvailableDatabases(data.databases);
         if (databaseProfile !== '__none__') {
@@ -79,7 +79,7 @@ export const NLQueryInput: React.FC = () => {
             setDatabaseProfile(data.databases[0]);
           }
         }
-      } else if (data && data.database) {
+      } else if (connected && data && data.database) {
         const dbs = [data.database];
         setDatabases(dbs);
         setAvailableDatabases(dbs);
@@ -87,17 +87,17 @@ export const NLQueryInput: React.FC = () => {
           setDatabaseProfile(data.database);
         }
       } else {
-        // Fallback default sample database options so the dropdown is never blank
-        const fallback = ['test', 'ecommerce_db', 'master_enterprise'];
-        setDatabases(fallback);
-        setAvailableDatabases(fallback);
+        // Disconnected: clear all database contexts and revert to clean state
+        setDatabases([]);
+        setAvailableDatabases([]);
+        setDatabaseProfile('__none__');
       }
     } catch {
-      const fallback = ['test', 'ecommerce_db', 'master_enterprise'];
-      setDatabases(fallback);
-      setAvailableDatabases(fallback);
+      setDatabases([]);
+      setAvailableDatabases([]);
       setIsDbConnected(false);
       setConnectedEngine(null);
+      setDatabaseProfile('__none__');
     }
   };
 
@@ -176,6 +176,8 @@ export const NLQueryInput: React.FC = () => {
         timestamp: new Date().toLocaleTimeString(),
         is_mutating: res.status === 'approval_required',
         database_profile: res.database_profile || (databaseProfile === '__none__' ? '(None / New Database)' : databaseProfile),
+        selected_dialect: res.selected_dialect,
+        dialect_reason: res.dialect_reason,
       });
 
       if (res.status === 'approval_required' && res.approval_payload) {
@@ -242,17 +244,19 @@ export const NLQueryInput: React.FC = () => {
               >
                 No Context (Create New DB / Scratch)
               </option>
-              <optgroup label="Available Databases">
-                {(databases.length > 0 ? databases : ['test', 'ecommerce_db', 'master_enterprise']).map((db) => (
-                  <option
-                    key={db}
-                    value={db}
-                    className={isDark ? 'bg-[var(--bg-panel)] text-white' : 'bg-white text-slate-900'}
-                  >
-                    {db} {isDbConnected && db === databaseProfile ? `(active ${connectedEngine?.toUpperCase() || 'DB'})` : ''}
-                  </option>
-                ))}
-              </optgroup>
+              {databases.length > 0 && (
+                <optgroup label="Available Databases">
+                  {databases.map((db) => (
+                    <option
+                      key={db}
+                      value={db}
+                      className={isDark ? 'bg-[var(--bg-panel)] text-white' : 'bg-white text-slate-900'}
+                    >
+                      {db} {isDbConnected && db === databaseProfile ? `(active ${connectedEngine?.toUpperCase() || 'DB'})` : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
 
             {/* Live vs Scratch vs Offline Status Badge */}
@@ -377,7 +381,7 @@ export const NLQueryInput: React.FC = () => {
           className={`w-full rounded-[var(--radius-control)] p-3.5 text-sm focus:outline-none focus:ring-2 border font-sans select-text transition-colors duration-200 resize-y min-h-[96px] max-h-[360px] leading-relaxed ${
             isDark
               ? 'bg-[var(--bg-input)] text-[var(--text-main)] placeholder-[var(--text-muted)] border-[var(--border-main)] focus:border-[var(--accent-primary)] focus:ring-[var(--accent-primary)]/20'
-              : 'bg-white text-[var(--text-main)] placeholder-[var(--text-muted)] border-[var(--border-subtle)] focus:border-[var(--border-focus)] focus:ring-[var(--border-focus)]/10'
+              : 'bg-[var(--bg-input)] text-[var(--text-main)] placeholder-[var(--text-muted)] border-[var(--border-subtle)] focus:border-[var(--border-focus)] focus:ring-[var(--border-focus)]/10 shadow-xs'
           }`}
         />
       </div>

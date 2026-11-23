@@ -35,8 +35,15 @@ export async function getLiveSchema(userId: string, dialect: string = 'mysql'): 
     // server not available
   }
 
-  // 3. Fallback to frontend mock
-  return getMockSchema(dialect);
+  // 3. Fallback: return empty disconnected schema (never show phantom mock tables)
+  return {
+    dialect,
+    database_name: '(No Database Connected)',
+    tables: [],
+    foreign_keys: [],
+    total_tables: 0,
+    total_columns: 0,
+  };
 }
 
 /**

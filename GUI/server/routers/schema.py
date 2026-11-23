@@ -102,9 +102,6 @@ def _build_schema_from_connection(conn, dialect: str) -> Optional[SchemaInfo]:
             row_cnt = getattr(t_schema, "row_count_estimate", None)
             tbl_infos.append(TableInfo(name=t_name, columns=col_infos, row_count=row_cnt))
 
-        if not tbl_infos:
-            return None
-
         return SchemaInfo(
             dialect=dialect,
             database_name=db_name,
@@ -112,7 +109,15 @@ def _build_schema_from_connection(conn, dialect: str) -> Optional[SchemaInfo]:
             foreign_keys=all_fks,
         )
     except Exception:
-        return None
+        db_name = conn.config.database if conn and conn.config and conn.config.database else "scratch"
+        return SchemaInfo(
+            dialect=dialect,
+            database_name=db_name,
+            tables=[],
+            foreign_keys=[],
+            total_tables=0,
+            total_columns=0,
+        )
 
 
 def _build_schema_from_orchestrator(dialect: str) -> Optional[SchemaInfo]:
@@ -149,7 +154,7 @@ def _build_schema_from_orchestrator(dialect: str) -> Optional[SchemaInfo]:
             if tbl_infos:
                 return SchemaInfo(
                     dialect=dialect,
-                    database_name="master_enterprise",
+                    database_name="(In-Memory Cache)",
                     tables=tbl_infos,
                     foreign_keys=all_fks,
                 )
@@ -168,7 +173,7 @@ async def retrieveDatabaseSchemaMetadataForVisualizer(dialect: str = "mysql", us
       2. Orchestrator cached schema
       3. Mock fallback schema
     """
-    # 1. If user_id is provided, try live DB connection first
+    # 1. If user_id is provided, check live DB connection
     if user_id:
         try:
             from core.connectors import default_registry
@@ -178,15 +183,35 @@ async def retrieveDatabaseSchemaMetadataForVisualizer(dialect: str = "mysql", us
                     live_schema = _build_schema_from_connection(conn, dialect)
                     if live_schema is not None:
                         return live_schema
+            else:
+                # User is explicitly not connected to any database — show 0 tables, no phantom schema
+                return SchemaInfo(
+                    dialect=dialect,
+                    database_name="(No Database Connected)",
+                    tables=[],
+                    foreign_keys=[],
+                    total_tables=0,
+                    total_columns=0,
+                )
         except Exception:
             pass
 
-    # 2. Try orchestrator-based schema
+        # If user is provided but not attached or introspection returned nothing, return empty
+        return SchemaInfo(
+            dialect=dialect,
+            database_name="(No Database Connected)",
+            tables=[],
+            foreign_keys=[],
+            total_tables=0,
+            total_columns=0,
+        )
+
+    # 2. Try orchestrator-based schema (for headless / non-user API calls)
     orch_schema = _build_schema_from_orchestrator(dialect)
     if orch_schema:
         return orch_schema
 
-    # 3. Fallback to mock
+    # 3. Fallback to mock (only when user_id is None, e.g. standalone test)
     return get_mock_ecommerce_schema(dialect)
 
 

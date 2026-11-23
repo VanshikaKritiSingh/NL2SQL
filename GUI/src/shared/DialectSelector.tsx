@@ -20,41 +20,45 @@ const DIALECT_CATEGORIES: DialectCategory[] = [
     category: 'Relational / SQL (RDBMS)',
     options: [
       { id: 'postgres', label: 'PostgreSQL (Universal IR)' },
-      { id: 'mysql', label: 'MySQL' },
-      { id: 'sqlite', label: 'SQLite' },
-      { id: 'oracle', label: 'Oracle Database' },
-      { id: 'sqlserver', label: 'Microsoft SQL Server' },
-      { id: 'mariadb', label: 'MariaDB' },
-      { id: 'access', label: 'MS Access' },
+      { id: 'mysql', label: 'MySQL / MariaDB' },
+      { id: 'sqlite', label: 'SQLite (Embedded)' },
     ],
   },
   {
     category: 'Analytical & Data Warehouse (OLAP)',
     options: [
       { id: 'duckdb', label: 'DuckDB (In-Memory OLAP)' },
-      { id: 'snowflake', label: 'Snowflake' },
-      { id: 'bigquery', label: 'Google BigQuery' },
-      { id: 'clickhouse', label: 'ClickHouse' },
+      { id: 'clickhouse', label: 'ClickHouse (Columnar OLAP)' },
     ],
   },
   {
     category: 'Document / NoSQL',
     options: [
-      { id: 'mongodb', label: 'MongoDB (MQL Aggregation Pipeline)' },
-      { id: 'couchbase', label: 'Couchbase' },
+      { id: 'mongodb', label: 'MongoDB (MQL Pipeline)' },
     ],
   },
   {
     category: 'Graph & Network',
     options: [
-      { id: 'opencypher', label: 'openCypher (Neo4j / Neptune / Memgraph)' },
+      { id: 'opencypher', label: 'openCypher (Neo4j Graph)' },
     ],
   },
   {
-    category: 'Time-Series & Metrics',
+    category: 'Key-Value Store',
     options: [
-      { id: 'timescaledb', label: 'TimescaleDB' },
-      { id: 'influxql', label: 'InfluxQL (InfluxDB)' },
+      { id: 'redis', label: 'Redis (Key-Value)' },
+    ],
+  },
+  {
+    category: 'Wide-Column / Distributed',
+    options: [
+      { id: 'cassandra', label: 'Apache Cassandra (CQL)' },
+    ],
+  },
+  {
+    category: 'Personal / Extensible',
+    options: [
+      { id: 'custom', label: 'Custom DBMS (Personal Endpoint)' },
     ],
   },
 ];

@@ -59,36 +59,6 @@ class ListDatabasesRequest(BaseModel):
     extra_params: Dict[str, Any] = Field(default_factory=dict)
 
 
-# In-memory tracking of users who explicitly chose to detach their database
-EXPLICITLY_DETACHED = set()
-
-
-def attemptAutoAttachingInternalMariaDbSocket(user_id: str) -> bool:
-    """Attempts to auto-attach the laptop's internal MariaDB (bhuknu@127.0.0.1:3306/test)."""
-    if user_id in EXPLICITLY_DETACHED:
-        return False
-    if default_registry.is_attached(user_id):
-        return True
-    try:
-        config = ConnectionConfig(
-            connector_type=ConnectorType.MYSQL,
-            database="test",
-            host="127.0.0.1",
-            port=3306,
-            username="bhuknu",
-            password="",
-            timeout_s=3.0,
-            read_only=False,
-        )
-        conn = default_registry.attach(user_id, config)
-        return conn.is_connected
-    except Exception:
-        return False
-
-
-try_auto_attach_internal_mysql = attemptAutoAttachingInternalMariaDbSocket
-
-
 class SwitchDatabaseRequest(BaseModel):
     user_id: str = Field(..., description="User session ID")
     database: str = Field(..., description="Target database to switch to")
@@ -102,10 +72,11 @@ class ExecuteDirectRequest(BaseModel):
 @router.post("/attach")
 async def attachDatabaseConnectionToUserSession(req: AttachRequest):
     """Binds a live database socket to the specified user session in-memory."""
-    EXPLICITLY_DETACHED.discard(req.user_id)
+    raw_db = req.database or ""
+    clean_db = "" if raw_db in ("__none__", "none", "(none)", "(None / New Database)", "scratch") else raw_db.strip()
     config = ConnectionConfig(
         connector_type=req.connector_type,
-        database=req.database,
+        database=clean_db,
         host=req.host,
         port=req.port,
         username=req.username,
@@ -122,9 +93,9 @@ async def attachDatabaseConnectionToUserSession(req: AttachRequest):
             "ok": True,
             "user_id": req.user_id,
             "connector_type": req.connector_type.value,
-            "database": req.database,
+            "database": config.database or "(None / Scratch)",
             "ping": ping,
-            "message": f"Connected to {req.connector_type.value} [{req.database}] successfully.",
+            "message": f"Connected to {req.connector_type.value} [{config.database or 'scratch'}] successfully.",
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to attach database: {e}")
@@ -135,9 +106,13 @@ attach_connection = attachDatabaseConnectionToUserSession
 
 @router.delete("/{user_id}")
 async def detachDatabaseConnectionFromUserSession(user_id: str):
-    """Closes and removes the user's active database socket (marks as explicitly detached)."""
-    EXPLICITLY_DETACHED.add(user_id)
+    """Closes and removes the user's active database socket."""
     detached = default_registry.detach(user_id)
+    try:
+        from routers.query import orchestrator
+        orchestrator.update_schema({})
+    except Exception:
+        pass
     return {
         "ok": True,
         "user_id": user_id,
@@ -219,6 +194,7 @@ CONNECTOR_DEPS = {
     "redis": ["redis"],
     "cassandra": ["cassandra-driver"],
     "dynamodb": ["boto3"],
+    "custom": [],  # uses resolved protocol driver
 }
 
 
@@ -400,10 +376,8 @@ async def list_available_models():
 
 @router.get("/status/{user_id}")
 async def get_connection_status(user_id: str):
-    """Checks whether the user currently has an active connected socket, auto-attaching internal MySQL if eligible."""
+    """Checks whether the user currently has an active connected socket."""
     is_attached = default_registry.is_attached(user_id)
-    if not is_attached and user_id not in EXPLICITLY_DETACHED:
-        is_attached = try_auto_attach_internal_mysql(user_id)
     if not is_attached:
         return {"attached": False, "connected": False, "user_id": user_id, "databases": [], "tables": []}
     conn = default_registry.get(user_id)
@@ -444,6 +418,11 @@ async def switch_database(req: SwitchDatabaseRequest):
     if req.database in ("__none__", "", "none", "(none)"):
         conn.config.database = ""
         conn._cached_schema = None
+        try:
+            from routers.query import orchestrator
+            orchestrator.update_schema({})
+        except Exception:
+            pass
         return {
             "ok": True,
             "user_id": req.user_id,
@@ -455,6 +434,11 @@ async def switch_database(req: SwitchDatabaseRequest):
         conn.execute_query(f"USE `{req.database}`")
         conn.config.database = req.database
         schema = conn.introspect_schema(force_refresh=True)
+        try:
+            from routers.query import sync_orchestrator_from_schema
+            sync_orchestrator_from_schema(schema)
+        except Exception:
+            pass
         return {
             "ok": True,
             "user_id": req.user_id,
@@ -468,29 +452,92 @@ async def switch_database(req: SwitchDatabaseRequest):
 
 @router.post("/execute")
 async def execute_direct_query(req: ExecuteDirectRequest):
-    """Executes a SQL query or mutation directly on the attached database socket."""
+    """Executes a SQL query or mutation directly on the attached database socket or in-memory preview sandbox."""
     conn = default_registry.get(req.user_id)
-    if not conn or not conn.is_connected:
-        raise HTTPException(status_code=404, detail=f"No active database socket attached for user '{req.user_id}'")
-    clean_q = req.query.strip().rstrip(";")
+    if conn and conn.is_connected:
+        clean_q = req.query.strip().rstrip(";")
+        is_write = any(clean_q.upper().startswith(kw) for kw in ("INSERT", "UPDATE", "DELETE", "CREATE", "ALTER", "DROP", "TRUNCATE", "REPLACE", "USE"))
+        res = conn.execute_query(clean_q, is_mutating=is_write)
+        if is_write:
+            try:
+                schema = conn.introspect_schema(force_refresh=True)
+                try:
+                    from routers.query import sync_orchestrator_from_schema
+                    sync_orchestrator_from_schema(schema)
+                except Exception:
+                    pass
+            except Exception:
+                pass
+        return {
+            "ok": not bool(res.error),
+            "columns": res.columns,
+            "rows": res.rows,
+            "row_count": res.row_count,
+            "rows_affected": res.rows_affected,
+            "execution_time_ms": res.execution_time_ms,
+            "is_mutating": res.is_mutating,
+            "error": res.error,
+            "database": conn.config.database,
+            "target": "live_socket",
+        }
+
+    # Offline in-memory sandbox execution fallback
+    import time
+    start_t = time.perf_counter()
+    from routers.query import get_session_sandbox, sync_sandbox_ddl
+    db = get_session_sandbox(req.user_id)
+    clean_q = req.query.strip()
     is_write = any(clean_q.upper().startswith(kw) for kw in ("INSERT", "UPDATE", "DELETE", "CREATE", "ALTER", "DROP", "TRUNCATE", "REPLACE", "USE"))
-    res = conn.execute_query(clean_q, is_mutating=is_write)
-    if is_write:
-        try:
-            conn.introspect_schema(force_refresh=True)
-        except Exception:
-            pass
-    return {
-        "ok": not bool(res.error),
-        "columns": res.columns,
-        "rows": res.rows,
-        "row_count": res.row_count,
-        "rows_affected": res.rows_affected,
-        "execution_time_ms": res.execution_time_ms,
-        "is_mutating": res.is_mutating,
-        "error": res.error,
-        "database": conn.config.database,
-    }
+    try:
+        if is_write and any(clean_q.upper().startswith(kw) for kw in ("CREATE", "ALTER", "DROP")):
+            sync_sandbox_ddl(req.user_id, clean_q)
+        cur = db.cursor()
+        cur.execute(clean_q)
+        elapsed = round((time.perf_counter() - start_t) * 1000, 2)
+        if cur.description:
+            cols = [d[0] for d in cur.description]
+            raw_rows = cur.fetchmany(100)
+            rows = [dict(zip(cols, r)) for r in raw_rows]
+            return {
+                "ok": True,
+                "columns": cols,
+                "rows": rows,
+                "row_count": len(rows),
+                "rows_affected": None,
+                "execution_time_ms": elapsed,
+                "is_mutating": False,
+                "error": None,
+                "database": "sandbox (:memory:)",
+                "target": "preview_sandbox",
+            }
+        else:
+            db.commit()
+            return {
+                "ok": True,
+                "columns": [],
+                "rows": [],
+                "row_count": 0,
+                "rows_affected": cur.rowcount if cur.rowcount >= 0 else 1,
+                "execution_time_ms": elapsed,
+                "is_mutating": True,
+                "error": None,
+                "database": "sandbox (:memory:)",
+                "target": "preview_sandbox",
+            }
+    except Exception as e:
+        elapsed = round((time.perf_counter() - start_t) * 1000, 2)
+        return {
+            "ok": False,
+            "columns": [],
+            "rows": [],
+            "row_count": 0,
+            "rows_affected": 0,
+            "execution_time_ms": elapsed,
+            "is_mutating": is_write,
+            "error": str(e),
+            "database": "sandbox (:memory:)",
+            "target": "preview_sandbox",
+        }
 
 
 @router.get("/schema/{user_id}")

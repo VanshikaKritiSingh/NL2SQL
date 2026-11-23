@@ -51,27 +51,49 @@ export async function simulatePipelineProgress(
 
 export function processMockQuery(req: QueryRequest): QueryResponse {
   const queryLower = req.query_text.toLowerCase();
+  const isDbConnected = Boolean(req.database_profile && req.database_profile !== '__none__' && req.database_profile !== '(None / New Database)');
 
   let response: QueryResponse;
   let isMutating = false;
 
   if (queryLower.includes('add') || queryLower.includes('column') || queryLower.includes('alter') || queryLower.includes('table')) {
-    // DDL Alter Flow
-    const payload: ApprovalPayload = {
-      ...MOCK_ALTER_APPROVAL,
-      query_id: `q_alter_${Date.now()}`,
-      target_dialect: req.target_dialect,
-    };
-    response = {
-      query_id: payload.query_id,
-      status: 'approval_required',
-      generated_sql: payload.generated_sql,
-      result_data: null,
-      approval_payload: payload,
-      error_message: null,
-      cache_hit: false,
-    };
     isMutating = true;
+    if (isDbConnected) {
+      // DDL Alter Flow with Live DB connected -> Requires Human Approval Gate
+      const payload: ApprovalPayload = {
+        ...MOCK_ALTER_APPROVAL,
+        query_id: `q_alter_${Date.now()}`,
+        target_dialect: req.target_dialect,
+      };
+      response = {
+        query_id: payload.query_id,
+        status: 'approval_required',
+        generated_sql: payload.generated_sql,
+        result_data: null,
+        approval_payload: payload,
+        error_message: null,
+        cache_hit: false,
+      };
+    } else {
+      // Offline / Disconnected Sandbox -> Directly complete without human in the loop
+      response = {
+        query_id: `q_alter_${Date.now()}`,
+        status: 'completed',
+        generated_sql: MOCK_ALTER_APPROVAL.generated_sql,
+        result_data: {
+          columns: ['status', 'statement_type', 'sandbox_effect'],
+          rows: [{
+            status: 'PREVIEW_OK (Offline Sandbox)',
+            statement_type: 'DDL',
+            sandbox_effect: 'Schema alteration simulated in local preview. No live DBMS connected to commit to.',
+          }],
+          row_count: 1,
+        },
+        approval_payload: null,
+        error_message: null,
+        cache_hit: false,
+      };
+    }
   } else if (
     queryLower.includes('update') ||
     queryLower.includes('increase') ||
@@ -79,22 +101,43 @@ export function processMockQuery(req: QueryRequest): QueryResponse {
     queryLower.includes('delete') ||
     queryLower.includes('modify')
   ) {
-    // DML Update Flow
-    const payload: ApprovalPayload = {
-      ...MOCK_UPDATE_APPROVAL,
-      query_id: `q_update_${Date.now()}`,
-      target_dialect: req.target_dialect,
-    };
-    response = {
-      query_id: payload.query_id,
-      status: 'approval_required',
-      generated_sql: payload.generated_sql,
-      result_data: null,
-      approval_payload: payload,
-      error_message: null,
-      cache_hit: false,
-    };
     isMutating = true;
+    if (isDbConnected) {
+      // DML Update Flow with Live DB connected -> Requires Human Approval Gate
+      const payload: ApprovalPayload = {
+        ...MOCK_UPDATE_APPROVAL,
+        query_id: `q_update_${Date.now()}`,
+        target_dialect: req.target_dialect,
+      };
+      response = {
+        query_id: payload.query_id,
+        status: 'approval_required',
+        generated_sql: payload.generated_sql,
+        result_data: null,
+        approval_payload: payload,
+        error_message: null,
+        cache_hit: false,
+      };
+    } else {
+      // Offline / Disconnected Sandbox -> Directly complete without human in the loop
+      response = {
+        query_id: `q_update_${Date.now()}`,
+        status: 'completed',
+        generated_sql: MOCK_UPDATE_APPROVAL.generated_sql,
+        result_data: {
+          columns: ['status', 'statement_type', 'sandbox_effect'],
+          rows: [{
+            status: 'PREVIEW_OK (Offline Sandbox)',
+            statement_type: 'DML',
+            sandbox_effect: 'Update simulated in local preview. No live DBMS connected to commit to.',
+          }],
+          row_count: 1,
+        },
+        approval_payload: null,
+        error_message: null,
+        cache_hit: false,
+      };
+    }
   } else {
     // Read-only SELECT Flow
     response = {

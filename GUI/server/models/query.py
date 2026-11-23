@@ -9,26 +9,20 @@ class TargetDialect(str, Enum):
     POSTGRES = "postgres"
     MYSQL = "mysql"
     SQLITE = "sqlite"
-    ORACLE = "oracle"
-    SQLSERVER = "sqlserver"
-    MARIADB = "mariadb"
     DUCKDB = "duckdb"
-    SNOWFLAKE = "snowflake"
-    BIGQUERY = "bigquery"
     CLICKHOUSE = "clickhouse"
-    ACCESS = "access"
     MONGODB = "mongodb"
-    COUCHBASE = "couchbase"
     OPENCYPHER = "opencypher"
-    INFLUXQL = "influxql"
-    TIMESCALEDB = "timescaledb"
+    REDIS = "redis"
+    CASSANDRA = "cassandra"
+    CUSTOM = "custom"
 
 
 class QueryRequest(BaseModel):
     user_id: str = Field(..., description="Unique user/session identifier (for M2 rate limiting and M3 audit)")
     query_text: str = Field(..., description="The natural language question")
     target_dialect: TargetDialect = Field(default=TargetDialect.AUTO, description="Target DBMS dialect or Auto mode")
-    database_profile: Optional[str] = Field(default="master_enterprise", description="Target database/schema profile for this session")
+    database_profile: Optional[str] = Field(default=None, description="Target database/schema profile for this session")
     dry_run_only: bool = Field(default=False, description="Whether to run in dry-run/preview mode without execution gating")
     model_name: Optional[str] = Field(default=None, description="Target local LLM model from Ollama (auto-detects installed models if None)")
     thinking_enabled: Optional[bool] = Field(default=None, description="Controls thinking mode for thinking-capable models. True = thinking on, False = nothink, None = model default")
@@ -40,6 +34,12 @@ class ResultData(BaseModel):
     row_count: int
 
 
+class SqlCommandBlock(BaseModel):
+    command: str
+    type: str  # DDL | DML | SELECT | TCL | DCL
+    reason: Optional[str] = None
+
+
 class QueryResponse(BaseModel):
     query_id: str
     status: Literal["processing", "completed", "approval_required", "error", "rate_limited", "refusal"]
@@ -48,10 +48,13 @@ class QueryResponse(BaseModel):
     approval_payload: Optional[Dict[str, Any]] = None  # Full ApprovalPayload dict when status == "approval_required"
     error_message: Optional[str] = None
     cache_hit: bool = False
-    database_profile: Optional[str] = "master_enterprise"
+    database_profile: Optional[str] = None
     is_live_db_connected: bool = False
     execution_mode: str = "preview_sandbox"  # preview_sandbox | dry_run | live_connected
     model_name: Optional[str] = None
+    selected_dialect: Optional[str] = None
+    dialect_reason: Optional[str] = None
+    command_blocks: Optional[List[Dict[str, Any]]] = None
 
 
 class HistoryItem(BaseModel):
@@ -62,4 +65,7 @@ class HistoryItem(BaseModel):
     status: str
     timestamp: str
     is_mutating: bool = False
-    database_profile: Optional[str] = "master_enterprise"
+    database_profile: Optional[str] = None
+    selected_dialect: Optional[str] = None
+    dialect_reason: Optional[str] = None
+    command_blocks: Optional[List[Dict[str, Any]]] = None

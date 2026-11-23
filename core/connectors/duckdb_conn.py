@@ -37,7 +37,7 @@ class DuckDBConnector(BaseDBConnector):
         if not HAS_DUCKDB:
             raise ImportError("DuckDB driver is not installed. Run `pip install duckdb`.")
         try:
-            db_path = self.config.database
+            db_path = self.config.database or ":memory:"
             if db_path != ":memory:":
                 if not os.path.isabs(db_path):
                     db_path = os.path.abspath(db_path)

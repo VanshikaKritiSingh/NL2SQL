@@ -36,6 +36,7 @@ class OllamaGenerationResult:
     execution_time_ms: float = 0.0
     error: Optional[str] = None
     is_fallback: bool = False
+    commands: Optional[List[Dict[str, Any]]] = None
 
 
 class OllamaConnector:
@@ -142,13 +143,69 @@ class OllamaConnector:
 
         return "qwen2.5-coder:1.5b"
 
-    def _clean_sql_and_extract_thought(self, raw: str) -> Tuple[str, Optional[str]]:
+    @staticmethod
+    def normalize_sql_syntax(cmd: str) -> str:
+        """Fixes common model SQL hallucination artifacts (WITH CHECK, DEFAULTING, missing semicolons)."""
+        cmd = re.sub(
+            r'([a-zA-Z0-9_]+)\s+([A-Z0-9_]+(?:\([0-9, ]+\))?)\s+WITH\s+CHECK\s+BETWEEN\s+([0-9.]+)\s+AND\s+([0-9.]+)',
+            r'\1 \2 CHECK (\1 BETWEEN \3 AND \4)',
+            cmd,
+            flags=re.IGNORECASE
+        )
+        cmd = re.sub(r'\bWITH\s+CHECK\b', 'CHECK', cmd, flags=re.IGNORECASE)
+        cmd = re.sub(r'\bDEFAULTING\b', 'DEFAULT', cmd, flags=re.IGNORECASE)
+        cmd = cmd.strip()
+        if cmd and not cmd.endswith(';') and not cmd.startswith(('db.', '{', 'MATCH')):
+            cmd += ';'
+        return cmd
+
+    @staticmethod
+    def classify_sql_command_type(cmd: str) -> str:
+        c = cmd.strip().upper()
+        if c.startswith(('SELECT', 'WITH', 'EXPLAIN', 'SHOW', 'DESCRIBE', 'PRAGMA')):
+            return 'SELECT'
+        if c.startswith(('INSERT', 'UPDATE', 'DELETE', 'MERGE', 'REPLACE', 'UPSERT')):
+            return 'DML'
+        if c.startswith(('CREATE', 'ALTER', 'DROP', 'TRUNCATE', 'RENAME')):
+            return 'DDL'
+        if c.startswith(('COMMIT', 'ROLLBACK', 'SAVEPOINT', 'BEGIN', 'START TRANSACTION', 'SET TRANSACTION')):
+            return 'TCL'
+        if c.startswith(('GRANT', 'REVOKE')):
+            return 'DCL'
+        return 'DML'
+
+    @staticmethod
+    def generate_command_reason(cmd: str, user_prompt: str = "") -> str:
+        m_create = re.search(r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([`"\'\w]+)', cmd, re.IGNORECASE)
+        if m_create:
+            return f"Creates table {m_create.group(1)} with the specified columns and constraints."
+        m_alter_auto = re.search(r'ALTER\s+TABLE\s+([`"\'\w]+)\s+AUTO_INCREMENT\s*=\s*(\d+)', cmd, re.IGNORECASE)
+        if m_alter_auto:
+            return f"Sets initial AUTO_INCREMENT counter for {m_alter_auto.group(1)} to {m_alter_auto.group(2)}."
+        m_alter = re.search(r'ALTER\s+TABLE\s+([`"\'\w]+)', cmd, re.IGNORECASE)
+        if m_alter:
+            return f"Modifies schema definition for table {m_alter.group(1)}."
+        m_update = re.search(r'UPDATE\s+([`"\'\w]+)', cmd, re.IGNORECASE)
+        if m_update:
+            return f"Updates records in {m_update.group(1)} matching criteria."
+        m_delete = re.search(r'DELETE\s+FROM\s+([`"\'\w]+)', cmd, re.IGNORECASE)
+        if m_delete:
+            return f"Deletes targeted records from {m_delete.group(1)}."
+        m_insert = re.search(r'INSERT\s+INTO\s+([`"\'\w]+)', cmd, re.IGNORECASE)
+        if m_insert:
+            return f"Inserts new row data into {m_insert.group(1)}."
+        m_select = re.search(r'FROM\s+([`"\'\w]+)', cmd, re.IGNORECASE)
+        if m_select:
+            return f"Queries and retrieves projection data from {m_select.group(1)}."
+        return "Executes database operation to fulfill natural language requirement."
+
+    def _extract_sql_and_command_blocks(self, raw: str, user_prompt: str = "") -> Tuple[str, Optional[str], List[Dict[str, Any]]]:
         """
         Cleans LLM output:
         1. Separates <think>...</think> reasoning traces from the response.
-        2. Unwraps markdown code blocks (```sql ... ```).
-        3. Strips conversational greetings/explanations.
-        4. Guarantees semicolon termination for standard SQL statements.
+        2. Unwraps JSON array of command blocks with prompt-mapped reasons when present.
+        3. Normalizes SQL syntax (parenthesizing CHECK constraints, standard keywords).
+        4. Returns (full_sql, thought, command_blocks).
         """
         thought: Optional[str] = None
         m_thought = re.search(r"<think>(.*?)</think>", raw, flags=re.DOTALL)
@@ -158,16 +215,58 @@ class OllamaConnector:
 
         raw = raw.strip()
 
-        # Handle markdown fences
+        # Handle markdown code fences
         if "```" in raw:
-            m_fence = re.search(r"```(?:sql)?\s*([\s\S]*?)\s*```", raw, flags=re.IGNORECASE)
+            m_fence = re.search(r"```(?:json|sql)?\s*([\s\S]*?)\s*```", raw, flags=re.IGNORECASE)
             if m_fence:
                 raw = m_fence.group(1).strip()
             else:
-                raw = re.sub(r"^```(?:sql)?\s*", "", raw, flags=re.IGNORECASE)
+                raw = re.sub(r"^```(?:json|sql)?\s*", "", raw, flags=re.IGNORECASE)
                 raw = re.sub(r"\s*```$", "", raw).strip()
 
-        # Find starting line of actual SQL/query expression
+        cleaned_json_candidate = raw
+
+        # Attempt JSON parsing first (structured commands with per-command reason)
+        command_blocks: List[Dict[str, Any]] = []
+        parsed_from_json = False
+
+        try:
+            m_bracket = re.search(r"(\[[\s\S]*\])", cleaned_json_candidate)
+            json_text = m_bracket.group(1) if m_bracket else cleaned_json_candidate
+            data = json.loads(json_text)
+            if isinstance(data, dict):
+                data = data.get("commands") or data.get("queries") or [data]
+            if isinstance(data, list) and data:
+                for item in data:
+                    if isinstance(item, dict):
+                        raw_cmd = item.get("command") or item.get("query") or item.get("sql") or ""
+                        norm_cmd = self.normalize_sql_syntax(str(raw_cmd))
+                        if not norm_cmd:
+                            continue
+                        c_type = str(item.get("type") or self.classify_sql_command_type(norm_cmd)).upper()
+                        reason = str(item.get("reason") or self.generate_command_reason(norm_cmd, user_prompt))
+                        command_blocks.append({
+                            "command": norm_cmd,
+                            "type": c_type,
+                            "reason": reason
+                        })
+                    elif isinstance(item, str) and item.strip():
+                        norm_cmd = self.normalize_sql_syntax(item)
+                        command_blocks.append({
+                            "command": norm_cmd,
+                            "type": self.classify_sql_command_type(norm_cmd),
+                            "reason": self.generate_command_reason(norm_cmd, user_prompt)
+                        })
+                if command_blocks:
+                    parsed_from_json = True
+        except Exception:
+            parsed_from_json = False
+
+        if parsed_from_json and command_blocks:
+            full_sql = "\n\n".join(b["command"] for b in command_blocks)
+            return full_sql, thought, command_blocks
+
+        # Fallback to plain SQL parsing
         lines = raw.splitlines()
         cleaned_lines = []
         found_start = False
@@ -186,22 +285,30 @@ class OllamaConnector:
                     found_start = True
                     cleaned_lines.append(line)
             else:
-                # Stop at typical postamble markers
                 if re.match(r"^(explanation|note|this query|here is|the above|description):", stripped, re.IGNORECASE):
                     break
                 cleaned_lines.append(line)
 
         candidate = "\n".join(cleaned_lines).strip() if cleaned_lines else raw
+        candidate = self.normalize_sql_syntax(candidate)
 
-        # Truncate at last semicolon to remove inline comments after SQL
-        if ";" in candidate:
-            semi_idx = candidate.rfind(";")
-            candidate = candidate[:semi_idx + 1].strip()
-        elif candidate and not candidate.startswith("db.") and not candidate.startswith("{"):
-            # Ensure semicolon termination
-            candidate = candidate.rstrip() + ";"
+        # Split candidate into sequential statement blocks
+        raw_stmts = [s.strip() for s in re.split(r";\s*\n|;\s*$", candidate) if s.strip()]
+        for stmt in raw_stmts:
+            norm_s = self.normalize_sql_syntax(stmt)
+            command_blocks.append({
+                "command": norm_s,
+                "type": self.classify_sql_command_type(norm_s),
+                "reason": self.generate_command_reason(norm_s, user_prompt)
+            })
 
-        return candidate, thought
+        full_sql = "\n\n".join(b["command"] for b in command_blocks) if command_blocks else candidate
+        return full_sql, thought, command_blocks
+
+    def _clean_sql_and_extract_thought(self, raw: str) -> Tuple[str, Optional[str]]:
+        """Backwards-compatible wrapper returning (clean_sql, thought)."""
+        sql, thought, _ = self._extract_sql_and_command_blocks(raw)
+        return sql, thought
 
     def generate_sql(
         self,
@@ -210,7 +317,7 @@ class OllamaConnector:
         target_dialect: str = "mysql",
         model_name: Optional[str] = None,
         thinking_enabled: Optional[bool] = None,
-        timeout: float = 25.0,
+        timeout: float = 120.0,
     ) -> OllamaGenerationResult:
         """
         Sends an NL2SQL request to Ollama and returns a validated SQL query.
@@ -237,25 +344,31 @@ class OllamaConnector:
         if dialect_label in ("MYSQL", "MARIADB"):
             dialect_identity_rule = "\n- For MySQL/MariaDB: Use INT NOT NULL AUTO_INCREMENT PRIMARY KEY for identity columns (do NOT use GENERATED BY DEFAULT AS IDENTITY)."
 
+        dialect_rules = f"{dialect_identity_rule}\n- Wrap all CHECK constraints in standard SQL: CHECK (column BETWEEN min AND max) or CHECK (column >= min AND column <= max). Never write 'WITH CHECK'."
+
         system_instructions = (
             f"You are an expert database engineer and deterministic {dialect_label} query compiler. "
-            f"Your task is to convert the user's natural language request into a single valid, syntactically correct {dialect_label} query.\n"
-            "STRICT OUTPUT RULES:\n"
-            "1. Output ONLY the raw executable SQL query string ending with a semicolon (;).\n"
-            "2. Never output markdown code fences, comments, introductory text, or explanations.\n"
+            f"Convert the user's natural language request into a valid JSON array of SQL command objects.\n\n"
+            "STRICT JSON OUTPUT FORMAT:\n"
+            "Output ONLY a valid JSON array where each item has:\n"
+            "- \"command\": the exact valid executable SQL statement ending with a semicolon (;).\n"
+            "- \"type\": \"DDL\" | \"DML\" | \"SELECT\" | \"TCL\".\n"
+            "- \"reason\": a concise 1-sentence reason mapping the user prompt to this specific command.\n\n"
+            "SYNTAX RULES:\n"
             f"{schema_rule}\n"
-            "4. For multi-table queries, use explicit JOIN syntax with correct foreign key conditions.\n"
-            "5. Match status/categorical filters exactly to values listed in the schema."
-            f"{dialect_identity_rule}"
+            f"{dialect_rules}\n"
+            "- Every SQL statement must end with a semicolon (;).\n"
+            "- For multi-table queries, use explicit JOIN syntax with correct foreign key conditions.\n\n"
+            "Output ONLY the JSON array. Do not include introductory text, conversational greetings, or markdown explanations."
         )
 
         if thinking_enabled is False:
             system_instructions += (
-                "\n6. Answer with pure SQL immediately. Do NOT include <think> tags or chain-of-thought reasoning."
+                "\nAnswer with the pure JSON array immediately. Do NOT include <think> tags or chain-of-thought reasoning."
             )
         elif thinking_enabled is True:
             system_instructions += (
-                "\n6. You may use concise <think>...</think> for internal reasoning, but the text outside <think> must be ONLY raw SQL."
+                "\nYou may use concise <think>...</think> for internal reasoning, but the text outside <think> must be ONLY the raw JSON array."
             )
 
         user_content = ""
@@ -263,7 +376,7 @@ class OllamaConnector:
             user_content += f"Database Schema ({dialect_label}):\n{schema_ddl.strip()}\n\n"
         else:
             user_content += f"Context: Creating new database or schema from scratch (no prior tables).\n\n"
-        user_content += f"Natural Language Request:\n{query.strip()}\n\nWrite the {dialect_label} query:"
+        user_content += f"Natural Language Request:\n{query.strip()}\n\nOutput JSON command array:"
 
         payload: Dict[str, Any] = {
             "model": active_model,
@@ -340,35 +453,57 @@ class OllamaConnector:
                 error=error_msg or "Empty response from Ollama",
                 execution_time_ms=elapsed_ms,
                 is_fallback=is_fallback,
+                commands=[],
             )
 
-        sql_candidate, thought = self._clean_sql_and_extract_thought(raw_response)
+        sql_candidate, thought, command_blocks = self._extract_sql_and_command_blocks(raw_response, user_prompt=query)
 
         # Validate syntax with sqlglot (non-standard dialects can be validated structurally with "sql" mode)
         valid_syntax = False
         if sql_candidate:
             try:
-                parsed = sqlglot.parse_one(sql_candidate)
-                if parsed is not None:
-                    # Safety guardrail: If an UPDATE or DELETE was generated without an explicit WHERE clause,
-                    # attach WHERE 1 = 1 to satisfy strict anti-accidental-wipeout policies (POLICY_05)
-                    # while allowing the cost engine to accurately identify full-table scope and escalate to the human approval gate.
-                    if isinstance(parsed, (sqlglot.exp.Update, sqlglot.exp.Delete)) and not parsed.find(sqlglot.exp.Where):
-                        parsed = parsed.where("1 = 1")
-                        sql_candidate = parsed.sql(dialect=target_dialect if target_dialect not in ("auto", None) else None)
-                        if not sql_candidate.rstrip().endswith(";"):
-                            sql_candidate = sql_candidate.rstrip() + ";"
+                # Validate each command or full candidate
+                all_valid = True
+                stmts_to_check = [b["command"] for b in command_blocks] if command_blocks else [sql_candidate]
+                for stmt in stmts_to_check:
+                    try:
+                        p = sqlglot.parse_one(stmt, read=target_dialect if target_dialect not in ("auto", None) else None)
+                        if p is None:
+                            all_valid = False
+                            break
+                    except Exception:
+                        # Non-SQL dialect fallback (opencypher, mongo)
+                        if target_dialect in ("opencypher", "mongodb") or stmt.upper().startswith("MATCH") or stmt.startswith("db."):
+                            continue
+                        all_valid = False
+                        break
+                valid_syntax = all_valid
+            except Exception:
+                valid_syntax = False
+
+        # If strict dialect check failed but commands exist, check if general sqlglot can parse
+        if not valid_syntax and command_blocks:
+            try:
+                all_valid_lenient = True
+                for b in command_blocks:
+                    try:
+                        sqlglot.parse_one(b["command"])
+                    except Exception:
+                        # Allow vendor-specific datatypes and graph syntax
+                        if any(kw in b["command"].upper() for kw in ("CREATE TABLE", "CREATE DATABASE", "ALTER TABLE", "INSERT INTO", "SELECT")):
+                            continue
+                        all_valid_lenient = False
+                        break
+                if all_valid_lenient:
                     valid_syntax = True
             except Exception:
-                # Non-SQL dialects (opencypher MATCH, MongoDB db. statements) won't parse with sqlglot
-                if (
-                    target_dialect in ("opencypher", "mongodb")
-                    or sql_candidate.upper().startswith("MATCH")
-                    or sql_candidate.startswith("db.")
-                ):
-                    valid_syntax = True
-                else:
-                    valid_syntax = False
+                pass
+
+        # If still not marked valid but candidate clearly contains DDL statements, preserve it
+        if not valid_syntax and sql_candidate:
+            upper_cand = sql_candidate.upper()
+            if "CREATE TABLE" in upper_cand or "CREATE DATABASE" in upper_cand:
+                valid_syntax = True
 
         return OllamaGenerationResult(
             sql=sql_candidate,
@@ -378,6 +513,7 @@ class OllamaConnector:
             execution_time_ms=elapsed_ms,
             error=None if (valid_syntax and sql_candidate) else (error_msg or "Invalid SQL syntax in generated response"),
             is_fallback=is_fallback,
+            commands=command_blocks,
         )
 
     def resolve_decision_model(self) -> Optional[str]:

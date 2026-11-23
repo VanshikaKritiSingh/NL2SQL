@@ -13,8 +13,10 @@ import {
   Settings,
   X,
   ChevronRight,
+  Terminal,
+  ShieldAlert,
 } from 'lucide-react';
-import { useAppStore } from '../store/useAppStore';
+import { useAppStore, ACCENT_PALETTES } from '../store/useAppStore';
 import { useQueryStore } from '../store/useQueryStore';
 import { usePipelineStore } from '../store/usePipelineStore';
 import { DialectSelector } from './DialectSelector';
@@ -39,6 +41,8 @@ export const TopBar: React.FC = () => {
   const setConnectedEngine = useAppStore((s) => s.setConnectedEngine);
   const setDatabaseProfile = useAppStore((s) => s.setDatabaseProfile);
   const setAvailableDatabases = useAppStore((s) => s.setAvailableDatabases);
+  const accentColor = useAppStore((s) => s.accentColor);
+  const setAccentColor = useAppStore((s) => s.setAccentColor);
 
   const [tempUserName, setTempUserName] = useState(userId);
   const [userSaved, setUserSaved] = useState(false);
@@ -108,11 +112,15 @@ export const TopBar: React.FC = () => {
         }
       } else {
         setConnectedEngine(null);
+        setAvailableDatabases([]);
+        if (databaseProfile !== '__none__') setDatabaseProfile('__none__');
       }
     } catch {
       setDbStatus({ connected: false });
       setIsDbConnected(false);
       setConnectedEngine(null);
+      setAvailableDatabases([]);
+      if (databaseProfile !== '__none__') setDatabaseProfile('__none__');
     }
   };
 
@@ -127,6 +135,8 @@ export const TopBar: React.FC = () => {
       setDbStatus({ connected: false });
       setIsDbConnected(false);
       setConnectedEngine(null);
+      setAvailableDatabases([]);
+      setDatabaseProfile('__none__');
     } catch {
       // Ignore
     }
@@ -159,50 +169,75 @@ export const TopBar: React.FC = () => {
             <Database className="w-4 h-4" aria-hidden="true" />
           </div>
 
-          {/* Navigation Tabs — capsule pill with ER Diagram/Sandbox Toggle, and Approval Gate */}
+          {/* Navigation Tabs — Query Studio with Segmented Results/ER Ghost Slider, and Approval Gate */}
           <nav
             aria-label="Primary Navigation"
             className={`flex items-center gap-1 p-1 rounded-[var(--radius-pill)] text-xs shrink-0 whitespace-nowrap border ${
               isDark ? 'bg-[var(--bg-canvas)] border-[var(--border-hairline)]' : 'bg-[var(--bg-panel-alt)] border-[var(--border-hairline)]'
             }`}
           >
-            {/* ER Diagram / Sandbox Results In-Place Toggle Button */}
+            {/* Query Studio Navigation Button */}
             <button
-              onClick={() => {
-                if (currentView !== 'query') {
-                  setCurrentView('query');
-                } else {
-                  setRightPanelTab(rightPanelTab === 'er_diagram' ? 'results' : 'er_diagram');
-                }
-              }}
-              className={`flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-[var(--radius-pill)] font-medium transition-colors duration-200 cursor-pointer shrink-0 whitespace-nowrap ${
+              onClick={() => setCurrentView('query')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-pill)] font-medium transition-colors duration-200 cursor-pointer shrink-0 whitespace-nowrap ${
                 currentView === 'query'
                   ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] shadow-sm'
                   : 'text-[var(--text-recessive)] hover:text-[var(--text-heading)]'
               }`}
-              title={
-                rightPanelTab === 'er_diagram'
-                  ? 'Switch right panel to Sandbox Execution Results'
-                  : 'View Database ER Schema Diagram in place of Sandbox Results'
-              }
+              title="Query Intake Studio"
             >
-              {rightPanelTab === 'er_diagram' ? (
-                <>
-                  <Table className="w-3.5 h-3.5" aria-hidden="true" />
-                  <span>Sandbox Results</span>
-                </>
-              ) : (
-                <>
-                  <Database className="w-3.5 h-3.5" aria-hidden="true" />
-                  <span>ER Diagram</span>
-                  {schema && schema.tables.length > 0 && (
-                    <span className="text-[10px] px-1.5 py-0.2 rounded-[var(--radius-pill)] bg-[var(--border-hairline)] text-[var(--text-body)] font-mono">
-                      {schema.tables.length}
-                    </span>
-                  )}
-                </>
-              )}
+              <Terminal className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Query Studio</span>
             </button>
+
+            {/* Ghost Slider Selector: Results vs ER Schema */}
+            <div className="relative inline-flex items-center p-0.5 rounded-[var(--radius-pill)] bg-[var(--bg-card)] border border-[var(--border-subtle)] shadow-inner">
+              <button
+                onClick={() => {
+                  if (currentView !== 'query') setCurrentView('query');
+                  setRightPanelTab('results');
+                }}
+                className={`relative z-10 flex items-center gap-1 px-2.5 py-1 rounded-[var(--radius-pill)] text-[11px] font-semibold transition-all duration-200 cursor-pointer ${
+                  rightPanelTab === 'results' && currentView === 'query'
+                    ? 'text-[var(--text-heading)]'
+                    : 'text-[var(--text-recessive)] hover:text-[var(--text-heading)]'
+                }`}
+                title="View Execution Results Output"
+              >
+                <Table className="w-3 h-3" />
+                <span>Results</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  if (currentView !== 'query') setCurrentView('query');
+                  setRightPanelTab('er_diagram');
+                }}
+                className={`relative z-10 flex items-center gap-1 px-2.5 py-1 rounded-[var(--radius-pill)] text-[11px] font-semibold transition-all duration-200 cursor-pointer ${
+                  rightPanelTab === 'er_diagram' && currentView === 'query'
+                    ? 'text-[var(--text-heading)]'
+                    : 'text-[var(--text-recessive)] hover:text-[var(--text-heading)]'
+                }`}
+                title="View Interactive ER Schema Graph"
+              >
+                <Database className="w-3 h-3" />
+                <span>ER Schema</span>
+                {schema && schema.tables.length > 0 && (
+                  <span className="text-[9px] px-1 py-0.2 rounded-full bg-[var(--border-hairline)] text-[var(--text-body)] font-mono">
+                    {schema.tables.length}
+                  </span>
+                )}
+              </button>
+
+              {/* Ghost Slider Indicator */}
+              {currentView === 'query' && (
+                <div
+                  className={`absolute top-0.5 bottom-0.5 rounded-[var(--radius-pill)] bg-[var(--bg-panel-alt)] border border-[var(--border-hairline)] shadow-xs transition-all duration-300 pointer-events-none ${
+                    rightPanelTab === 'results' ? 'left-0.5 w-[calc(50%-2px)]' : 'left-[50%] w-[calc(50%-2px)]'
+                  }`}
+                />
+              )}
+            </div>
 
             {/* Approval Gate Tab (Visible if approval view or pending payload) */}
             {(currentView === 'approval' || Boolean(approvalPayload)) && (
@@ -210,15 +245,14 @@ export const TopBar: React.FC = () => {
                 onClick={() => setCurrentView('approval')}
                 className={`flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-[var(--radius-pill)] font-medium transition-colors duration-200 cursor-pointer shrink-0 whitespace-nowrap ${
                   currentView === 'approval'
-                    ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] shadow-sm'
-                    : 'text-[var(--text-recessive)] hover:text-[var(--text-heading)]'
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'text-[var(--text-recessive)] hover:text-rose-400 hover:bg-rose-500/10'
                 }`}
-                title="Schema Safety Approval Gate"
+                title="Review and approve pending database mutations"
               >
+                <ShieldAlert className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>Approval Gate</span>
-                {approvalPayload && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--warning)] shrink-0" aria-hidden="true" />
-                )}
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
               </button>
             )}
           </nav>
@@ -261,7 +295,7 @@ export const TopBar: React.FC = () => {
                 ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] border-[var(--btn-primary-bg)] shadow-sm'
                 : 'bg-[var(--bg-card)] border-[var(--border-hairline)] text-[var(--text-main)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-heading)]'
             }`}
-            title="Settings: Connect DB, Audit Logs, Dialect & Preferences"
+            title="Settings: Connect DB, System Logs, Dialect & Accent"
             aria-expanded={isSettingsOpen}
             aria-haspopup="dialog"
           >
@@ -333,10 +367,10 @@ export const TopBar: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 2. System Diagnostics (Audit Logs) */}
+                {/* 2. System Diagnostics & Activity Logs */}
                 <div className="flex flex-col gap-1.5">
                   <span className="text-[10px] font-semibold tracking-wider uppercase text-[var(--text-recessive)]">
-                    Diagnostics & Audit
+                    System Activity
                   </span>
                   <button
                     onClick={() => {
@@ -350,11 +384,11 @@ export const TopBar: React.FC = () => {
                         <Activity className="w-4 h-4" aria-hidden="true" />
                       </div>
                       <div>
-                        <span className="font-medium text-[var(--text-heading)] group-hover:text-[var(--accent-primary)] block">
-                          Pipeline Audit Logs
+                        <span className="font-semibold text-xs text-[var(--text-heading)] group-hover:text-[var(--accent-primary)] block">
+                          System Logs
                         </span>
                         <span className="text-[11px] text-[var(--text-recessive)] block">
-                          Inspect OS concurrency & execution trace
+                          Pipeline events & git-style branch execution trace
                         </span>
                       </div>
                     </div>
@@ -401,25 +435,44 @@ export const TopBar: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Theme Toggle */}
-                    <div className="flex items-center justify-between pt-1 border-t border-[var(--border-hairline)]">
-                      <span className="text-[11px] font-medium text-[var(--text-recessive)]">Interface Theme</span>
-                      <button
-                        onClick={toggleTheme}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-pill)] bg-[var(--bg-card)] border border-[var(--border-hairline)] text-[var(--text-heading)] hover:bg-[var(--bg-hover)] cursor-pointer transition-colors"
-                      >
-                        {isDark ? (
-                          <>
-                            <Sun className="w-3.5 h-3.5 text-[var(--accent-primary)]" aria-hidden="true" />
-                            <span>Light Theme</span>
-                          </>
-                        ) : (
-                          <>
-                            <Moon className="w-3.5 h-3.5 text-[var(--accent-primary)]" aria-hidden="true" />
-                            <span>Dark Theme</span>
-                          </>
-                        )}
-                      </button>
+                    {/* Accent Color Selection (Replaced Redundant Theme Toggle) */}
+                    <div className="flex flex-col gap-2 pt-2 border-t border-[var(--border-hairline)]">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-medium text-[var(--text-recessive)]">Accent Color</span>
+                        <span className="text-[10px] font-mono font-bold text-[var(--accent-primary)] uppercase">
+                          {ACCENT_PALETTES.find((p) => p.id === accentColor)?.name || 'Violet'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-6 gap-2 pt-1">
+                        {ACCENT_PALETTES.map((acc) => {
+                          const isSelected = acc.id === accentColor;
+                          return (
+                            <button
+                              key={acc.id}
+                              type="button"
+                              onClick={() => setAccentColor(acc.id)}
+                              title={`${acc.name} Accent`}
+                              className={`group relative flex flex-col items-center justify-center p-1.5 rounded-[var(--radius-control)] border transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'border-[var(--accent-primary)] bg-[var(--accent-primary)]/15 scale-105 shadow-sm'
+                                  : 'border-[var(--border-hairline)] hover:border-[var(--text-recessive)] bg-[var(--bg-card)]'
+                              }`}
+                            >
+                              <span
+                                className="w-4 h-4 rounded-full border border-black/20 dark:border-white/20 shadow-xs flex items-center justify-center transition-transform group-hover:scale-110"
+                                style={{ backgroundColor: acc.hex }}
+                              >
+                                {isSelected && (
+                                  <Check className="w-2.5 h-2.5 text-white stroke-[3]" />
+                                )}
+                              </span>
+                              <span className="text-[9px] font-mono mt-1 text-[var(--text-recessive)] group-hover:text-[var(--text-heading)] truncate max-w-full">
+                                {acc.name.slice(0, 4)}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>

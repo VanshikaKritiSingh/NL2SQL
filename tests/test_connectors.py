@@ -3,11 +3,13 @@ tests/test_connectors.py — Unit tests for DBMS and Ollama LLM Connectors
 """
 
 import pytest
+from unittest.mock import MagicMock, patch
 import sqlglot
 from sqlglot import exp
 
 from core.connectors.ollama import OllamaConnector, OllamaGenerationResult, default_ollama
 from core.connectors.sqlite import SQLiteConnector
+from core.connectors.mysql import MySQLConnector
 from core.connectors.base import ConnectionConfig, ConnectorType
 
 
@@ -106,7 +108,8 @@ def testAllConnectorTypesCanBeInstantiatedWithBothCamelCaseAndSnakeCaseMethods()
     from core.connectors.registry import instantiateConnectorForConfiguration
 
     for ctype in ConnectorType:
-        cfg = ConnectionConfig(connector_type=ctype, database="unit_test_db")
+        extra = {"protocol": "sqlite"} if ctype == ConnectorType.CUSTOM else {}
+        cfg = ConnectionConfig(connector_type=ctype, database="unit_test_db", extra_params=extra)
         conn = instantiateConnectorForConfiguration(cfg)
         assert conn is not None
         # Check Java-style camelCase methods
@@ -125,6 +128,100 @@ def testAllConnectorTypesCanBeInstantiatedWithBothCamelCaseAndSnakeCaseMethods()
         assert hasattr(conn, "list_databases")
         assert hasattr(conn, "execute_query")
         assert hasattr(conn, "explain_query")
+
+
+def testCustomConnectorDelegationAndExecution():
+    """Verify CustomConnector dispatches to chosen protocol (e.g. SQLite/Postgres/MySQL)."""
+    from core.connectors.base import ConnectionConfig, ConnectorType
+    from core.connectors.registry import instantiateConnectorForConfiguration
+
+    cfg = ConnectionConfig(
+        connector_type=ConnectorType.CUSTOM,
+        database=":memory:",
+        extra_params={"protocol": "sqlite", "custom_name": "Personal SQLite Engine"},
+    )
+    conn = instantiateConnectorForConfiguration(cfg)
+    assert conn.connect() is True
+    ping = conn.test_connection()
+    assert ping["ok"] is True
+    assert ping["custom_name"] == "Personal SQLite Engine"
+
+    # Mutate and query
+    conn.execute_query("CREATE TABLE custom_kv (k TEXT PRIMARY KEY, v TEXT);", is_mutating=True)
+    conn.execute_query("INSERT INTO custom_kv VALUES ('cluster', 'east-1');", is_mutating=True)
+    res = conn.execute_query("SELECT * FROM custom_kv;")
+    assert res.row_count == 1
+    assert res.rows[0]["v"] == "east-1"
+    conn.disconnect()
+
+
+
+def testMySQLCreateDatabaseDoesNotInjectTestPrefix():
+    """Verify MySQL connector creates customDB without silently prefixing test_ or rewriting queries."""
+    from unittest.mock import MagicMock
+    from core.connectors.mysql import MySQLConnector
+    from core.connectors.base import ConnectionConfig, ConnectorType
+
+    cfg = ConnectionConfig(
+        connector_type=ConnectorType.MYSQL,
+        host="127.0.0.1",
+        port=3306,
+        username="developer",
+        database="initial_db",
+    )
+    connector = MySQLConnector(cfg)
+    connector._is_connected = True
+    mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+    mock_conn.cursor.return_value = mock_cursor
+    mock_cursor.description = None
+    mock_cursor.rowcount = 1
+    mock_cursor.nextset.return_value = False
+    connector._conn = mock_conn
+
+    # 1. Successful creation of customDB
+    res = connector.execute_query("CREATE DATABASE customDB; CREATE TABLE users (id INT);", is_mutating=True)
+    assert connector.config.database == "customDB"
+    assert not connector.config.database.startswith("test_")
+    # Verify exact SQL sent to cursor had customDB, not test_customDB
+    args, _ = mock_cursor.execute.call_args
+    assert "customDB" in args[0]
+    assert "test_customDB" not in args[0]
+
+    # 2. Error 1044 is reported transparently without changing database name to test_otherDB
+    mock_cursor.execute.side_effect = Exception("1044 (42000): Access denied for user to database otherDB")
+    connector.config.database = "initial_db"
+    res2 = connector.execute_query("CREATE DATABASE otherDB;", is_mutating=True)
+    assert res2.error is not None
+    assert "MySQL Error 1044" in res2.error
+    assert connector.config.database == "initial_db"
+
+
+def testMySQLNoneDatabaseNormalizationAndScratchConnect():
+    """Verify that selecting __none__ or scratch normalizes database to empty string and connects with database=None."""
+    cfg = ConnectionConfig(
+        connector_type=ConnectorType.MYSQL,
+        database="__none__",
+        host="127.0.0.1",
+        port=3306,
+        username="admin",
+        password="secretpassword",
+    )
+    assert cfg.database == ""
+
+    with patch("pymysql.connect") as mock_connect:
+        mock_conn = MagicMock()
+        mock_connect.return_value = mock_conn
+        connector = MySQLConnector(cfg)
+        assert connector.connect() is True
+        # Verify pymysql was called with database=None
+        _, kwargs = mock_connect.call_args
+        assert kwargs["database"] is None
+
+        # Verify introspect_schema returns clean empty schema
+        meta = connector.introspect_schema()
+        assert meta.tables == {}
+        assert meta.database_name == ""
 
 
 def testOllamaDecisionModelResolutionAndSystemOneEndpoint():

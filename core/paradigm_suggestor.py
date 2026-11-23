@@ -111,6 +111,7 @@ class ParadigmSuggestion:
     confidence:          float
     reasoning:           str
     recommended_engines: List[str]
+    recommended_dialect: Optional[str] = None
     is_verified_by_llm:  bool = False
     warning_message:     Optional[str] = None
     extracted_features:  List[str] = field(default_factory=list)
@@ -197,30 +198,44 @@ class CLEFDiscourseDrafter:
 # CLEF Classifier — CPU-pinned Ollama model, zero VRAM
 # ─────────────────────────────────────────────────────────────────────────────
 
-_CLEF_SYSTEM_PROMPT = """\
-You are a strict database query type classifier.
-Classify the natural language query into EXACTLY one label from this list:
-  relational_sql   — any SQL table query, CREATE TABLE, SELECT, INSERT, CREATE DATABASE, ALTER, DROP, DDL, DML
-  graph            — graph traversal, path-finding, network relationships, fraud rings, multi-hop connections
-  document_nosql   — nested JSON/BSON documents, flexible schema, embedded arrays
-  key_value        — single-key cache lookup, session tokens, TTL expiry, counters
-  olap_analytics   — multidimensional aggregation, CUBE, ROLLUP, pivot, year-over-year analytics
-  time_series      — sensor data, telemetry, time buckets, downsampling, per-second metrics
-Output ONLY the label word. No punctuation. No explanation."""
+_CLEF_SYSTEM_PROMPT = """You are an expert database engine classifier.
+Analyze the user prompt. Understand the entire semantic intent, including explicit negations (e.g. "do not use X", "anything except Y", "never use Z"), migrations, and performance constraints.
+
+Choose the single best database dialect from this list:
+- postgres: PostgreSQL (general SQL, relational, ACID, standard ANSI, default)
+- mysql: MySQL / MariaDB (relational, web applications)
+- sqlite: SQLite (embedded, local single-file, zero-config desktop/mobile)
+- duckdb: DuckDB (in-process analytical OLAP, fast aggregations, parquet files)
+- clickhouse: ClickHouse (high-scale distributed columnar analytics)
+- mongodb: MongoDB (document store, nested JSON, schema-less)
+- opencypher: openCypher / Neo4j (graph traversal, nodes, edges, network paths, fraud rings)
+- redis: Redis (in-memory key-value, caching, TTL, fast lookup)
+- cassandra: Apache Cassandra (wide-column, distributed high-throughput)
+
+CRITICAL RULES:
+1. STRICTLY respect all negations! If the user says "do not use MySQL", you must NEVER output mysql. Choose an alternative engine (such as postgres or duckdb).
+2. If migrating from X to Y, select destination engine Y.
+3. Keep reasoning under 25 words.
+4. Respond ONLY with a valid JSON object:
+{"dialect": "<name>", "confidence": 0.95, "reasoning": "<one sentence rationale>"}"""
 
 
 class CLEFClassifier:
     DEFAULT_MODEL = "qwen2.5-coder:1.5b-cpu"
     DEFAULT_HOST  = "http://127.0.0.1:11434"
-    TIMEOUT_S     = 10.0
+    TIMEOUT_S     = 8.0
 
     def __init__(self, model: str = DEFAULT_MODEL, host: str = DEFAULT_HOST) -> None:
         self.model = model
         self.host  = host.rstrip("/")
         self._drafter = CLEFDiscourseDrafter()
 
-    def classify(self, query: str) -> Tuple[DatabaseParadigm, float, str, str]:
-        # Try Ollama CPU model first
+    def classify(self, query: str) -> Tuple[str, DatabaseParadigm, float, str, str]:
+        """
+        Classifies the natural language query using a local neural language model.
+        Returns: (dialect, paradigm, confidence, reasoning, source)
+        """
+        # 1. Primary: Run local ML classification model
         try:
             payload = {
                 "model": self.model,
@@ -228,8 +243,9 @@ class CLEFClassifier:
                     {"role": "system", "content": _CLEF_SYSTEM_PROMPT},
                     {"role": "user",   "content": query},
                 ],
+                "format":  "json",
                 "stream":  False,
-                "options": {"temperature": 0, "num_predict": 8},
+                "options": {"temperature": 0.0, "num_predict": 100},
             }
             t0  = time.perf_counter()
             req = urllib.request.Request(
@@ -240,16 +256,50 @@ class CLEFClassifier:
             with urllib.request.urlopen(req, timeout=self.TIMEOUT_S) as resp:
                 data = json.load(resp)
             elapsed_ms = (time.perf_counter() - t0) * 1000
-            raw = data["message"]["content"].strip().lower()
-            for label, p in _LABEL_TO_PARADIGM.items():
-                if label in raw:
-                    return p, 0.90, f"CLEF-LM classified query as '{label}' in {elapsed_ms:.0f} ms", "clef_lm"
+            raw = data["message"]["content"].strip()
+
+            parsed = self._extract_json(raw)
+            if parsed and "dialect" in parsed:
+                dialect = str(parsed["dialect"]).lower().strip()
+                # Normalize dialect name
+                if dialect in ("postgresql", "pgsql"):
+                    dialect = "postgres"
+                elif dialect in ("mariadb",):
+                    dialect = "mysql"
+                elif dialect in ("neo4j", "cypher"):
+                    dialect = "opencypher"
+                elif dialect in ("mongo", "mql"):
+                    dialect = "mongodb"
+
+                paradigm = ENGINE_TO_PARADIGM.get(dialect, DatabaseParadigm.RELATIONAL_SQL)
+                conf = float(parsed.get("confidence", 0.95))
+                reason = parsed.get("reasoning") or f"ML model classified query as '{dialect}' in {elapsed_ms:.0f} ms."
+                return dialect, paradigm, conf, reason, "ml_classifier"
         except Exception:
             pass
 
-        # Fallback to deterministic drafter
+        # 2. Offline fallback: safe semantic default (no hardcoded regexes)
         p, conf, reason, _ = self._drafter.draft(query)
-        return p, conf, reason, "clef_drafter"
+        # Derive dialect from paradigm without blind regex
+        dialect_map = {
+            DatabaseParadigm.RELATIONAL_SQL: "postgres",
+            DatabaseParadigm.COLUMN_FAMILY_OLAP: "duckdb",
+            DatabaseParadigm.GRAPH_OPENCYPHER: "opencypher",
+            DatabaseParadigm.DOCUMENT_NOSQL: "mongodb",
+            DatabaseParadigm.KEY_VALUE: "redis",
+            DatabaseParadigm.TIME_SERIES: "timescaledb",
+        }
+        fallback_dialect = dialect_map.get(p, "postgres")
+        return fallback_dialect, p, conf, reason, "offline_fallback"
+
+    def _extract_json(self, raw: str) -> Optional[Dict]:
+        m = re.search(r"\{[\s\S]*\}", raw)
+        if m:
+            try:
+                return json.loads(m.group(0))
+            except Exception:
+                return None
+        return None
 
     def draft(self, query: str) -> Tuple[DatabaseParadigm, float, str, List[str]]:
         return self._drafter.draft(query)
@@ -277,20 +327,35 @@ class SpeculativeParadigmSuggestor:
         auto_mode:            bool = True,
         llm_verifier:         Optional[Callable] = None,
     ) -> ParadigmSuggestion:
-        # Fast draft first
-        draft_paradigm, draft_conf, draft_reason, features = self.drafter.draft(query)
-        is_verified = False
-        final_paradigm = draft_paradigm
-        final_conf = draft_conf
-        final_reason = draft_reason
+        # If a speculative verification hook is explicitly provided, use the fast drafter + verifier
+        if llm_verifier is not None:
+            draft_paradigm, draft_conf, draft_reason, features = self.drafter.draft(query)
+            if draft_conf < self.confidence_threshold:
+                final_paradigm, final_conf, final_reason = llm_verifier(query, draft_paradigm, draft_conf)
+                is_verified = True
+                features.append("Base Model Verified")
+            else:
+                final_paradigm, final_conf, final_reason = draft_paradigm, draft_conf, draft_reason
+                is_verified = False
+            recommended_dialect = None
+        else:
+            # Run ML-based classifier to understand full semantic intent, negations, and dialect
+            ml_dialect, ml_paradigm, ml_conf, ml_reason, source = self._classifier.classify(query)
+            is_verified = (source == "ml_classifier")
+            final_paradigm = ml_paradigm
+            final_conf = ml_conf
+            final_reason = ml_reason
+            recommended_dialect = ml_dialect
+            features = [f"Source: {source}"]
 
-        # Speculative verification hook (called if confidence is below threshold)
-        if draft_conf < self.confidence_threshold and llm_verifier is not None:
-            final_paradigm, final_conf, final_reason = llm_verifier(query, draft_paradigm, draft_conf)
-            is_verified = True
-            features.append("Base Model Verified")
+        base_recommended = PARADIGM_RECOMMENDED_ENGINES.get(final_paradigm, ["PostgreSQL"])
+        # Ensure the ML-recommended dialect is prioritized first
+        if recommended_dialect:
+            disp = recommended_dialect.capitalize()
+            recommended_engines = [disp] + [e for e in base_recommended if e.lower() != recommended_dialect.lower()]
+        else:
+            recommended_engines = base_recommended
 
-        recommended_engines = PARADIGM_RECOMMENDED_ENGINES.get(final_paradigm, ["PostgreSQL"])
         warning_msg: Optional[str] = None
 
         # Divergence guardrail: fires when auto_mode is False and user selected an engine
@@ -316,6 +381,7 @@ class SpeculativeParadigmSuggestor:
             confidence          = final_conf,
             reasoning           = final_reason,
             recommended_engines = recommended_engines,
+            recommended_dialect = recommended_dialect,
             is_verified_by_llm  = is_verified,
             warning_message     = warning_msg,
             extracted_features  = features,

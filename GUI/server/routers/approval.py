@@ -90,7 +90,7 @@ async def processHumanApprovalDecisionGate(query_id: str, request: ApprovalReque
                 query_id=query_id,
                 stage_number=16,
                 stage_name=STAGE_NAMES[16],
-                status="failed" if has_exec_error else "completed",
+                status="error" if has_exec_error else "completed",
                 message=exec_msg,
             ),
         )

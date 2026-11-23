@@ -45,7 +45,7 @@ export const SqlViewPanel: React.FC<SqlViewPanelProps> = ({ sql, dialect }) => {
             className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded-[var(--radius-pill)] ${
               isDark
                 ? 'bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border-main)]'
-                : 'bg-white text-[var(--text-muted)] border border-[var(--border-subtle)]'
+                : 'bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border-subtle)]'
             }`}
           >
             {dialect}
@@ -56,7 +56,7 @@ export const SqlViewPanel: React.FC<SqlViewPanelProps> = ({ sql, dialect }) => {
           className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-[var(--radius-pill)] transition-colors duration-200 cursor-pointer ${
             isDark
               ? 'text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-main)]'
-              : 'text-[var(--text-muted)] hover:text-[var(--text-main)] bg-white hover:bg-[var(--bg-hover)] border border-[var(--border-subtle)]'
+              : 'text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-subtle)]'
           }`}
         >
           {copied ? (

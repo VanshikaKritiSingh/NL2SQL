@@ -143,7 +143,30 @@ class MySQLConnector(BaseDBConnector):
         relationships: List[Dict[str, str]] = []
 
         cursor = self._conn.cursor()
+
+        # Check what database is currently active on the MySQL connection
         db_name = self.config.database
+        if not db_name or db_name in ("__none__", "none", "(none)", "scratch"):
+            try:
+                cursor.execute("SELECT DATABASE();")
+                row = cursor.fetchone()
+                current_db = row[0] if isinstance(row, (tuple, list)) else (row.get("DATABASE()") if isinstance(row, dict) else None)
+                if current_db:
+                    db_name = current_db
+                    self.config.database = current_db
+            except Exception:
+                pass
+
+        if not db_name or db_name in ("__none__", "none", "(none)", "scratch"):
+            schema_meta = SchemaMetadata(
+                database_name="",
+                dialect="mysql",
+                tables={},
+                relationships=[],
+            )
+            self._cached_schema = schema_meta
+            cursor.close()
+            return schema_meta
 
         # 1. Tables & Row counts
         cursor.execute(f"SELECT TABLE_NAME, TABLE_TYPE, TABLE_ROWS FROM information_schema.TABLES WHERE TABLE_SCHEMA = '{db_name}';")
@@ -246,20 +269,13 @@ class MySQLConnector(BaseDBConnector):
                     clean_q = clean_q[:end_pos+1] + f"\nUSE `{requested_new_db}`;\n" + clean_q[end_pos+1:].lstrip()
                 else:
                     clean_q = clean_q + f";\nUSE `{requested_new_db}`;\n"
-            self.config.database = requested_new_db
-            self._cached_schema = None
 
         m_use = re.search(r"\bUSE\s+([`\"\w]+)", clean_q, re.IGNORECASE)
+        target_db = None
         if m_use:
-            self.config.database = m_use.group(1).strip("`\"'")
-            self._cached_schema = None
-
-        # If current active database has a 'test_' prefix, rewrite any explicit unprefixed qualifiers
-        if self.config.database and self.config.database.startswith("test_"):
-            unprefixed = self.config.database[5:]
-            if unprefixed:
-                clean_q = re.sub(rf"\b{re.escape(unprefixed)}\.", f"`{self.config.database}`.", clean_q)
-                clean_q = re.sub(rf"\bUSE\s+[`\"]?{re.escape(unprefixed)}[`\"]?", f"USE `{self.config.database}`", clean_q, flags=re.IGNORECASE)
+            target_db = m_use.group(1).strip("`\"'")
+        elif requested_new_db:
+            target_db = requested_new_db
 
         try:
             if params:
@@ -297,6 +313,11 @@ class MySQLConnector(BaseDBConnector):
                 except Exception:
                     pass
 
+            # Update active database ONLY upon successful execution
+            if target_db:
+                self.config.database = target_db
+                self._cached_schema = None
+
             # Invalidate cached schema if DDL statement ran
             if any(kw in clean_q.upper() for kw in ("CREATE ", "ALTER ", "DROP ", "TRUNCATE ", "RENAME ", "USE ")):
                 self._cached_schema = None
@@ -322,96 +343,19 @@ class MySQLConnector(BaseDBConnector):
                     is_mutating=True,
                 )
         except Exception as e:
-            err_str = str(e)
-            is_1044 = "1044" in err_str or "Access denied" in err_str
-
-            # Fallback 1: If 1044 Access Denied on CREATE DATABASE, try creating with test_ prefix
-            # MariaDB / MySQL grant tables allow test_% to all users by default
-            if is_1044 and requested_new_db and not requested_new_db.startswith("test_"):
-                try:
-                    cursor.close()
-                except Exception:
-                    pass
-                cursor = self._conn.cursor()
-                fallback_db = f"test_{requested_new_db}"
-                alt_q = re.sub(rf"\b{re.escape(requested_new_db)}\b", fallback_db, clean_q)
-                alt_q = re.sub(r"CREATE\s+DATABASE\s+(?!IF\s+NOT\s+EXISTS\b)", "CREATE DATABASE IF NOT EXISTS ", alt_q, flags=re.IGNORECASE)
-                alt_q = re.sub(r"CREATE\s+TABLE\s+(?!IF\s+NOT\s+EXISTS\b)", "CREATE TABLE IF NOT EXISTS ", alt_q, flags=re.IGNORECASE)
-                try:
-                    cursor.execute(alt_q)
-                    fb_affected = 0
-                    while True:
-                        if cursor.rowcount > 0:
-                            fb_affected += cursor.rowcount
-                        if not cursor.nextset():
-                            break
-                    cursor.close()
-                    if not self.config.read_only:
-                        try:
-                            self._conn.commit()
-                        except Exception:
-                            pass
-                    self.config.database = fallback_db
-                    self._cached_schema = None
-                    try:
-                        self.introspect_schema(force_refresh=True)
-                    except Exception:
-                        pass
-                    exec_ms = (time.perf_counter() - start) * 1000
-                    return QueryResult(
-                        columns=[],
-                        rows=[],
-                        row_count=0,
-                        rows_affected=fb_affected,
-                        execution_time_ms=round(exec_ms, 2),
-                        is_mutating=True,
-                    )
-                except Exception:
-                    # Fallback 2: Strip CREATE DATABASE & USE and create tables in existing active database
-                    try:
-                        cursor.close()
-                    except Exception:
-                        pass
-                    cursor = self._conn.cursor()
-                    active_target = self.config.database or "test"
-                    stripped_q = re.sub(r"CREATE\s+DATABASE\s+[^;]+;", "", clean_q, flags=re.IGNORECASE)
-                    stripped_q = re.sub(r"USE\s+[^;]+;", "", stripped_q, flags=re.IGNORECASE).strip()
-                    stripped_q = re.sub(r"CREATE\s+TABLE\s+(?!IF\s+NOT\s+EXISTS\b)", "CREATE TABLE IF NOT EXISTS ", stripped_q, flags=re.IGNORECASE)
-                    try:
-                        if stripped_q:
-                            cursor.execute(f"USE `{active_target}`;\n" + stripped_q)
-                            while cursor.nextset():
-                                pass
-                        cursor.close()
-                        if not self.config.read_only:
-                            try:
-                                self._conn.commit()
-                            except Exception:
-                                pass
-                        self.config.database = active_target
-                        self._cached_schema = None
-                        try:
-                            self.introspect_schema(force_refresh=True)
-                        except Exception:
-                            pass
-                        exec_ms = (time.perf_counter() - start) * 1000
-                        return QueryResult(
-                            columns=[],
-                            rows=[],
-                            row_count=0,
-                            rows_affected=0,
-                            execution_time_ms=round(exec_ms, 2),
-                            is_mutating=True,
-                        )
-                    except Exception:
-                        pass
-            # Default error return
             exec_ms = (time.perf_counter() - start) * 1000
             try:
                 self._conn.rollback()
                 cursor.close()
             except Exception:
                 pass
+            err_str = str(e)
+            if "1044" in err_str or "Access denied" in err_str:
+                target_hint = f" '{target_db}'" if target_db else ""
+                err_str = (
+                    f"MySQL Error 1044 (Access Denied): Current user '{self.config.username or 'anonymous'}' lacks CREATE/USE privileges on database{target_hint}. "
+                    f"To grant permissions in MySQL/MariaDB CLI, run: GRANT ALL PRIVILEGES ON `{target_db or '*'}`.* TO '{self.config.username or 'root'}'@'{self.config.host}'; FLUSH PRIVILEGES;"
+                )
             return QueryResult(
                 columns=[],
                 rows=[],
@@ -420,22 +364,6 @@ class MySQLConnector(BaseDBConnector):
                 execution_time_ms=round(exec_ms, 2),
                 is_mutating=is_mutating,
                 error=err_str,
-            )
-        except Exception as e:
-            exec_ms = (time.perf_counter() - start) * 1000
-            try:
-                self._conn.rollback()
-                cursor.close()
-            except Exception:
-                pass
-            return QueryResult(
-                columns=[],
-                rows=[],
-                row_count=0,
-                rows_affected=0,
-                execution_time_ms=round(exec_ms, 2),
-                is_mutating=is_mutating,
-                error=str(e),
             )
 
     def explain_query(self, query: str) -> Dict[str, Any]:

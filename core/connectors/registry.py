@@ -21,6 +21,7 @@ from core.connectors.neo4j_conn import Neo4jConnector
 from core.connectors.redis_conn import RedisConnector
 from core.connectors.cassandra_conn import CassandraConnector
 from core.connectors.dynamodb_conn import DynamoDBConnector
+from core.connectors.custom_conn import CustomConnector
 
 CONNECTOR_MAP = {
     ConnectorType.SQLITE: SQLiteConnector,
@@ -33,6 +34,7 @@ CONNECTOR_MAP = {
     ConnectorType.REDIS: RedisConnector,
     ConnectorType.CASSANDRA: CassandraConnector,
     ConnectorType.DYNAMODB: DynamoDBConnector,
+    ConnectorType.CUSTOM: CustomConnector,
 }
 
 

@@ -4,7 +4,7 @@ import { TopBar } from './shared/TopBar';
 import { StatusBar } from './shared/StatusBar';
 import { QueryIntakePage } from './modules/query_intake/QueryIntakePage';
 import { ApprovalGatePage } from './modules/approval_gate/ApprovalGatePage';
-import { useAppStore } from './store/useAppStore';
+import { useAppStore, applyAccentTokensToDocument } from './store/useAppStore';
 import { useQueryStore } from './store/useQueryStore';
 import { useWebSocket } from './hooks/useWebSocket';
 import { MOCK_UPDATE_APPROVAL } from './mock/mockData';
@@ -18,10 +18,12 @@ export default function App() {
   const clearResults = useQueryStore((s) => s.clearResults);
   const setHistory = useQueryStore((s) => s.setHistory);
 
+  const accentColor = useAppStore((s) => s.accentColor);
+
   // Initialize live WebSocket pipeline streaming
   useWebSocket();
 
-  // Keep HTML document theme attribute and meta tag synchronized
+  // Keep HTML document theme attribute, accent tokens, and meta tag synchronized
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-theme', theme);
@@ -33,12 +35,15 @@ export default function App() {
       root.classList.add('light');
       root.classList.remove('dark');
     }
+    // Apply selected accent color tokens
+    applyAccentTokensToDocument(accentColor, theme);
+
     // Sync theme-color meta tag
     const metaTheme = document.querySelector('meta[name="theme-color"]');
     if (metaTheme) {
-      metaTheme.setAttribute('content', theme === 'dark' ? '#121212' : '#ffffff');
+      metaTheme.setAttribute('content', theme === 'dark' ? '#121212' : '#faf8f3');
     }
-  }, [theme]);
+  }, [theme, accentColor]);
 
   // Bind desktop native application menu actions (File / View / Help)
   useEffect(() => {

@@ -1,7 +1,6 @@
-// src/modules/m14/ApprovalGatePage.tsx
+// src/modules/approval_gate/ApprovalGatePage.tsx — Clean, Focused Approval Gate
 import React, { useEffect, useState } from 'react';
-import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
-import { ArrowLeft, ShieldAlert, Database } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, Database, FileText, GitCompare } from 'lucide-react';
 import { ERDiagramPanel } from './ERDiagramPanel';
 import { SqlViewPanel } from './SqlViewPanel';
 import { DiffPanel } from './DiffPanel';
@@ -9,20 +8,22 @@ import { TelemetryPanel } from './TelemetryPanel';
 import { ApprovalActions } from './ApprovalActions';
 import { useQueryStore } from '../../store/useQueryStore';
 import { useAppStore } from '../../store/useAppStore';
-import { getSchema } from '../../api/schemaApi';
+import { getLiveSchema } from '../../api/schemaApi';
 import { RiskBadge } from '../../shared/RiskBadge';
-import { MOCK_UPDATE_APPROVAL, MOCK_ALTER_APPROVAL } from '../../mock/mockData';
+import { MOCK_UPDATE_APPROVAL } from '../../mock/mockData';
 import type { SchemaInfo } from '../../types/schema';
 
 export const ApprovalGatePage: React.FC = () => {
   const approvalPayload = useQueryStore((s) => s.approvalPayload);
   const setApprovalPayload = useQueryStore((s) => s.setApprovalPayload);
+  const userId = useAppStore((s) => s.userId);
   const targetDialect = useAppStore((s) => s.targetDialect);
   const setCurrentView = useAppStore((s) => s.setCurrentView);
   const theme = useAppStore((s) => s.theme);
-  const [schema, setSchema] = useState<SchemaInfo | null>(null);
-
   const isDark = theme === 'dark';
+
+  const [schema, setSchema] = useState<SchemaInfo | null>(null);
+  const [activeTab, setActiveTab] = useState<'review' | 'er_schema'>('review');
 
   useEffect(() => {
     if (!approvalPayload) {
@@ -31,29 +32,23 @@ export const ApprovalGatePage: React.FC = () => {
   }, [approvalPayload, setApprovalPayload]);
 
   useEffect(() => {
-    getSchema(targetDialect).then(setSchema).catch(() => {});
-  }, [targetDialect]);
+    getLiveSchema(userId, targetDialect).then(setSchema).catch(() => {});
+  }, [userId, targetDialect]);
 
   const activePayload = approvalPayload || MOCK_UPDATE_APPROVAL;
 
   return (
-    <div className={`flex-1 flex flex-col h-full overflow-hidden transition-colors duration-300 ${
-      isDark ? 'bg-[var(--bg-app)]' : 'bg-white'
-    }`}>
+    <div className="flex-1 flex flex-col h-full overflow-hidden transition-colors duration-300 bg-[var(--bg-app)] text-[var(--text-body)]">
       {/* Sub-header Banner */}
       <div className={`h-12 px-4 border-b flex items-center justify-between shrink-0 transition-colors ${
         isDark
           ? 'bg-[var(--bg-header)]/80 backdrop-blur-xl border-[var(--border-main)]'
-          : 'bg-white border-[var(--border-main)]'
+          : 'bg-[var(--bg-header)] backdrop-blur-xl border-[var(--border-main)]'
       }`}>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setCurrentView('query')}
-            className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-[var(--radius-pill)] transition-colors duration-200 cursor-pointer ${
-              isDark
-                ? 'text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-main)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-subtle)]'
-            }`}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-[var(--radius-pill)] transition-colors duration-200 cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-subtle)]"
           >
             <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
             <span>Back to Query Intake</span>
@@ -67,35 +62,31 @@ export const ApprovalGatePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Demo Scenario Switcher & Risk Badge */}
+        {/* View Switcher & Risk Badge */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 text-xs">
-            <span className="text-[11px] mr-1 hidden sm:inline text-[var(--text-muted)]">
-              Review Scenario:
-            </span>
+          {/* Segmented Ghost Slider for Approval Review */}
+          <div className="relative inline-flex items-center p-0.5 rounded-full bg-[var(--bg-panel-alt)] border border-[var(--border-hairline)] shadow-inner">
             <button
-              onClick={() => setApprovalPayload(MOCK_UPDATE_APPROVAL)}
-              className={`px-2.5 py-1 rounded-[var(--radius-pill)] text-xs font-medium transition-colors duration-200 cursor-pointer ${
-                activePayload.query_id === MOCK_UPDATE_APPROVAL.query_id
-                  ? 'bg-rose-600 text-white shadow-md'
-                  : isDark
-                  ? 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-hover)] border border-[var(--border-main)]'
-                  : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-hover)] border border-[var(--border-subtle)]'
+              onClick={() => setActiveTab('review')}
+              className={`relative z-10 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer ${
+                activeTab === 'review'
+                  ? 'text-[var(--text-heading)] shadow-xs bg-[var(--bg-card)] border border-[var(--border-subtle)]'
+                  : 'text-[var(--text-recessive)] hover:text-[var(--text-heading)]'
               }`}
             >
-              Price Update (DML)
+              <FileText className="w-3.5 h-3.5" />
+              <span>Statement & Diff</span>
             </button>
             <button
-              onClick={() => setApprovalPayload(MOCK_ALTER_APPROVAL)}
-              className={`px-2.5 py-1 rounded-[var(--radius-pill)] text-xs font-medium transition-colors duration-200 cursor-pointer ${
-                activePayload.query_id === MOCK_ALTER_APPROVAL.query_id
-                  ? 'bg-rose-600 text-white shadow-md'
-                  : isDark
-                  ? 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-hover)] border border-[var(--border-main)]'
-                  : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-hover)] border border-[var(--border-subtle)]'
+              onClick={() => setActiveTab('er_schema')}
+              className={`relative z-10 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer ${
+                activeTab === 'er_schema'
+                  ? 'text-[var(--text-heading)] shadow-xs bg-[var(--bg-card)] border border-[var(--border-subtle)]'
+                  : 'text-[var(--text-recessive)] hover:text-[var(--text-heading)]'
               }`}
             >
-              Add Column (DDL)
+              <Database className="w-3.5 h-3.5" />
+              <span>Impacted Schema</span>
             </button>
           </div>
 
@@ -103,45 +94,35 @@ export const ApprovalGatePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Resizable Split Workspace */}
-      <div className="flex-1 min-h-0 p-3">
-        <PanelGroup direction="horizontal">
-          {/* Left Panel: React Flow ER Diagram */}
-          <Panel defaultSize={48} minSize={30}>
-            <div className="h-full flex flex-col">
-              <div className="text-xs font-semibold mb-2 flex items-center gap-2 text-[var(--text-secondary)]">
-                <Database className={`w-4 h-4 ${isDark ? 'text-[var(--accent-primary)]' : 'text-[var(--accent-primary)]'}`} aria-hidden="true" />
-                <span>Impacted ER Schema Graph</span>
-              </div>
-              <div className="flex-1 min-h-0">
-                <ERDiagramPanel
-                  schema={schema}
-                  impactedTables={activePayload.impacted_tables}
-                  generatedSql={activePayload.generated_sql}
-                  initialScope="query"
-                />
-              </div>
-            </div>
-          </Panel>
-
-          <PanelResizeHandle className={`w-2 transition-colors duration-200 cursor-col-resize flex items-center justify-center rounded-[var(--radius-control)] ${
-            isDark ? 'hover:bg-[var(--accent-primary)]/20' : 'hover:bg-[var(--accent-primary)]/10'
-          }`}>
-            <div className="w-0.5 h-8 rounded-[var(--radius-control)] bg-[var(--border-main)]" />
-          </PanelResizeHandle>
-
-          {/* Right Panel: SQL Statement + Diff View + Pre-flight Telemetry */}
-          <Panel defaultSize={52} minSize={35}>
-            <div className="h-full flex flex-col gap-3 overflow-y-auto pr-1">
+      {/* Main Approval Workspace */}
+      <div className="flex-1 min-h-0 p-3 sm:p-4 overflow-y-auto">
+        {activeTab === 'review' ? (
+          <div className="max-w-6xl mx-auto space-y-4">
+            {/* Top Grid: Statement & Diff Side-by-Side on Desktop */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <SqlViewPanel sql={activePayload.generated_sql} dialect={activePayload.target_dialect} />
               <DiffPanel diffData={activePayload.diff_data} />
-              <TelemetryPanel
-                costEstimate={activePayload.cost_estimate}
-                securityCheck={activePayload.security_check}
-              />
             </div>
-          </Panel>
-        </PanelGroup>
+
+            {/* Bottom Guardrail: Real-Time Dynamic Statement Guardrail */}
+            <TelemetryPanel
+              costEstimate={activePayload.cost_estimate}
+              securityCheck={activePayload.security_check}
+              sqlOverride={activePayload.generated_sql}
+              impactedTablesOverride={activePayload.impacted_tables?.map((t: any) => typeof t === 'string' ? t : t.name)}
+              riskTierOverride={activePayload.risk_tier}
+            />
+          </div>
+        ) : (
+          <div className="h-full rounded-[var(--radius-panel)] border border-[var(--border-hairline)] overflow-hidden bg-[var(--bg-card)] shadow-xs">
+            <ERDiagramPanel
+              schema={schema}
+              impactedTables={activePayload.impacted_tables}
+              generatedSql={activePayload.generated_sql}
+              initialScope="query"
+            />
+          </div>
+        )}
       </div>
 
       {/* Bottom Approval / Reject Action Bar */}

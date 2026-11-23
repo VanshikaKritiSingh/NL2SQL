@@ -51,14 +51,14 @@ export const DiffPanel: React.FC<DiffPanelProps> = ({ diffData }) => {
             <Table2 className="w-4 h-4 text-emerald-500" aria-hidden="true" />
           )}
           <span className="text-xs font-semibold text-[var(--text-main)]">
-            {diff_type === 'ddl' ? 'Schema Migration Diff (Dolt Checkpoint)' : 'Data Row Diff Preview (DML)'}
+            {diff_type === 'ddl' ? 'Schema Changes Diff' : 'Row Data Changes'}
           </span>
         </div>
         <span
           className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded-[var(--radius-pill)] ${
             isDark
               ? 'bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border-main)]'
-              : 'bg-white text-[var(--text-muted)] border border-[var(--border-subtle)]'
+              : 'bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border-subtle)]'
           }`}
         >
           {diff_type.toUpperCase()} Mode

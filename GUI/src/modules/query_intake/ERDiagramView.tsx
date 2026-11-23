@@ -48,6 +48,8 @@ export const ERDiagramView: React.FC = () => {
     ? schema.tables.reduce((acc, t) => acc + t.columns.length, 0)
     : 0;
 
+  const hasTables = Boolean(schema && schema.tables && schema.tables.length > 0) || Boolean(lastResponse?.generated_sql);
+
   return (
     <div
       className="flex flex-col h-full overflow-hidden shadow-lg transition-colors duration-200 bento-card rounded-[var(--radius-panel)] border border-[var(--border-hairline)] bg-[var(--bg-card)]"
@@ -65,9 +67,9 @@ export const ERDiagramView: React.FC = () => {
           <span className="text-xs font-semibold text-[var(--text-heading)] whitespace-nowrap">
             Database ER Schema Diagram
           </span>
-          {schema && schema.tables.length > 0 && (
+          {schema && (
             <span className="hidden sm:inline-flex text-[10px] px-2 py-0.5 rounded-[var(--radius-pill)] bg-[var(--accent-primary)]/15 text-[var(--accent-primary)] font-mono font-medium truncate">
-              {schema.database_name} · {schema.tables.length} tables · {totalColumns} cols · {schema.foreign_keys?.length || 0} FKs
+              {schema.database_name || 'Active Database'} · {schema.tables?.length || 0} tables · {totalColumns} cols · {schema.foreign_keys?.length || 0} FKs
             </span>
           )}
         </div>
@@ -87,7 +89,7 @@ export const ERDiagramView: React.FC = () => {
 
       {/* Canvas Area */}
       <div className="flex-1 min-h-0 p-2 bg-[var(--bg-canvas)] relative">
-        {schema && schema.tables.length > 0 ? (
+        {hasTables ? (
           <ERDiagramPanel
             schema={schema}
             impactedTables={[]}

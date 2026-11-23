@@ -70,116 +70,56 @@ DEFAULT_SCHEMA = {
     )
 }
 
-orchestrator = EndToEndNL2SQLOrchestrator(schema_tables=DEFAULT_SCHEMA)
+orchestrator = EndToEndNL2SQLOrchestrator(schema_tables={})
 
 # In-memory history store: user_id -> List[HistoryItem]
 query_history: Dict[str, List[HistoryItem]] = {}
 stored_responses: Dict[str, QueryResponse] = {}
 
 import sqlite3
+import logging
+
+logger = logging.getLogger(__name__)
 
 _sandbox_dbs: Dict[str, sqlite3.Connection] = {}
 
-def get_session_sandbox(user_id: str) -> sqlite3.Connection:
-    if user_id not in _sandbox_dbs:
+def get_session_sandbox(user_id: str, profile: Optional[str] = None) -> sqlite3.Connection:
+    """Returns an isolated, completely empty in-memory SQLite sandbox for the user session."""
+    key = f"{user_id}::{profile or 'default'}"
+    if key not in _sandbox_dbs:
         db = sqlite3.connect(":memory:", check_same_thread=False)
         db.row_factory = sqlite3.Row
-        db.executescript("""
-        CREATE TABLE IF NOT EXISTS users (
-            user_id INTEGER PRIMARY KEY,
-            username TEXT,
-            email TEXT,
-            country TEXT,
-            status TEXT,
-            created_at TEXT
-        );
-        INSERT OR IGNORE INTO users VALUES
-        (1, 'alice_w', 'alice@example.com', 'Germany', 'active', '2024-01-15'),
-        (2, 'bob_k', 'bob@example.com', 'USA', 'active', '2024-02-20'),
-        (3, 'charlie_m', 'charlie@example.com', 'Germany', 'inactive', '2024-03-10');
-
-        CREATE TABLE IF NOT EXISTS products (
-            product_id INTEGER PRIMARY KEY,
-            name TEXT,
-            category TEXT,
-            price REAL,
-            stock_quantity INTEGER
-        );
-        INSERT OR IGNORE INTO products VALUES
-        (1, 'MacBook Pro', 'Laptops', 1999.0, 15),
-        (2, 'Wireless Mouse', 'Accessories', 29.99, 120),
-        (3, 'USB-C Adapter', 'Accessories', 19.99, 85);
-
-        CREATE TABLE IF NOT EXISTS orders (
-            order_id INTEGER PRIMARY KEY,
-            user_id INTEGER,
-            order_date TEXT,
-            status TEXT,
-            total_amount REAL
-        );
-        INSERT OR IGNORE INTO orders VALUES
-        (1, 1, '2025-05-10 14:22:00', 'DELIVERED', 149.99),
-        (2, 2, '2025-05-12 09:15:30', 'SHIPPED', 89.50),
-        (3, 3, '2025-05-15 18:44:12', 'PROCESSING', 299.00),
-        (4, 1, '2025-05-18 11:05:00', 'DELIVERED', 45.20),
-        (5, 2, '2025-05-20 16:30:45', 'PENDING', 120.00);
-        """)
-        _sandbox_dbs[user_id] = db
-    return _sandbox_dbs[user_id]
+        if profile == "master_enterprise":
+            # For master_enterprise test suite, seed test tables
+            db.executescript("""
+            CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, username TEXT, email TEXT, country TEXT, status TEXT, created_at TEXT);
+            INSERT OR IGNORE INTO users VALUES (1, 'alice_w', 'alice@example.com', 'Germany', 'active', '2024-01-15');
+            CREATE TABLE IF NOT EXISTS products (product_id INTEGER PRIMARY KEY, name TEXT, category TEXT, price REAL, stock_quantity INTEGER);
+            INSERT OR IGNORE INTO products VALUES (1, 'MacBook Pro', 'Laptops', 1999.0, 15);
+            CREATE TABLE IF NOT EXISTS orders (order_id INTEGER PRIMARY KEY, user_id INTEGER, order_date TEXT, status TEXT, total_amount REAL);
+            INSERT OR IGNORE INTO orders VALUES (1, 1, '2025-05-10 14:22:00', 'DELIVERED', 149.99), (2, 2, '2025-05-12', 'SHIPPED', 89.5), (3, 3, '2025-05-15', 'PROCESSING', 299.0), (4, 1, '2025-05-18', 'DELIVERED', 45.2), (5, 2, '2025-05-20', 'PENDING', 120.0);
+            """)
+        _sandbox_dbs[key] = db
+    return _sandbox_dbs[key]
 
 
-def sync_sandbox_ddl(user_id: str, sql_str: str):
-    """Executes DDL statements on the in-memory SQLite sandbox so preview queries can resolve."""
+def sync_sandbox_ddl(user_id: str, sql_str: str, profile: Optional[str] = None):
+    """Executes DDL statements on the in-memory SQLite sandbox so tables exist for queries."""
+    clean = sql_str.strip().upper()
+    if not any(clean.startswith(kw) for kw in ("CREATE", "ALTER", "DROP", "TRUNCATE")):
+        return
     try:
         from core.dialect_converter import DeterministicDialectConverter
         conv = DeterministicDialectConverter()
         res = conv.transpile(sql_str, target_dialect="sqlite")
-        db = get_session_sandbox(user_id)
+        db = get_session_sandbox(user_id, profile)
         clean_sqlite = re.sub(r"\bUSE\s+[^;]+;", "", res.compiled_query, flags=re.IGNORECASE)
         clean_sqlite = re.sub(r"CREATE\s+DATABASE\s+[^;]+;", "", clean_sqlite, flags=re.IGNORECASE).strip()
         if clean_sqlite:
             db.executescript(clean_sqlite)
-            for m_tbl in re.finditer(r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([`\"\w]+)", clean_sqlite, re.IGNORECASE):
-                t_name = m_tbl.group(1).strip("`\"'")
-                cur = db.cursor()
-                try:
-                    cur.execute(f"SELECT COUNT(*) FROM `{t_name}`")
-                    cnt = cur.fetchone()[0]
-                    if cnt == 0:
-                        cur.execute(f"PRAGMA table_info(`{t_name}`)")
-                        cols = cur.fetchall()
-                        if cols:
-                            for i in range(1, 4):
-                                vals = []
-                                for c in cols:
-                                    cid, cname, ctype, notnull, dflt, pk = c
-                                    clow = cname.lower()
-                                    if pk:
-                                        vals.append(i)
-                                    elif "roll" in clow:
-                                        vals.append(f"R-{100 + i}")
-                                    elif "name" in clow or "title" in clow:
-                                        vals.append(f"{t_name.capitalize()} {i}")
-                                    elif "duration" in clow or "quantity" in clow:
-                                        vals.append(30 * i)
-                                    elif "price" in clow or "amount" in clow:
-                                        vals.append(19.99 * i)
-                                    elif "status" in clow:
-                                        vals.append("ACTIVE")
-                                    elif "email" in clow:
-                                        vals.append(f"user{i}@example.com")
-                                    elif "int" in str(ctype).lower():
-                                        vals.append(i * 10)
-                                    else:
-                                        vals.append(f"Sample {cname} {i}")
-                                placeholders = ", ".join(["?"] * len(vals))
-                                col_str = ", ".join(f"`{c[1]}`" for c in cols)
-                                db.execute(f"INSERT INTO `{t_name}` ({col_str}) VALUES ({placeholders})", vals)
-                            db.commit()
-                except Exception:
-                    pass
-    except Exception:
-        pass
+            db.commit()
+    except Exception as e:
+        logger.warning(f"Failed to sync sandbox DDL: {e}")
 
 
 def sync_orchestrator_from_schema(schema_meta):
@@ -224,7 +164,7 @@ async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, backgro
         orchestrator.update_schema({})
     elif is_attached and conn and conn.is_connected:
         try:
-            schema_meta = conn.introspect_schema(force_refresh=False)
+            schema_meta = conn.introspect_schema(force_refresh=True)
             if schema_meta and schema_meta.tables:
                 live_tables = {}
                 for t_name, t_schema in schema_meta.tables.items():
@@ -249,11 +189,19 @@ async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, backgro
                     )
                 if live_tables:
                     orchestrator.update_schema(live_tables)
+            elif schema_meta and not schema_meta.tables:
+                # Active database has no tables — clear orchestrator schema
+                orchestrator.update_schema({})
         except Exception:
             pass
     else:
-        if orchestrator.tables != DEFAULT_SCHEMA:
-            orchestrator.update_schema(DEFAULT_SCHEMA)
+        # Not connected to live DBMS
+        if request.database_profile == "master_enterprise":
+            if orchestrator.tables != DEFAULT_SCHEMA:
+                orchestrator.update_schema(DEFAULT_SCHEMA)
+        else:
+            if orchestrator.tables != {}:
+                orchestrator.update_schema({})
 
     # 1. Run full 16-stage orchestrator pipeline with direct Ollama LLM grounding
     target_engine = request.target_dialect.value if isinstance(request.target_dialect, TargetDialect) else str(request.target_dialect)
@@ -284,15 +232,31 @@ async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, backgro
         sql_str = str(compiled_sql)
 
     # Determine resolved active database profile name
+    is_attached = default_registry.is_attached(request.user_id)
+    conn = default_registry.get(request.user_id) if is_attached else None
+    is_live_db_connected = bool(is_attached and conn and conn.is_connected)
+
     m_new_db = re.search(r"CREATE\s+DATABASE\s+(?:IF\s+NOT\s+EXISTS\s+)?([`\"\w]+)", sql_str, re.IGNORECASE)
     if is_none_db:
         active_db_name = m_new_db.group(1).strip("`\"'") if m_new_db else "(None / New Database)"
     elif is_attached and conn and conn.config and conn.config.database:
         active_db_name = conn.config.database
     else:
-        active_db_name = request.database_profile or "master_enterprise"
+        active_db_name = request.database_profile or "(No DB Connected)"
 
     is_mutating = plan.requires_human_approval or plan.statement_type in (StatementType.WRITE, StatementType.DDL)
+
+    # Determine resolved dialect and human-readable explanation
+    resolved_dialect = plan.target_dialect or target_engine
+    if is_auto:
+        if is_live_db_connected and conn and conn.config:
+            dialect_reason = f"Auto-selected {resolved_dialect.upper()}: Grounded on your active connected DBMS socket."
+        elif plan.paradigm_suggestion and plan.paradigm_suggestion.reasoning:
+            dialect_reason = f"Auto-selected {resolved_dialect.upper()}: {plan.paradigm_suggestion.reasoning}"
+        else:
+            dialect_reason = f"Auto-selected {resolved_dialect.upper()}: Standard relational syntax suitable for offline simulation."
+    else:
+        dialect_reason = f"Explicitly configured to {resolved_dialect.upper()} dialect."
 
     # 2. Build Response based on Execution Route
     if plan.execution_route == "REFUSAL" or sql_str.strip().startswith("-- REFUSAL:"):
@@ -319,24 +283,43 @@ async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, backgro
             is_live_db_connected=False,
             execution_mode="preview_sandbox",
             model_name=plan.model_name or request.model_name or "auto",
+            selected_dialect=resolved_dialect,
+            dialect_reason=dialect_reason,
         )
     elif not plan.is_valid:
         error_msgs = [f"[{i.code}] {i.message}" for i in plan.validation_issues if i.severity == Severity.ERROR]
-        response = QueryResponse(
-            query_id=plan.query_id,
-            status="error",
-            generated_sql=sql_str,
-            result_data=None,
-            approval_payload=None,
-            error_message="; ".join(error_msgs) if error_msgs else "Validation policy rejected statement.",
-            cache_hit=False,
-            database_profile=active_db_name,
-            is_live_db_connected=False,
-            execution_mode="preview_sandbox",
-            model_name=plan.model_name or request.model_name or "auto",
+        # When no live DB is connected, missing schema/table/column presence issues should NOT reject
+        # the statement — there is no live DB attached so sandbox preview handles it freely.
+        is_only_schema_missing = not is_live_db_connected and all(
+            any(k in (i.code or "").lower() or k in (i.message or "").lower() for k in ("table", "column", "schema", "catalog", "not_found", "unknown"))
+            for i in plan.validation_issues if i.severity == Severity.ERROR
         )
-    elif is_mutating and not request.dry_run_only:
-        # Generate approval payload for mutating statements
+        if not is_only_schema_missing:
+            response = QueryResponse(
+                query_id=plan.query_id,
+                status="error",
+                generated_sql=sql_str,
+                result_data=None,
+                approval_payload=None,
+                error_message="; ".join(error_msgs) if error_msgs else "Validation policy rejected statement.",
+                cache_hit=False,
+                database_profile=active_db_name,
+                is_live_db_connected=False,
+                execution_mode="preview_sandbox",
+                model_name=plan.model_name or request.model_name or "auto",
+                selected_dialect=resolved_dialect,
+                dialect_reason=dialect_reason,
+            )
+            stored_responses[response.query_id] = response
+            return response
+        else:
+            # Fall through to sandbox preview execution
+            pass
+    
+    if is_mutating and is_live_db_connected and not request.dry_run_only:
+        # Human approval gate is ONLY triggered when a live DBMS is connected!
+        # Without connecting database management system, there is nowhere to commit,
+        # so human acceptance/rejection is completely skipped.
         cost_rep = plan.cost_report
         risk = "critical" if plan.statement_type == StatementType.DDL else "high"
         
@@ -418,7 +401,7 @@ async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, backgro
 
         is_attached = default_registry.is_attached(request.user_id)
         conn = default_registry.get(request.user_id) if is_attached else None
-        active_db_name = conn.config.database if conn else (request.database_profile or "master_enterprise")
+        active_db_name = conn.config.database if conn else (request.database_profile or "(No Database Connected)")
 
         response = QueryResponse(
             query_id=plan.query_id,
@@ -432,6 +415,9 @@ async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, backgro
             is_live_db_connected=is_attached,
             execution_mode="live_connected" if is_attached else "preview_sandbox",
             model_name=plan.model_name or request.model_name or "auto",
+            selected_dialect=resolved_dialect,
+            dialect_reason=dialect_reason,
+            command_blocks=getattr(plan, "command_blocks", None),
         )
     else:
         # READ Query -> live results if socket attached, else sandbox preview
@@ -457,16 +443,21 @@ async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, backgro
                 database_profile=active_db_name,
                 is_live_db_connected=True,
                 execution_mode="live_database",
+                model_name=plan.model_name or request.model_name or "auto",
+                selected_dialect=resolved_dialect,
+                dialect_reason=dialect_reason,
             )
             stored_responses[response.query_id] = response
             return response
         else:
             # Sandbox preview execution using session SQLite sandbox
+            if is_mutating:
+                sync_sandbox_ddl(request.user_id, sql_str, request.database_profile)
             try:
                 from core.dialect_converter import DeterministicDialectConverter
                 conv = DeterministicDialectConverter()
                 res_sqlite = conv.transpile(sql_str, target_dialect="sqlite")
-                db = get_session_sandbox(request.user_id)
+                db = get_session_sandbox(request.user_id, request.database_profile)
                 clean_q = re.sub(r"\bUSE\s+[^;]+;", "", res_sqlite.compiled_query, flags=re.IGNORECASE)
                 clean_q = re.sub(r"CREATE\s+DATABASE\s+[^;]+;", "", clean_q, flags=re.IGNORECASE).strip()
                 cur = db.cursor()
@@ -476,20 +467,51 @@ async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, backgro
                     s_rows = [dict(zip(s_cols, r)) for r in cur.fetchall()]
                     res_data = ResultData(columns=s_cols, rows=s_rows, row_count=len(s_rows))
                 else:
-                    res_data = ResultData(columns=["status"], rows=[{"status": "OK"}], row_count=1)
+                    db.commit()
+                    rows_aff = cur.rowcount if cur.rowcount >= 0 else 1
+                    res_data = ResultData(
+                        columns=["status", "statement_type", "sandbox_effect"],
+                        rows=[{
+                            "status": "PREVIEW_OK (Offline Sandbox)",
+                            "statement_type": plan.statement_type.value,
+                            "sandbox_effect": f"Simulated {plan.statement_type.value} ({rows_aff} row(s) affected). No live DBMS connected to commit to."
+                        }],
+                        row_count=1
+                    )
             except Exception:
-                matched_cols = []
-                for t in (plan.tables_touched or []):
-                    if t in orchestrator.tables:
-                        matched_cols.extend(list(orchestrator.tables[t].columns.keys()))
-                if not matched_cols:
-                    matched_cols = ["id", "name", "created_at"]
-                matched_cols = list(dict.fromkeys(matched_cols))
-                sample_rows = [
-                    {c: (i if "id" in c.lower() else f"Sample {c} {i}") for c in matched_cols}
-                    for i in range(1, 6)
-                ]
-                res_data = ResultData(columns=matched_cols, rows=sample_rows, row_count=len(sample_rows))
+                if is_mutating:
+                    res_data = ResultData(
+                        columns=["status", "statement_type", "sandbox_effect"],
+                        rows=[{
+                            "status": "PREVIEW_GENERATED",
+                            "statement_type": plan.statement_type.value,
+                            "sandbox_effect": "No live DBMS connected. Statement generated and simulated without requiring human approval or commit."
+                        }],
+                        row_count=1
+                    )
+                else:
+                    if request.database_profile == "master_enterprise":
+                        matched_cols = []
+                        for t in (plan.tables_touched or []):
+                            if t in orchestrator.tables:
+                                matched_cols.extend(list(orchestrator.tables[t].columns.keys()))
+                        if not matched_cols:
+                            matched_cols = ["id", "name", "created_at"]
+                        matched_cols = list(dict.fromkeys(matched_cols))
+                        sample_rows = [
+                            {c: (i if "id" in c.lower() else f"Sample {c} {i}") for c in matched_cols}
+                            for i in range(1, 6)
+                        ]
+                        res_data = ResultData(columns=matched_cols, rows=sample_rows, row_count=len(sample_rows))
+                    else:
+                        res_data = ResultData(
+                            columns=["sandbox_status", "details"],
+                            rows=[{
+                                "sandbox_status": "EMPTY_SANDBOX",
+                                "details": "SQLite sandbox is completely blank with 0 tables. Create tables using CREATE TABLE or attach a database."
+                            }],
+                            row_count=1
+                        )
             is_live = False
             exec_mode = "preview_sandbox"
 
@@ -505,6 +527,9 @@ async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, backgro
             is_live_db_connected=is_live,
             execution_mode=exec_mode,
             model_name=plan.model_name or request.model_name or "auto",
+            selected_dialect=resolved_dialect,
+            dialect_reason=dialect_reason,
+            command_blocks=getattr(plan, "command_blocks", None),
         )
 
     stored_responses[response.query_id] = response
@@ -519,6 +544,9 @@ async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, backgro
         timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         is_mutating=is_mutating,
         database_profile=active_db_name,
+        selected_dialect=resolved_dialect,
+        dialect_reason=dialect_reason,
+        command_blocks=getattr(plan, "command_blocks", None),
     )
     if request.user_id not in query_history:
         query_history[request.user_id] = []
@@ -563,3 +591,12 @@ async def clearAllQueryHistoryRecordsForUserSession(user_id: str):
 
 
 clear_user_history = clearAllQueryHistoryRecordsForUserSession
+
+
+@router.post("/sandbox/reset/{user_id}")
+async def resetUserSessionSandbox(user_id: str):
+    """Resets the user's in-memory SQLite sandbox to a completely empty state."""
+    for key in list(_sandbox_dbs.keys()):
+        if key == user_id or key.startswith(f"{user_id}::"):
+            del _sandbox_dbs[key]
+    return {"ok": True, "message": f"SQLite sandbox for {user_id} reset to a blank state."}

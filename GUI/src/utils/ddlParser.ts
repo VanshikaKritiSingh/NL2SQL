@@ -20,13 +20,25 @@ export function parseTablesFromDDL(sql?: string | null): ParsedDDLResult {
   const foreignKeys: ForeignKey[] = [];
   const tableNames: string[] = [];
 
-  // Match CREATE TABLE [IF NOT EXISTS] <name> (...)
-  const regex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([`"\w]+)\s*\(([\s\S]*?)\)(?:\s*ENGINE\s*=\s*\w+)?(?:\s*DEFAULT\s+CHARSET\s*=\s*\w+)?(?:\s*;|\s*$)/gi;
+  // Match CREATE TABLE [IF NOT EXISTS] <name> (
+  const createTableRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([`"'\w]+)\s*\(/gi;
   let match: RegExpExecArray | null;
 
-  while ((match = regex.exec(sql)) !== null) {
+  while ((match = createTableRegex.exec(sql)) !== null) {
     const rawTableName = match[1].replace(/[`"']/g, '').trim();
-    const body = match[2];
+    const startIndex = createTableRegex.lastIndex;
+
+    // Balance parentheses to reliably capture the complete table definition body
+    let depth = 1;
+    let i = startIndex;
+    while (i < sql.length && depth > 0) {
+      if (sql[i] === '(') depth++;
+      else if (sql[i] === ')') depth--;
+      i++;
+    }
+
+    if (depth !== 0) continue;
+    const body = sql.substring(startIndex, i - 1);
     tableNames.push(rawTableName);
 
     // Split column definitions by commas that are outside parentheses
@@ -68,10 +80,10 @@ export function parseTablesFromDDL(sql?: string | null): ParsedDDLResult {
         }
       } else {
         // Normal column declaration: col_name data_type [constraints]
-        const tokens = line.split(/\s+/);
-        if (tokens.length >= 2) {
-          const colName = tokens[0].replace(/[`"']/g, '');
-          const colType = tokens[1].replace(/[,;]/g, '');
+        const colMatch = line.match(/^([`"'\w]+)\s+([A-Za-z0-9_]+(?:\s*\([^)]*\))?)/);
+        if (colMatch) {
+          const colName = colMatch[1].replace(/[`"']/g, '');
+          const colType = colMatch[2].replace(/[,;]/g, '');
           const isPk = upper.includes('PRIMARY KEY');
 
           columns.push({

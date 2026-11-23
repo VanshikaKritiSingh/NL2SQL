@@ -42,7 +42,7 @@ export const HistorySidebar: React.FC = () => {
         approval_payload: null,
         error_message: null,
         cache_hit: false,
-        database_profile: item.database_profile || 'master_enterprise',
+        database_profile: item.database_profile || '(No Database Connected)',
       });
       setCurrentView('query');
     }
@@ -164,18 +164,23 @@ export const HistorySidebar: React.FC = () => {
                 </button>
 
                 <div className="flex items-center justify-between mb-1 pr-4">
-                  <span className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded-[var(--radius-pill)] ${
-                    isSelected
-                      ? 'bg-white/20 text-white border border-white/20'
-                      : item.target_dialect === 'auto'
-                      ? isDark
-                        ? 'bg-[var(--warning-bg)] text-[var(--warning)] border border-[var(--warning)]/20'
-                        : 'bg-[var(--warning-bg)] text-[var(--warning)] border border-[var(--warning)]/20'
-                      : isDark
-                      ? 'bg-[var(--bg-subtle)] text-[var(--text-muted)]'
-                      : 'bg-[var(--bg-card-header)] text-[var(--text-muted)]'
-                  }`}>
-                    {item.target_dialect}
+                  <span
+                    title={item.dialect_reason || undefined}
+                    className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded-[var(--radius-pill)] cursor-help ${
+                      isSelected
+                        ? 'bg-white/20 text-white border border-white/20'
+                        : item.target_dialect === 'auto'
+                        ? isDark
+                          ? 'bg-[var(--accent-primary)]/15 text-[var(--accent-primary)] border border-[var(--accent-primary)]/30 font-semibold'
+                          : 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] border border-[var(--btn-primary-bg)] font-semibold'
+                        : isDark
+                        ? 'bg-[var(--bg-subtle)] text-[var(--text-muted)]'
+                        : 'bg-[var(--bg-card-header)] text-[var(--text-muted)]'
+                    }`}
+                  >
+                    {item.target_dialect === 'auto' && item.selected_dialect
+                      ? `AUTO: ${item.selected_dialect}`
+                      : item.target_dialect}
                   </span>
                   <span className={`text-[10px] font-mono ${isSelected ? 'text-white/70' : 'text-[var(--text-muted)]'}`}>
                     {item.timestamp}

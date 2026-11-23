@@ -263,3 +263,61 @@ def testSemanticIntentClassifierRecognizesInspectionQueries():
     ):
         result = classifier.classify(prompt)
         assert result.mode == MODE_SQL_QUERY, f"Prompt '{prompt}' classified as {result.mode}"
+
+
+def testSchemaMismatchGuardCaseInsensitiveAndMultiTableDDL():
+    from core.semantic_decomposer import SchemaMismatchGuard
+
+    # Test 1: Case-insensitive Departments match on Students creation with FK
+    sql1 = """
+    CREATE TABLE Students (
+        student_id INT AUTO_INCREMENT PRIMARY KEY,
+        full_name VARCHAR(60) NOT NULL,
+        email VARCHAR(80) UNIQUE,
+        cgpa DECIMAL(3, 2) CHECK (cgpa >= 0 AND cgpa <= 10),
+        status VARCHAR(20) DEFAULT "Active",
+        dept_id INT,
+        FOREIGN KEY (dept_id) REFERENCES Departments(dept_id)
+    ) AUTO_INCREMENT = 1001;
+    """
+    known = {"Departments": ["dept_id", "dept_name"]}
+    refusal = SchemaMismatchGuard.check(sql1, known)
+    assert refusal == "", f"Expected clean pass, got: {refusal}"
+
+    # Test 2: Multi-table DDL creating Courses and Enrollments with intra-script and existing FKs
+    sql2 = """
+    CREATE TABLE Courses (
+        course_id INT PRIMARY KEY,
+        course_title VARCHAR(60) NOT NULL,
+        credits INT NOT NULL,
+        dept_id INT,
+        FOREIGN KEY (dept_id) REFERENCES Departments(dept_id)
+    );
+
+    CREATE TABLE Enrollments (
+        enroll_id INT AUTO_INCREMENT PRIMARY KEY,
+        student_id INT,
+        course_id INT,
+        enroll_date DATE,
+        marks INT,
+        FOREIGN KEY (student_id) REFERENCES Students(student_id),
+        FOREIGN KEY (course_id) REFERENCES Courses(course_id)
+    );
+    """
+    known2 = {
+        "Departments": ["dept_id", "dept_name"],
+        "Students": ["student_id", "full_name", "email", "cgpa", "status", "dept_id"],
+    }
+    refusal2 = SchemaMismatchGuard.check(sql2, known2)
+    assert refusal2 == "", f"Expected clean pass for input 2, got: {refusal2}"
+
+
+def testAutoDialectNegationAndSemanticUnderstanding():
+    from core.paradigm_suggestor import SpeculativeParadigmSuggestor
+
+    suggestor = SpeculativeParadigmSuggestor()
+    # Test negation prompt: should NOT select MySQL
+    res = suggestor.classify_and_route("do not use MySQL use anything else", auto_mode=True)
+    assert res.recommended_dialect != "mysql", f"Negation failed: selected {res.recommended_dialect}"
+
+

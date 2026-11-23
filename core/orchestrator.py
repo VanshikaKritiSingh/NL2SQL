@@ -57,12 +57,58 @@ class SemanticSQLSynthesizer:
         primary_table = tables[0]
         pk_col = self._get_primary_key(context, primary_table) if context else "id"
 
+        # 0. Detect CREATE TABLE / DDL operations first
+        m_create_tbl = re.search(r"\bcreate\s+(?:the\s+)?([a-z0-9_]+)\s+table\b|\bcreate\s+table\s+([a-z0-9_]+)", q_lower)
+        if m_create_tbl or "create table" in q_lower:
+            tbl_name = (m_create_tbl.group(1) or m_create_tbl.group(2) if m_create_tbl else "Students").strip()
+            tbl_name = tbl_name.capitalize() if tbl_name else "Students"
+            statements = []
+            cols = []
+            if "student_id" in q_lower:
+                cols.append("student_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY")
+            elif "id" in q_lower:
+                cols.append("id INT NOT NULL AUTO_INCREMENT PRIMARY KEY")
+            if "full_name" in q_lower:
+                cols.append("full_name VARCHAR(60) NOT NULL")
+            elif "name" in q_lower:
+                cols.append("name VARCHAR(100) NOT NULL")
+            if "email" in q_lower:
+                cols.append("email VARCHAR(80) UNIQUE")
+            if "cgpa" in q_lower:
+                cols.append("cgpa DECIMAL(3,2) CHECK (cgpa BETWEEN 0 AND 10)")
+            if "status" in q_lower:
+                cols.append("status VARCHAR(20) DEFAULT 'Active'")
+            if "dept_id" in q_lower:
+                cols.append("dept_id INT")
+                cols.append("FOREIGN KEY (dept_id) REFERENCES Departments(dept_id)")
+
+            if not cols:
+                cols = [
+                    f"{tbl_name.lower()}_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY",
+                    "name VARCHAR(100) NOT NULL",
+                    "status VARCHAR(20) DEFAULT 'Active'",
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+                ]
+            create_stmt = f"CREATE TABLE {tbl_name} (\n    " + ",\n    ".join(cols) + "\n);"
+            statements.append(create_stmt)
+
+            m_auto = re.search(r"auto_increment\s+(?:to\s+start\s+at\s+|to\s+|at\s+)?(\d+)", q_lower)
+            if m_auto:
+                auto_val = m_auto.group(1)
+                statements.append(f"ALTER TABLE {tbl_name} AUTO_INCREMENT = {auto_val};")
+
+            return "\n\n".join(statements)
+
         # 1. Detect Mutating DML / DDL operations
         if re.search(r"\b(delete|remove|purge|erase)\b", q_lower):
             where_part = self._build_where_clause(q_lower, context, primary_table, pk_col) if context else f"{pk_col} > 0"
             return f"DELETE FROM {primary_table} WHERE {where_part};"
 
-        if re.search(r"\b(update|change|modify|increase|set)\b", q_lower):
+        if (
+            re.search(r"\b(update|modify|increase|decrease)\b", q_lower)
+            or re.search(r"\bchange\s+.*\b(price|status|name|amount|value)\b", q_lower)
+            or re.search(r"\bset\s+[a-z0-9_]+\s*=", q_lower)
+        ) and not m_create_tbl:
             set_expr = "status = 'active'"
             if "price" in q_lower:
                 if "10%" in q_lower or "10 percent" in q_lower:
@@ -226,6 +272,7 @@ class PipelineExecutionPlan:
     model_name: Optional[str] = None
     thinking_enabled: Optional[bool] = None
     reasoning_trace: Optional[str] = None
+    command_blocks: Optional[List[Dict[str, Any]]] = field(default_factory=list)
 
 
 class EndToEndNL2SQLOrchestrator:
@@ -435,10 +482,10 @@ class EndToEndNL2SQLOrchestrator:
         model: Optional[str] = None,
         schema_hint: str = "",
         thinking_enabled: Optional[bool] = None,
-    ) -> Tuple[Optional[str], str, Optional[str]]:
+    ) -> Tuple[Optional[str], str, Optional[str], Optional[List[Dict[str, Any]]]]:
         """
         Invokes either native PEFT adapter engine (A2.5C0.5, Q2.5C0.5) or Ollama.
-        Returns (sql_query, model_used, reasoning_trace).
+        Returns (sql_query, model_used, reasoning_trace, command_blocks).
         """
         # 1. Native PEFT field-test models (A2.5C0.5, Q2.5C0.5)
         try:
@@ -451,7 +498,7 @@ class EndToEndNL2SQLOrchestrator:
                     model_name=model,
                 )
                 if sql_out:
-                    return sql_out, used_model, r_trace
+                    return sql_out, used_model, r_trace, None
         except Exception:
             pass
 
@@ -465,8 +512,8 @@ class EndToEndNL2SQLOrchestrator:
             thinking_enabled=thinking_enabled,
         )
         if res.success and res.sql:
-            return res.sql, res.model_used, res.reasoning_trace
-        return None, res.model_used, res.reasoning_trace
+            return res.sql, res.model_used, res.reasoning_trace, res.commands
+        return None, res.model_used, res.reasoning_trace, None
 
     def _is_raw_sql(self, q: str) -> bool:
         try:
@@ -591,7 +638,7 @@ class EndToEndNL2SQLOrchestrator:
             user_role=user_role,
             fn=_execute,
         )
-        scheduled.done_event.wait(timeout=60.0)
+        scheduled.done_event.wait(timeout=180.0)
 
         if scheduled.error:
             raise scheduled.error
@@ -623,25 +670,29 @@ class EndToEndNL2SQLOrchestrator:
             auto_mode=is_auto,
         )
         if target_engine == "auto" or not target_engine:
-            rec = suggestion.recommended_engines[0].lower() if suggestion.recommended_engines else "postgres"
-            if "neo4j" in rec or "opencypher" in rec or "graph" in rec:
-                resolved_engine = "opencypher"
-            elif "mongo" in rec or "document" in rec:
-                resolved_engine = "mongodb"
-            elif "duck" in rec:
-                resolved_engine = "duckdb"
-            elif "click" in rec:
-                resolved_engine = "clickhouse"
-            elif "mysql" in rec:
-                resolved_engine = "mysql"
-            elif "sqlite" in rec:
-                resolved_engine = "sqlite"
-            elif "oracle" in rec:
-                resolved_engine = "oracle"
-            elif "sqlserver" in rec or "sql server" in rec:
-                resolved_engine = "sqlserver"
+            # Resolved engine is determined directly by the machine learning classification model
+            if suggestion.recommended_dialect:
+                resolved_engine = suggestion.recommended_dialect
             else:
-                resolved_engine = "postgres"
+                rec = suggestion.recommended_engines[0].lower() if suggestion.recommended_engines else "postgres"
+                if "neo4j" in rec or "opencypher" in rec or "graph" in rec:
+                    resolved_engine = "opencypher"
+                elif "mongo" in rec or "document" in rec:
+                    resolved_engine = "mongodb"
+                elif "duck" in rec:
+                    resolved_engine = "duckdb"
+                elif "click" in rec:
+                    resolved_engine = "clickhouse"
+                elif "mysql" in rec:
+                    resolved_engine = "mysql"
+                elif "sqlite" in rec:
+                    resolved_engine = "sqlite"
+                elif "oracle" in rec:
+                    resolved_engine = "oracle"
+                elif "sqlserver" in rec or "sql server" in rec:
+                    resolved_engine = "sqlserver"
+                else:
+                    resolved_engine = "postgres"
         else:
             resolved_engine = target_engine
 
@@ -663,6 +714,8 @@ class EndToEndNL2SQLOrchestrator:
         # 3. Stage 6: Generation (Mock / Live Ollama LLM / Architecture / Deterministic Offline Synthesizer)
         from core.semantic_decomposer import default_decomposer, MODE_REFUSAL, MODE_ARCHITECTURE
 
+        captured_command_blocks: List[Dict[str, Any]] = []
+
         if mock_llm_generator is not None:
             canonical_sql = mock_llm_generator(query, linked_ctx)
             actual_model = "mock_generator"
@@ -679,7 +732,7 @@ class EndToEndNL2SQLOrchestrator:
                 canonical_sql = None
                 # Attempt model generation for architecture if available
                 try:
-                    sql_out, used_model, r_trace = self._generate_sql_llm(
+                    sql_out, used_model, r_trace, cmd_blocks = self._generate_sql_llm(
                         query=query,
                         user_id=user_id,
                         target_dialect=resolved_engine,
@@ -691,20 +744,21 @@ class EndToEndNL2SQLOrchestrator:
                         canonical_sql = sql_out
                         actual_model = used_model
                         reasoning_trace = r_trace
+                        if cmd_blocks:
+                            captured_command_blocks = cmd_blocks
                 except Exception:
                     canonical_sql = None
 
                 if not canonical_sql:
-                    arch_res = default_decomposer.synthesize_architecture(query)
-                    canonical_sql = arch_res.canonical_ddl
-                    actual_model = "architecture_synthesizer"
-                    reasoning_trace = f"Architecture Decomposer: Synthesized {len(arch_res.entities)} entities with rich ER metadata"
-                    self._register_architecture_entities(arch_res.entities)
+                    err_hint = f"Generative model '{actual_model or model_name or 'ollama'}' did not produce valid schema DDL."
+                    canonical_sql = f"-- [ERROR: MODEL_GENERATION_FAILED] {err_hint}\n-- Deterministic regex fallback is disabled. Please verify Ollama model availability and retry."
+                    actual_model = "error:llm_generation_failed"
+                    reasoning_trace = f"Generation failed: {err_hint}. Deterministic regex fallback disabled per system policy."
             else:
                 canonical_sql = None
                 # Standard SQL query intent — invoke generative model (PEFT / Ollama) first
                 try:
-                    sql_out, used_model, r_trace = self._generate_sql_llm(
+                    sql_out, used_model, r_trace, cmd_blocks = self._generate_sql_llm(
                         query=query,
                         user_id=user_id,
                         target_dialect=resolved_engine,
@@ -716,16 +770,28 @@ class EndToEndNL2SQLOrchestrator:
                         canonical_sql = sql_out
                         actual_model = used_model
                         reasoning_trace = r_trace
-                except Exception:
+                        if cmd_blocks:
+                            captured_command_blocks = cmd_blocks
+                except Exception as gen_err:
                     canonical_sql = None
+                    reasoning_trace = f"Model exception: {gen_err}"
 
                 if not canonical_sql:
-                    canonical_sql = self.synthesizer.synthesize(query, linked_ctx)
-                    if actual_model == "auto" or not actual_model:
-                        actual_model = "offline_synthesizer"
+                    err_hint = f"Generative model '{actual_model or model_name or 'ollama'}' failed to generate SQL."
+                    canonical_sql = f"-- [ERROR: MODEL_GENERATION_FAILED] {err_hint}\n-- Deterministic regex fallback is disabled. Please verify Ollama model availability and retry."
+                    actual_model = "error:llm_generation_failed"
+                    reasoning_trace = f"Generation failed: {err_hint}. Deterministic regex fallback disabled per system policy."
 
-        # Check for model-native or guard-generated refusal
-        if canonical_sql and canonical_sql.startswith("-- REFUSAL:"):
+        # Ensure command_blocks are populated for any generated SQL
+        if canonical_sql and not captured_command_blocks and not canonical_sql.startswith("--"):
+            try:
+                from core.connectors.ollama import default_ollama
+                _, _, captured_command_blocks = default_ollama._extract_sql_and_command_blocks(canonical_sql, query)
+            except Exception:
+                pass
+
+        # Check for model-native or guard-generated refusal or error
+        if canonical_sql and (canonical_sql.startswith("-- REFUSAL:") or canonical_sql.startswith("-- [ERROR:")):
             return self._build_refusal_plan(
                 query_id=query_id,
                 query=query,
@@ -735,14 +801,10 @@ class EndToEndNL2SQLOrchestrator:
                 resolved_engine=resolved_engine,
                 actual_model=actual_model,
                 thinking_enabled=thinking_enabled,
-                reasoning_trace=reasoning_trace or "Model Native Refusal",
+                reasoning_trace=reasoning_trace or "Model Generation Failed",
                 start_time=start_time,
                 method="model_refusal" if actual_model not in ("semantic_refusal_guard", "schema_mismatch_guard") else "refusal",
             )
-
-        # Check for multi-table architecture DDL (from model or synthesizer) and auto-register entities
-        if canonical_sql and ("create table" in canonical_sql.lower() or "-- entity:" in canonical_sql.lower()):
-            self._register_architecture_ddl(canonical_sql)
 
         # Schema Mismatch Guard on generated query (unless raw SQL or refusal)
         if canonical_sql and not self._is_raw_sql(query) and not canonical_sql.startswith("--"):
@@ -763,6 +825,10 @@ class EndToEndNL2SQLOrchestrator:
                         start_time=start_time,
                         method="schema_mismatch_guard",
                     )
+
+        # Check for multi-table architecture DDL (from model or synthesizer) and auto-register entities
+        if canonical_sql and ("create table" in canonical_sql.lower() or "-- entity:" in canonical_sql.lower()):
+            self._register_architecture_ddl(canonical_sql)
 
         # 4. Stage 7: Deterministic Dialect Transpilation (AI/ML & Systems)
         try:
@@ -876,4 +942,5 @@ class EndToEndNL2SQLOrchestrator:
             model_name=actual_model,
             thinking_enabled=thinking_enabled,
             reasoning_trace=reasoning_trace,
+            command_blocks=captured_command_blocks,
         )

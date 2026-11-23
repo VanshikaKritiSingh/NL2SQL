@@ -96,8 +96,8 @@ async def simulate_pipeline_run(
             ),
         )
 
-    if not is_mutating:
-        # Read-only path: Stage 13 (Sandbox Replica) -> Stage 16 (Dispatcher)
+    if not is_mutating or not approval_payload:
+        # Read-only or offline sandbox path: Stage 13 (Sandbox Replica) -> Stage 16 (Dispatcher)
         for stage_num in [13, 16]:
             stage_name = STAGE_NAMES[stage_num]
             await broadcast_event(

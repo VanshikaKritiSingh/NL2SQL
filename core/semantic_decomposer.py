@@ -207,9 +207,8 @@ class SemanticIntentClassifier:
             _EXPLICIT_DDL_SPEC_PATTERNS.search(q)
             or _NAMED_DATABASE_DIRECTIVE.search(q)
         ):
-            has_select = bool(re.search(r"\b(select|from|where|show|list|find)\b", q_lower))
-            has_create = bool(re.search(r"\bcreate\s+table\b", q_lower))
-            if not (has_select and not has_create):
+            has_explicit_select = bool(re.search(r"\bselect\s+[\*\w]+\s+from\b", q_lower))
+            if not has_explicit_select:
                 return IntentResult(
                     mode=MODE_ARCHITECTURE,
                     refusal_tag=None,
@@ -271,7 +270,10 @@ class SchemaMismatchGuard:
         # Pass 1: collect locally-created table names (from CREATE TABLE)
         local_tables = set()
         for stmt_sql in statements:
-            parsed = sqlglot.parse_one(stmt_sql, read="postgres")
+            try:
+                parsed = sqlglot.parse_one(stmt_sql, read="postgres")
+            except Exception:
+                continue
             if parsed is None:
                 continue
             if not isinstance(parsed, exp.Create):
@@ -283,14 +285,22 @@ class SchemaMismatchGuard:
             if tbl and tbl.name:
                 local_tables.add(tbl.name.lower())
 
-        all_valid_tables = set(known_tables.keys()) | local_tables
+        # Normalize known_tables keys and columns to lower-case for case-insensitive matching
+        known_tables_lower: Dict[str, List[str]] = {
+            str(k).lower(): [str(c).lower() for c in cols]
+            for k, cols in known_tables.items()
+        }
+        all_valid_tables = set(known_tables_lower.keys()) | local_tables
 
         # Pass 2: check table + column references against known ∪ local
         unknown_tables: List[str] = []
         unknown_cols: List[str] = []
 
         for stmt_sql in statements:
-            parsed = sqlglot.parse_one(stmt_sql, read="postgres")
+            try:
+                parsed = sqlglot.parse_one(stmt_sql, read="postgres")
+            except Exception:
+                continue
             if parsed is None:
                 continue
             table_alias_map: Dict[str, str] = {}
@@ -346,8 +356,8 @@ class SchemaMismatchGuard:
                 tbl_ref = col.table.lower() if col.table else None
                 if tbl_ref and tbl_ref in table_alias_map:
                     real_tbl = table_alias_map[tbl_ref]
-                    if real_tbl in known_tables:
-                        if c_name not in known_tables[real_tbl]:
+                    if real_tbl in known_tables_lower:
+                        if c_name not in known_tables_lower[real_tbl]:
                             unknown_cols = unknown_cols or []
                             unknown_cols.append(f"{tbl_ref}.{c_name}")
 
@@ -488,9 +498,13 @@ def _to_snake(name: str) -> str:
 
 def _pluralise(name: str) -> str:
     """Simple English plural for table names."""
+    if name.endswith(("ies", "ses", "xes", "ches", "shes")):
+        return name
+    if name.endswith("s") and not name.endswith(("ss", "us", "is")):
+        return name
     if name.endswith("y") and not name.endswith("ey") and not name.endswith("ay"):
         return name[:-1] + "ies"
-    if name.endswith(("s", "sh", "ch", "x", "z")):
+    if name.endswith(("ss", "sh", "ch", "x", "z")):
         return name + "es"
     return name + "s"
 
@@ -532,24 +546,49 @@ class NLArchitectureParser:
     def _extract_explicit_entities(self, text: str) -> List[str]:
         """Extract entity/table names that the user explicitly mentions."""
         found: List[str] = []
-        # "a users table", "table for products", "entity called X"
+        stop_words = {
+            "every", "single", "entity", "entities", "have", "are", "to", "and", "or",
+            "for", "with", "all", "any", "each", "two", "three", "structures", "unique",
+            "identifiers", "geographic", "coordinates", "operational", "status", "flags",
+            "capacity", "limits", "audit", "timestamps", "system", "platform", "complete",
+            "database", "schema", "massive", "global", "across", "along", "predefined",
+            "following", "including", "between", "within", "without", "need", "needs",
+            "require", "requires", "like", "such", "also", "must", "can", "could", "tos",
+            "everies", "singles", "haves", "uniques", "geographics", "operationals"
+        }
+
+        # 1. Direct tracking directive: "The system must track Suppliers, Manufacturing Plants..."
+        for m in re.finditer(r"\b(?:track|monitor|store|manage)\s+([A-Za-z0-9_,\s]+?)(?:\.\s+|;|\n|$)", text, re.IGNORECASE):
+            items = re.split(r",\s*(?:and\s+)?|\s+and\s+", m.group(1))
+            for it in items:
+                it_clean = it.strip()
+                if it_clean:
+                    snake = _to_snake(it_clean)
+                    plural = _pluralise(snake)
+                    if len(plural) > 2 and plural not in stop_words and not any(sw in plural.split("_") for sw in ("every", "single", "entity")):
+                        found.append(plural)
+
+        # 2. "a users table", "table for products", "entity called X"
         for m in re.finditer(
             r"\b(?:table(?:s)?\s+(?:for|of|called)?\s*|entity\s+(?:called\s+)?|entities?\s+(?:called\s+)?)(\w+)",
             text,
             re.IGNORECASE,
         ):
-            found.append(_pluralise(_to_snake(m.group(1))))
+            plural = _pluralise(_to_snake(m.group(1)))
+            if plural not in stop_words:
+                found.append(plural)
 
-        # standalone nouns in sentences like "I need users, products, and orders"
-        needs_match = re.search(r"(?:need|include|have|consist of|comprise)\s+([\w, ]+?)(?:\.|$)", text, re.IGNORECASE)
-        if needs_match:
+        # 3. Explicit list of nouns: "I need users, products, and orders" (must have at least one comma)
+        needs_match = re.search(r"\b(?:need|include|consist of|comprise)\s+([a-zA-Z0-9_,\s]{3,80}?)(?:\.|$)", text, re.IGNORECASE)
+        if needs_match and "," in needs_match.group(1):
             nouns = re.split(r"[,\s]+(?:and\s+)?", needs_match.group(1))
             for n in nouns:
                 n_clean = _to_snake(n.strip().rstrip("s"))
-                if len(n_clean) > 2:
-                    found.append(_pluralise(n_clean))
+                plural = _pluralise(n_clean)
+                if len(plural) > 2 and plural not in stop_words:
+                    found.append(plural)
 
-        return list(dict.fromkeys(e for e in found if len(e) > 2))
+        return list(dict.fromkeys(e for e in found if len(e) > 2 and e not in stop_words))
 
     def _extract_relations(self, text: str) -> List[Tuple[str, str, str]]:
         """Returns list of (entity_a, relationship_type, entity_b)."""

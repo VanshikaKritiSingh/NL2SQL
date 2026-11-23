@@ -20,12 +20,13 @@ class ConnectorType(str, Enum):
     REDIS = "redis"
     CASSANDRA = "cassandra"
     DYNAMODB = "dynamodb"
+    CUSTOM = "custom"
 
 
 @dataclass
 class ConnectionConfig:
     connector_type: ConnectorType
-    database: str
+    database: str = ""
     host: Optional[str] = "localhost"
     port: Optional[int] = None
     username: Optional[str] = None
@@ -34,6 +35,10 @@ class ConnectionConfig:
     read_only: bool = False
     timeout_s: float = 15.0
     extra_params: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.database or self.database in ("__none__", "none", "(none)", "(None / New Database)", "scratch", "<none>"):
+            self.database = ""
 
 
 @dataclass
