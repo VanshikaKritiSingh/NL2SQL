@@ -3,11 +3,11 @@ from fastapi import APIRouter, HTTPException
 from models.approval import ApprovalRequest, ApprovalResponse
 from services.pipeline_stub import broadcast_event, STAGE_NAMES
 from models.pipeline import PipelineStageEvent
-from core.os_engine.audit_log import PipelineAuditLog, AuditEvent
+from core.os_engine.audit_log import default_audit_log, AuditEvent
 import asyncio, time, uuid
 
 router = APIRouter(prefix="/approval", tags=["Human Approval Gate"])
-_audit_logger = PipelineAuditLog()
+_audit_logger = default_audit_log
 
 
 @router.post("/{query_id}", response_model=ApprovalResponse)

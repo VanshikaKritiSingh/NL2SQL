@@ -138,6 +138,13 @@ export const AuditLogModal: React.FC<AuditLogModalProps> = ({ isOpen, onClose })
           branchColor: 'text-amber-500',
           badgeClass: 'bg-amber-500/15 text-amber-400 border-amber-500/40',
         };
+      case 'ROUTED':
+        return {
+          icon: GitBranch,
+          ringColor: 'ring-indigo-500/30 border-indigo-500 bg-indigo-500 text-white',
+          branchColor: 'text-indigo-500',
+          badgeClass: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/40',
+        };
       case 'EXECUTE':
         return {
           icon: GitCommit,
@@ -212,6 +219,7 @@ export const AuditLogModal: React.FC<AuditLogModalProps> = ({ isOpen, onClose })
             >
               <option value="all">All Operations</option>
               <option value="SUBMIT">SUBMIT</option>
+              <option value="ROUTED">ROUTED</option>
               <option value="EXECUTE">EXECUTE</option>
               <option value="APPROVE">APPROVE</option>
               <option value="REJECT">REJECT</option>

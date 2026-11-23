@@ -22,27 +22,46 @@ export const HistorySidebar: React.FC = () => {
   const isDark = theme === 'dark';
 
   const handleSelectHistoryItem = (item: HistoryItem) => {
-    if (item.is_mutating) {
-      setApprovalPayload(MOCK_UPDATE_APPROVAL);
+    if (item.is_mutating && item.status === 'approval_required') {
+      setApprovalPayload({
+        query_id: item.query_id,
+        generated_sql: item.generated_sql || '',
+        target_dialect: item.target_dialect || 'mysql',
+        risk_tier: 'high',
+        impacted_tables: [],
+        cost_estimate: {
+          estimated_rows: 1,
+          estimated_cost: 1.0,
+          scan_type: 'INDEX_SCAN',
+          warnings: ['Mutating query requires explicit confirmation before DBMS execution.'],
+        },
+        security_check: {
+          deadlock_risk: 'none',
+          lock_level: 'TABLE',
+          privilege_ok: true,
+          flags: [],
+        },
+        diff_data: {
+          diff_type: 'none',
+          ddl_before: null,
+          ddl_after: item.generated_sql || null,
+          dml_rows: null,
+        },
+      });
       setCurrentView('approval');
     } else {
       setLastResponse({
         query_id: item.query_id,
-        status: item.status,
+        status: (item.status as any) || 'completed',
         generated_sql: item.generated_sql,
-        result_data: {
-          columns: ['order_id', 'full_name', 'order_date', 'total_amount', 'status'],
-          rows: [
-            { order_id: 1042, full_name: 'Aarav Patel', order_date: '2025-02-14 10:30:00', total_amount: '$149.99', status: 'COMPLETED' },
-            { order_id: 1043, full_name: 'Diya Sharma', order_date: '2025-02-16 15:45:00', total_amount: '$320.50', status: 'COMPLETED' },
-            { order_id: 1044, full_name: 'Rohan Verma', order_date: '2025-02-20 18:20:00', total_amount: '$89.00', status: 'PENDING' },
-          ],
-          row_count: 3,
-        },
+        result_data: null,
         approval_payload: null,
         error_message: null,
         cache_hit: false,
         database_profile: item.database_profile || '(No Database Connected)',
+        selected_dialect: item.selected_dialect,
+        dialect_reason: item.dialect_reason,
+        command_blocks: item.command_blocks,
       });
       setCurrentView('query');
     }

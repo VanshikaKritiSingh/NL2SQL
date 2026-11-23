@@ -75,6 +75,8 @@ orchestrator = EndToEndNL2SQLOrchestrator(schema_tables={})
 # In-memory history store: user_id -> List[HistoryItem]
 query_history: Dict[str, List[HistoryItem]] = {}
 stored_responses: Dict[str, QueryResponse] = {}
+deleted_query_ids: set[str] = set()
+user_clear_timestamps: Dict[str, float] = {}
 
 import sqlite3
 import logging
@@ -534,7 +536,33 @@ async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, backgro
 
     stored_responses[response.query_id] = response
 
-    # 3. Record to history
+    # 3. Record to persistent audit log & in-memory cache
+    try:
+        import time
+        from core.os_engine.audit_log import default_audit_log, AuditEvent
+        default_audit_log.append(AuditEvent(
+            event_id=f"ev-{response.query_id[-6:] if len(response.query_id) >= 6 else 'ev001'}",
+            timestamp=time.time(),
+            user_id=request.user_id,
+            operation="SUBMIT",
+            query_id=response.query_id,
+            stage=1,
+            stage_name="Query Intake & Processing",
+            details={
+                "query": request.query_text,
+                "canonical_sql": response.generated_sql,
+                "target_engine": plan.target_dialect,
+                "selected_dialect": resolved_dialect,
+                "status": response.status,
+                "is_mutating": is_mutating,
+                "database": active_db_name,
+                "command_blocks": getattr(plan, "command_blocks", None),
+            },
+            concurrency_tag=getattr(plan, "concurrency_tag", f"txn-{request.user_id}"),
+        ))
+    except Exception as log_err:
+        logger.warning(f"Failed to append to audit log: {log_err}")
+
     history_entry = HistoryItem(
         query_id=response.query_id,
         query_text=request.query_text,
@@ -552,7 +580,7 @@ async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, backgro
         query_history[request.user_id] = []
     query_history[request.user_id].insert(0, history_entry)
 
-    # 4. Record to history and return response
+    # 4. Return response
     return response
 
 
@@ -561,8 +589,37 @@ submit_query = submitNaturalLanguageQueryForProcessing
 
 @router.get("/history/{user_id}", response_model=List[HistoryItem])
 async def retrieveQueryHistoryForUserSession(user_id: str):
-    """Returns query history for the given user."""
-    return query_history.get(user_id, [])
+    """Returns query history for the given user, restored from persistent audit logs."""
+    from core.os_engine.audit_log import default_audit_log
+    
+    # 1. Fetch from persistent audit log
+    persisted_raw = default_audit_log.retrieve_query_history(user_id=user_id, limit=50)
+
+    # 2. Merge with active in-memory session history
+    mem_items = query_history.get(user_id, [])
+    merged: List[HistoryItem] = []
+    seen_qids = set(deleted_query_ids)
+    clear_after = user_clear_timestamps.get(user_id, 0.0)
+
+    for item in mem_items:
+        if item.query_id not in seen_qids:
+            seen_qids.add(item.query_id)
+            merged.append(item)
+
+    for p in persisted_raw:
+        if p["query_id"] not in seen_qids:
+            raw_ts = p.get("timestamp_raw", 0.0)
+            if clear_after and raw_ts and raw_ts <= clear_after:
+                continue
+            seen_qids.add(p["query_id"])
+            try:
+                p_clean = {k: v for k, v in p.items() if k != "timestamp_raw"}
+                merged.append(HistoryItem(**p_clean))
+            except Exception:
+                pass
+
+    query_history[user_id] = merged
+    return merged
 
 
 get_user_history = retrieveQueryHistoryForUserSession
@@ -571,12 +628,12 @@ get_user_history = retrieveQueryHistoryForUserSession
 @router.delete("/history/{user_id}/{query_id}")
 async def deleteSingleQueryHistoryRecord(user_id: str, query_id: str):
     """Deletes a single history item for the specified user."""
+    deleted_query_ids.add(query_id)
     if user_id in query_history:
         query_history[user_id] = [item for item in query_history[user_id] if item.query_id != query_id]
-        if query_id in stored_responses:
-            del stored_responses[query_id]
-        return {"status": "success", "message": f"Query {query_id} deleted"}
-    return {"status": "not_found", "message": "User history not found"}
+    if query_id in stored_responses:
+        del stored_responses[query_id]
+    return {"status": "success", "message": f"Query {query_id} deleted"}
 
 
 delete_user_history_item = deleteSingleQueryHistoryRecord
@@ -585,8 +642,9 @@ delete_user_history_item = deleteSingleQueryHistoryRecord
 @router.delete("/history/{user_id}")
 async def clearAllQueryHistoryRecordsForUserSession(user_id: str):
     """Clears all query history for the specified user."""
-    if user_id in query_history:
-        query_history[user_id] = []
+    import time
+    user_clear_timestamps[user_id] = time.time()
+    query_history[user_id] = []
     return {"status": "success", "message": f"History cleared for user {user_id}"}
 
 
