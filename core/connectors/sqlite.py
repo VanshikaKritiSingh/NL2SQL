@@ -3,9 +3,10 @@ core/connectors/sqlite.py — High-Performance SQLite Connector (Stdlib Embedded
 """
 
 import os
+import logging
 import sqlite3
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from core.connectors.base import (
     BaseDBConnector,
@@ -16,6 +17,8 @@ from core.connectors.base import (
     SchemaMetadata,
     TableSchema,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class SQLiteConnector(BaseDBConnector):
@@ -57,8 +60,8 @@ class SQLiteConnector(BaseDBConnector):
         if self._conn:
             try:
                 self._conn.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Suppressed non-fatal error in sqlite.py: %s", exc, exc_info=True)
             finally:
                 self._conn = None
                 self._is_connected = False
@@ -157,8 +160,8 @@ class SQLiteConnector(BaseDBConnector):
                     }
                     tbl_schema.foreign_keys.append(fk_info)
                     relationships.append(fk_info)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Suppressed non-fatal error in sqlite.py: %s", exc, exc_info=True)
 
             # Sample values & row count estimate
             try:
@@ -172,8 +175,8 @@ class SQLiteConnector(BaseDBConnector):
                         sample_cur = self._conn.cursor()
                         sample_cur.execute(f"SELECT DISTINCT \"{c_name}\" FROM \"{tbl_name}\" WHERE \"{c_name}\" IS NOT NULL LIMIT 5;")
                         c_meta.sample_values = [str(r[0]) for r in sample_cur.fetchall()]
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Suppressed non-fatal error in sqlite.py: %s", exc, exc_info=True)
 
             tables_map[tbl_name] = tbl_schema
 
@@ -189,7 +192,7 @@ class SQLiteConnector(BaseDBConnector):
     def executeQueryAgainstDatabaseEngine(
         self,
         query: str,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[Union[Dict[str, Any], List[Any]]] = None,
         is_mutating: bool = False,
         timeout_s: Optional[float] = None,
     ) -> QueryResult:
@@ -239,8 +242,8 @@ class SQLiteConnector(BaseDBConnector):
             if self._conn:
                 try:
                     self._conn.rollback()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("Suppressed non-fatal error in sqlite.py: %s", exc, exc_info=True)
             return QueryResult(
                 columns=[],
                 rows=[],

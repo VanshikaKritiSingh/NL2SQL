@@ -1,8 +1,11 @@
 # routers/schema.py
 from typing import Optional
+import logging
 from fastapi import APIRouter, Query
 from models.schema import SchemaInfo, TableInfo, ColumnInfo, ForeignKey
 from mock_data.schemas import get_mock_ecommerce_schema
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/schema", tags=["Schema Explorer"])
 
@@ -158,8 +161,8 @@ def _build_schema_from_orchestrator(dialect: str) -> Optional[SchemaInfo]:
                     tables=tbl_infos,
                     foreign_keys=all_fks,
                 )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Suppressed non-fatal error in schema.py: %s", exc, exc_info=True)
     return None
 
 
@@ -193,8 +196,8 @@ async def retrieveDatabaseSchemaMetadataForVisualizer(dialect: str = "mysql", us
                     total_tables=0,
                     total_columns=0,
                 )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Suppressed non-fatal error in schema.py: %s", exc, exc_info=True)
 
         # If user is provided but not attached or introspection returned nothing, return empty
         return SchemaInfo(

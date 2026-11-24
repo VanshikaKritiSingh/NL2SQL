@@ -30,6 +30,7 @@ choice.
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 import urllib.request
@@ -221,13 +222,22 @@ CRITICAL RULES:
 
 
 class CLEFClassifier:
-    DEFAULT_MODEL = "qwen2.5-coder:1.5b-cpu"
-    DEFAULT_HOST  = "http://127.0.0.1:11434"
-    TIMEOUT_S     = 8.0
+    """
+    Confidence-gated intent classifier.
 
-    def __init__(self, model: str = DEFAULT_MODEL, host: str = DEFAULT_HOST) -> None:
-        self.model = model
-        self.host  = host.rstrip("/")
+    Despite the historical name, this is a keyword/pattern drafter with an
+    optional LLM-verification step. The model and host below are the *defaults*;
+    override them via OLLAMA_HOST / NL2SQL_INTENT_MODEL so the hardcoded
+    127.0.0.1:11434 assumption is not baked into deployed environments.
+    """
+
+    DEFAULT_MODEL = os.environ.get("NL2SQL_INTENT_MODEL", "qwen2.5-coder:1.5b-cpu")
+    DEFAULT_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
+    TIMEOUT_S = float(os.environ.get("NL2SQL_INTENT_TIMEOUT_S", "8.0"))
+
+    def __init__(self, model: Optional[str] = None, host: Optional[str] = None) -> None:
+        self.model = model or self.DEFAULT_MODEL
+        self.host = (host or self.DEFAULT_HOST).rstrip("/")
         self._drafter = CLEFDiscourseDrafter()
 
     def classify(self, query: str) -> Tuple[str, DatabaseParadigm, float, str, str]:

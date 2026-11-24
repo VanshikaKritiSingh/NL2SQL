@@ -10,6 +10,9 @@ Endpoints:
 """
 
 from typing import Any, Dict, Optional
+import re
+import logging
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
@@ -19,7 +22,23 @@ from core.connectors import (
     default_registry,
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/connections", tags=["DBMS Connectors & Sockets"])
+
+# Safe identifier: letters/digits/underscore/dollar/hyphen, 1-64 chars, must start with letter or _
+_SAFE_IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_$-]{0,63}$")
+
+
+def _validate_and_quote_ident(name: str, quote_char: str = "`", label: str = "identifier") -> str:
+    """Validate a SQL identifier against a strict allowlist pattern and double-quote it."""
+    if not name or not _SAFE_IDENT_RE.match(name):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsafe SQL {label} rejected: {name!r} — must match [A-Za-z_][A-Za-z0-9_$-]{{1,64}}"
+        )
+    escaped = name.replace(quote_char, quote_char * 2)
+    return f"{quote_char}{escaped}{quote_char}"
 
 
 class AttachRequest(BaseModel):
@@ -111,8 +130,8 @@ async def detachDatabaseConnectionFromUserSession(user_id: str):
     try:
         from routers.query import orchestrator
         orchestrator.update_schema({})
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Suppressed non-fatal error in connections.py: %s", exc, exc_info=True)
     return {
         "ok": True,
         "user_id": user_id,
@@ -205,12 +224,13 @@ class InstallDepsRequest(BaseModel):
 @router.post("/install-deps")
 async def install_connector_dependencies(req: InstallDepsRequest):
     """
-    Automatically installs Python driver packages required for the selected connector.
-    Runs `pip install` in a subprocess and returns real-time status.
-    """
-    import subprocess
-    import sys
+    DEPRECATED (DA-03): This endpoint no longer executes pip at runtime.
 
+    Returns a read-only diagnostic report of installed vs. missing packages
+    and the manual pip command the user should run in their terminal.
+    All dependencies are already declared in requirements.txt; there is no
+    need to install drivers dynamically from an HTTP route.
+    """
     ct = req.connector_type.lower().strip()
     if ct not in CONNECTOR_DEPS:
         raise HTTPException(status_code=400, detail=f"Unknown connector type: '{ct}'. Supported: {list(CONNECTOR_DEPS.keys())}")
@@ -225,7 +245,6 @@ async def install_connector_dependencies(req: InstallDepsRequest):
             "already_installed": True,
         }
 
-    # Check which are already installed
     already = []
     missing = []
     for pkg in packages:
@@ -236,55 +255,16 @@ async def install_connector_dependencies(req: InstallDepsRequest):
         except ImportError:
             missing.append(pkg)
 
-    if not missing:
-        return {
-            "ok": True,
-            "connector_type": ct,
-            "packages": already,
-            "message": f"All dependencies for {ct} are already installed: {', '.join(already)}",
-            "already_installed": True,
-        }
-
-    # Install missing packages
-    install_log = []
-    failed = []
-    for pkg in missing:
-        try:
-            result = subprocess.run(
-                [sys.executable, "-m", "pip", "install", pkg, "--quiet", "--disable-pip-version-check"],
-                capture_output=True,
-                text=True,
-                timeout=120,
-            )
-            if result.returncode == 0:
-                install_log.append({"package": pkg, "status": "installed", "output": result.stdout.strip()})
-            else:
-                install_log.append({"package": pkg, "status": "failed", "error": result.stderr.strip()})
-                failed.append(pkg)
-        except subprocess.TimeoutExpired:
-            install_log.append({"package": pkg, "status": "timeout", "error": "Installation timed out after 120s"})
-            failed.append(pkg)
-        except Exception as e:
-            install_log.append({"package": pkg, "status": "error", "error": str(e)})
-            failed.append(pkg)
-
-    if failed:
-        return {
-            "ok": False,
-            "connector_type": ct,
-            "packages": packages,
-            "install_log": install_log,
-            "message": f"Failed to install: {', '.join(failed)}. Check pip and network.",
-            "already_installed": False,
-        }
-
     return {
-        "ok": True,
+        "ok": len(missing) == 0,
         "connector_type": ct,
-        "packages": packages,
-        "install_log": install_log,
-        "message": f"Successfully installed {', '.join(missing)} for {ct} connector.",
-        "already_installed": False,
+        "already_installed": already,
+        "missing_packages": missing,
+        "install_command": f"pip install {' '.join(missing)}" if missing else None,
+        "message": (
+            f"All {ct} dependencies installed." if not missing
+            else f"Run: pip install {' '.join(missing)}"
+        ),
     }
 
 
@@ -344,8 +324,8 @@ async def list_available_models():
         for pm in peft_models:
             models.append(pm["name"])
             model_details.append(pm)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Suppressed non-fatal error in connections.py: %s", exc, exc_info=True)
 
     # 2. Local Ollama models
     ollama_online = False
@@ -358,8 +338,8 @@ async def list_available_models():
                 if cm["name"] not in models:
                     models.append(cm["name"])
                     model_details.append(cm)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Suppressed non-fatal error in connections.py: %s", exc, exc_info=True)
 
     # Prefer 1.5B AdaLoRA as default when available (better quality, still consumer CPU)
     preferred = ["A2.5C1.5", "Q2.5C1.5", "A2.5C0.5", "Q2.5C0.5"]
@@ -421,8 +401,8 @@ async def switch_database(req: SwitchDatabaseRequest):
         try:
             from routers.query import orchestrator
             orchestrator.update_schema({})
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Suppressed non-fatal error in connections.py: %s", exc, exc_info=True)
         return {
             "ok": True,
             "user_id": req.user_id,
@@ -431,14 +411,15 @@ async def switch_database(req: SwitchDatabaseRequest):
             "message": "Switched to clean scratch context (no database selected).",
         }
     try:
-        conn.execute_query(f"USE `{req.database}`")
+        safe_db = _validate_and_quote_ident(req.database, quote_char="`", label="database name")
+        conn.execute_query(f"USE {safe_db}")
         conn.config.database = req.database
         schema = conn.introspect_schema(force_refresh=True)
         try:
             from routers.query import sync_orchestrator_from_schema
             sync_orchestrator_from_schema(schema)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Suppressed non-fatal error in connections.py: %s", exc, exc_info=True)
         return {
             "ok": True,
             "user_id": req.user_id,
@@ -464,10 +445,10 @@ async def execute_direct_query(req: ExecuteDirectRequest):
                 try:
                     from routers.query import sync_orchestrator_from_schema
                     sync_orchestrator_from_schema(schema)
-                except Exception:
-                    pass
-            except Exception:
-                pass
+                except Exception as exc:
+                    logger.warning("Suppressed non-fatal error in connections.py: %s", exc, exc_info=True)
+            except Exception as exc:
+                logger.warning("Suppressed non-fatal error in connections.py: %s", exc, exc_info=True)
         return {
             "ok": not bool(res.error),
             "columns": res.columns,

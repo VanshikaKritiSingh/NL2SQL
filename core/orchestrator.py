@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 import json
 import re
 import time
+import logging
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import sqlglot
@@ -20,8 +21,8 @@ from core.dialect_converter import DeterministicDialectConverter, TranspilationR
 from core.paradigm_suggestor import DatabaseParadigm, ParadigmSuggestion, SpeculativeParadigmSuggestor
 from core.schema_linker import ColumnMeta, LinkedSchemaContext, SchemaLinker, TableMeta
 from core.sanitizer import sanitizeAndExtractParametersFromSqlAst, ParameterizedStatement, SanitizationError
-from core.validator.contracts import Issue, Layer, Severity, StatementType, Status, ValidationResult
-from core.validator.engine import run_validation
+from core.validator.contracts import Issue, IssueCode, Layer, Severity, StatementType, Status, ValidationResult
+from core.validator.engine import createValidationIssue, run_validation
 from core.validator.interfaces import FakeSchemaProvider
 from core.cost_estimator.contracts import CostReport
 from core.cost_estimator.engine import HeuristicCostEngine
@@ -33,6 +34,8 @@ from core.os_engine import (
     PipelineAuditLog, AuditEvent,
 )
 from core.connectors import default_registry, QueryResult
+
+logger = logging.getLogger(__name__)
 
 # Global system prompt parameter — strict SQL compiler prompt enforcing semicolon and refusal statement.
 SYSTEM_PROMPT = (
@@ -273,6 +276,9 @@ class PipelineExecutionPlan:
     thinking_enabled: Optional[bool] = None
     reasoning_trace: Optional[str] = None
     command_blocks: Optional[List[Dict[str, Any]]] = field(default_factory=list)
+    # DA-01: the parameterized statement produced by Stage 8. When present, the
+    # connector MUST execute `sql` with `params` instead of the raw compiled SQL.
+    sanitized_statement: Optional[ParameterizedStatement] = None
 
 
 class EndToEndNL2SQLOrchestrator:
@@ -386,8 +392,8 @@ class EndToEndNL2SQLOrchestrator:
                         changed = True
             if changed and new_tables != self.tables:
                 self.update_schema(new_tables)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Suppressed non-fatal error in orchestrator.py: %s", exc, exc_info=True)
 
     def _build_refusal_plan(
         self,
@@ -501,8 +507,8 @@ class EndToEndNL2SQLOrchestrator:
                 )
                 if sql_out:
                     return sql_out, used_model, r_trace, None
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Suppressed non-fatal error in orchestrator.py: %s", exc, exc_info=True)
 
         # 2. Local Ollama LLM
         from core.connectors.ollama import default_ollama
@@ -610,9 +616,18 @@ class EndToEndNL2SQLOrchestrator:
                 if plan.execution_route == "SANDBOX_REPLICA" and default_registry.is_attached(user_id):
                     connector = default_registry.get(user_id)
                     if connector:
-                        compiled_q = plan.transpilation_result.compiled_query
-                        q_str = compiled_q if isinstance(compiled_q, str) else str(compiled_q)
-                        plan.live_query_result = connector.execute_query(q_str, is_mutating=False)
+                        # DA-01: execute the parameterized form whenever Stage 8 succeeded,
+                        # so literals are bound by the driver instead of inlined into SQL.
+                        if plan.sanitized_statement is not None:
+                            plan.live_query_result = connector.execute_query(
+                                plan.sanitized_statement.sql,
+                                params=plan.sanitized_statement.params,
+                                is_mutating=False,
+                            )
+                        else:
+                            compiled_q = plan.transpilation_result.compiled_query
+                            q_str = compiled_q if isinstance(compiled_q, str) else str(compiled_q)
+                            plan.live_query_result = connector.execute_query(q_str, is_mutating=False)
 
                 touched = plan.tables_touched or list(self.tables.keys())[:2] if self.tables else []
                 plan.tables_touched = touched
@@ -807,8 +822,8 @@ class EndToEndNL2SQLOrchestrator:
             try:
                 from core.connectors.ollama import default_ollama
                 _, _, captured_command_blocks = default_ollama._extract_sql_and_command_blocks(canonical_sql, query)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Suppressed non-fatal error in orchestrator.py: %s", exc, exc_info=True)
 
         # Check for model-native or guard-generated refusal or error
         if canonical_sql and (canonical_sql.startswith("-- REFUSAL:") or canonical_sql.startswith("-- [ERROR:")):
@@ -867,17 +882,29 @@ class EndToEndNL2SQLOrchestrator:
             )
 
         # 5. Stage 8: Parameterized Query Sanitization (IMP-01 — Sarthak)
+        # Note: Stage 8 extracts bind parameters for DML/SELECT queries. Multi-statement
+        # architecture DDL scripts (e.g. CREATE TABLE a; CREATE TABLE b;) are schema migrations,
+        # not parameterizable DML; they are gated by Stage 12 APPROVAL_GATE.
         sanitized_statement: Optional[ParameterizedStatement] = None
+        sanitization_error: Optional[str] = None
         if transpilation_res.is_native_sql:
             transpiled_sql = transpilation_res.compiled_query
             if isinstance(transpiled_sql, str):
-                try:
-                    sanitized_statement = sanitizeAndExtractParametersFromSqlAst(
-                        transpiled_sql,
-                        dialect=resolved_engine if resolved_engine in ("postgres", "mysql", "sqlite") else "postgres",
-                    )
-                except SanitizationError:
-                    pass  # Fall back to raw SQL; the validator will catch actual injection attempts
+                is_ddl_script = (
+                    "create table" in transpiled_sql.lower()
+                    or "create database" in transpiled_sql.lower()
+                    or "create schema" in transpiled_sql.lower()
+                )
+                if not is_ddl_script:
+                    try:
+                        sanitized_statement = sanitizeAndExtractParametersFromSqlAst(
+                            transpiled_sql,
+                            dialect=resolved_engine if resolved_engine in ("postgres", "mysql", "sqlite") else "postgres",
+                        )
+                    except SanitizationError as exc:
+                        # DA-01: fail closed for single DML/SELECT queries.
+                        sanitization_error = str(exc)
+                        logger.warning("Stage 8 sanitization blocked query %s: %s", query_id, exc)
 
         # 6. Stage 9: 6-Layer Static Validation (FIX-01 — validate TRANSPILED SQL, not canonical)
         if transpilation_res.is_native_sql:
@@ -917,6 +944,18 @@ class EndToEndNL2SQLOrchestrator:
         if canonical_sql and canonical_sql.startswith("-- REFUSAL:"):
             execution_route = "REFUSAL"
             requires_approval = False
+        elif sanitization_error:
+            # DA-01: a native-SQL query whose literals could not be extracted must
+            # not reach the DBMS as raw SQL. Fail closed.
+            execution_route = "BLOCKED"
+            requires_approval = False
+            is_valid = False
+            all_issues.append(createValidationIssue(
+                code=IssueCode.QUERY_AP_01,
+                layer=Layer.QUERY_AP,
+                severity=Severity.ERROR,
+                message=f"Blocked by Stage 8 AST sanitizer: {sanitization_error}",
+            ))
         elif is_valid and cost_report.is_allow():
             if stmt_type == StatementType.READ:
                 execution_route = "SANDBOX_REPLICA"
@@ -963,4 +1002,5 @@ class EndToEndNL2SQLOrchestrator:
             thinking_enabled=thinking_enabled,
             reasoning_trace=reasoning_trace,
             command_blocks=captured_command_blocks,
+            sanitized_statement=sanitized_statement,
         )

@@ -13,8 +13,8 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 import math
 import re
+from collections import deque
 from typing import Any, Dict, List, Optional, Set, Tuple
-import networkx as nx
 
 
 STOPWORDS = {
@@ -114,18 +114,34 @@ class SchemaLinker:
         self.schema_graph = self._build_schema_graph()
         self.value_trie = self._build_value_trie()
 
-    def _build_schema_graph(self) -> nx.Graph:
-        """Constructs an undirected graph where V=tables, E=FK relations."""
-        G = nx.Graph()
-        for t_name in self.tables:
-            G.add_node(t_name)
-
+    def _build_schema_graph(self) -> Dict[str, Set[str]]:
+        """Constructs an adjacency dict where keys=tables, values=set of FK-connected tables."""
+        adj: Dict[str, Set[str]] = {t: set() for t in self.tables}
         for t_name, t_meta in self.tables.items():
-            for c_name, c_meta in t_meta.columns.items():
-                if c_meta.is_fk and c_meta.fk_target_table:
-                    if c_meta.fk_target_table in self.tables:
-                        G.add_edge(t_name, c_meta.fk_target_table, weight=1.0)
-        return G
+            for c_meta in t_meta.columns.values():
+                if c_meta.is_fk and c_meta.fk_target_table and c_meta.fk_target_table in self.tables:
+                    adj[t_name].add(c_meta.fk_target_table)
+                    adj[c_meta.fk_target_table].add(t_name)  # undirected
+        return adj
+
+    @staticmethod
+    def _shortest_path_bfs(
+        adj: Dict[str, Set[str]], start: str, goal: str
+    ) -> Optional[List[str]]:
+        """BFS shortest path. Returns None when no path exists."""
+        if start == goal:
+            return [start]
+        visited: Set[str] = {start}
+        queue: deque = deque([(start, [start])])
+        while queue:
+            node, path = queue.popleft()
+            for nxt in adj.get(node, ()):
+                if nxt == goal:
+                    return path + [nxt]
+                if nxt not in visited:
+                    visited.add(nxt)
+                    queue.append((nxt, path + [nxt]))
+        return None
 
     def _build_value_trie(self) -> CategoricalValueTrie:
         """Indexes all categorical values for grounding."""
@@ -238,27 +254,25 @@ class SchemaLinker:
             seed_tables = {list(self.tables.keys())[0]}
 
         # 3. Steiner Tree / Shortest Path Bridge Table Auto-Injection
-        connected_tables = set(seed_tables)
+        #    Bridge tables are protected from truncation by unioning them with the
+        #    primary budget AFTER slicing, so multi-hop joins are never severed (DA-13).
         seed_list = [t for t in seed_tables if t in self.schema_graph]
-
+        bridge_tables: Set[str] = set()
         for i in range(len(seed_list)):
             for j in range(i + 1, len(seed_list)):
-                u, v = seed_list[i], seed_list[j]
-                if nx.has_path(self.schema_graph, u, v):
-                    path = nx.shortest_path(self.schema_graph, u, v)
-                    for bridge_t in path:
-                        connected_tables.add(bridge_t)
+                path = self._shortest_path_bfs(self.schema_graph, seed_list[i], seed_list[j])
+                if path:
+                    bridge_tables.update(path[1:-1])  # only intermediate tables
 
-        # Preserve relevance ranking order (grounded seeds first, then fused ranks, then bridge tables)
-        ordered_final = [t for t in grounded_tables if t in connected_tables]
+        # Preserve relevance ranking order (grounded seeds first, then fused ranks)
+        ordered_final = [t for t in grounded_tables if t in seed_tables or t in bridge_tables]
         for t in fused_tables:
-            if t in connected_tables and t not in ordered_final:
-                ordered_final.append(t)
-        for t in connected_tables:
-            if t not in ordered_final:
+            if t in seed_tables and t not in ordered_final:
                 ordered_final.append(t)
 
-        final_tables = ordered_final[:max_tables + 2]
+        # Slice the primary budget, then union guaranteed bridges so they are never dropped
+        primary_budget = ordered_final[:max_tables]
+        final_tables = list(dict.fromkeys(primary_budget + sorted(bridge_tables)))
 
         # 4. Column Pruning
         selected_columns: Dict[str, List[str]] = {}

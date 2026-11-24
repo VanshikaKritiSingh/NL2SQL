@@ -1,9 +1,9 @@
 # test_backend.py - Automated verification test suite
 import sys
 from fastapi.testclient import TestClient
-from main import app
+from main import app, API_AUTH_TOKEN
 
-client = TestClient(app)
+client = TestClient(app, headers={"Authorization": f"Bearer {API_AUTH_TOKEN}"})
 
 def testBackendApiEndpointsAndIntegrationLifecycle():
     print("Running NL2SQL Backend API test suite...")

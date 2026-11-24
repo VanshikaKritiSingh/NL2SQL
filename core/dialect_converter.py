@@ -17,10 +17,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import json
 import re
+import logging
 import time
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 import sqlglot
 from sqlglot import exp
+
+logger = logging.getLogger(__name__)
 
 
 class DialectFeatureUnsupportedError(Exception):
@@ -496,8 +499,8 @@ class MongoMQLVisitor(BaseVisitor):
         if hasattr(expr, "to_py"):
             try:
                 return expr.to_py()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Suppressed non-fatal error in dialect_converter.py: %s", exc, exc_info=True)
         val_str = expr.sql().strip("'\"")
         if val_str.isdigit():
             return int(val_str)

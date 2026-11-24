@@ -142,8 +142,8 @@ def sync_sandbox_ddl(user_id: str, sql_str: str, profile: Optional[str] = None):
         logger.warning(f"Failed to sync sandbox DDL: {e}")
 
 
-def sync_orchestrator_from_schema(schema_meta):
-    """Refreshes orchestrator tables from introspected schema metadata."""
+def sync_orchestrator_from_schema(schema_meta, user_id: str = "", profile: str = ""):
+    """Refreshes the session orchestrator from introspected schema metadata (DA-09)."""
     if not schema_meta or not schema_meta.tables:
         return
     live_tables = {}
@@ -166,7 +166,8 @@ def sync_orchestrator_from_schema(schema_meta):
             description=t_schema.description or f"Table {t_name}",
             columns=col_metas,
         )
-    orchestrator.update_schema(live_tables)
+    target = get_session_orchestrator(user_id, profile) if user_id else orchestrator
+    target.update_schema(live_tables)
 
 
 @router.post("", response_model=QueryResponse)
@@ -185,7 +186,6 @@ async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, backgro
     if is_none_db:
         # User selected clean scratch / new database context: no prior tables attached
         current_orch.update_schema({})
-        orchestrator.update_schema({})
     elif is_attached and conn and conn.is_connected:
         try:
             schema_meta = conn.introspect_schema(force_refresh=True)
@@ -213,20 +213,15 @@ async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, backgro
                     )
                 if live_tables:
                     current_orch.update_schema(live_tables)
-                    orchestrator.update_schema(live_tables)
             elif schema_meta and not schema_meta.tables:
-                # Active database has no tables — clear orchestrator schema
                 current_orch.update_schema({})
-                orchestrator.update_schema({})
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Schema introspection failed for user %s: %s", request.user_id, exc)
     else:
         # Not connected to live DBMS
         if request.database_profile == "master_enterprise":
             if current_orch.tables != DEFAULT_SCHEMA:
                 current_orch.update_schema(DEFAULT_SCHEMA)
-            if orchestrator.tables != DEFAULT_SCHEMA:
-                orchestrator.update_schema(DEFAULT_SCHEMA)
         else:
             # Sync orchestrator schema from the session's in-memory SQLite sandbox
             sandbox_db = get_session_sandbox(request.user_id, request.database_profile)
@@ -236,9 +231,13 @@ async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, backgro
                 s_tables = [r[0] for r in cur.fetchall()]
                 if s_tables:
                     sandbox_schema = {}
+                    _safe_re = __import__("re").compile(r"^[A-Za-z_][A-Za-z0-9_$]{0,63}$")
                     for t in s_tables:
+                        if not _safe_re.match(t):
+                            logger.warning("Skipping unsafe sandbox table name: %r", t)
+                            continue
                         col_metas = {}
-                        cur.execute(f"PRAGMA table_info({t});")
+                        cur.execute(f"PRAGMA table_info(\"{t.replace(chr(34), '')}\");")
                         for _, col_name, dtype, _, _, pk in cur.fetchall():
                             col_metas[col_name.lower()] = ColumnMeta(
                                 name=col_name.lower(),
@@ -251,13 +250,11 @@ async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, backgro
                             columns=col_metas
                         )
                     current_orch.update_schema(sandbox_schema)
-                    orchestrator.update_schema(sandbox_schema)
                 else:
                     current_orch.update_schema({})
-                    orchestrator.update_schema({})
-            except Exception:
+            except Exception as exc:
+                logger.warning("Sandbox schema sync failed for user %s: %s", request.user_id, exc)
                 current_orch.update_schema({})
-                orchestrator.update_schema({})
 
     # 1. Run full 16-stage orchestrator pipeline with direct Ollama LLM grounding
     target_engine = request.target_dialect.value if isinstance(request.target_dialect, TargetDialect) else str(request.target_dialect)
@@ -417,8 +414,8 @@ async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, backgro
                     tbl = s.find(exp.Table)
                     if tbl and tbl.name and tbl.name.lower() not in table_ops:
                         table_ops[tbl.name.lower()] = "DELETE"
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Suppressed non-fatal error in query.py: %s", exc, exc_info=True)
 
         for t in selected_tbls:
             op = table_ops.get(t.lower(), plan.statement_type.value)
@@ -475,6 +472,19 @@ async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, backgro
             dialect_reason=dialect_reason,
             command_blocks=getattr(plan, "command_blocks", None),
         )
+        # DA-07: record schema fingerprint at the moment of review for TOCTOU checks
+        if conn and getattr(conn, "_cached_schema", None):
+            try:
+                import hashlib, json
+                _fp_payload = {
+                    t: sorted(getattr(meta, "columns", {}).keys())
+                    for t, meta in sorted(conn._cached_schema.tables.items())
+                }
+                response.schema_fingerprint = hashlib.sha256(
+                    json.dumps(_fp_payload, sort_keys=True).encode()
+                ).hexdigest()[:16]
+            except Exception:
+                pass
     else:
         # READ Query -> live results if socket attached, else sandbox preview
         if plan.live_query_result and not plan.live_query_result.error:
@@ -549,8 +559,8 @@ async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, backgro
                     if request.database_profile == "master_enterprise":
                         matched_cols = []
                         for t in (plan.tables_touched or []):
-                            if t in orchestrator.tables:
-                                matched_cols.extend(list(orchestrator.tables[t].columns.keys()))
+                            if t in current_orch.tables:
+                                matched_cols.extend(list(current_orch.tables[t].columns.keys()))
                         if not matched_cols:
                             matched_cols = ["id", "name", "created_at"]
                         matched_cols = list(dict.fromkeys(matched_cols))
@@ -669,8 +679,8 @@ async def retrieveQueryHistoryForUserSession(user_id: str):
             try:
                 p_clean = {k: v for k, v in p.items() if k != "timestamp_raw"}
                 merged.append(HistoryItem(**p_clean))
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Suppressed non-fatal error in query.py: %s", exc, exc_info=True)
 
     query_history[user_id] = merged
     return merged

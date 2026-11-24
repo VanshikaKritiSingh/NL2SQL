@@ -167,7 +167,7 @@ class BaseDBConnector(ABC):
     def executeQueryAgainstDatabaseEngine(
         self,
         query: str,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[Union[Dict[str, Any], List[Any]]] = None,
         is_mutating: bool = False,
         timeout_s: Optional[float] = None,
     ) -> QueryResult:
@@ -213,7 +213,7 @@ class BaseDBConnector(ABC):
     def execute_query(
         self,
         query: str,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[Union[Dict[str, Any], List[Any]]] = None,
         is_mutating: bool = False,
         timeout_s: Optional[float] = None,
     ) -> QueryResult:

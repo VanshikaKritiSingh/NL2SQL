@@ -26,7 +26,7 @@ function createMainWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,   // DA-05: enable OS-level renderer sandbox
     },
   });
 
@@ -34,13 +34,17 @@ function createMainWindow() {
     mainWindow.show();
   });
 
-  // Open external links in user's default browser
+  // Open external links in user's default browser; deny everything else (DA-05)
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http:') || url.startsWith('https:')) {
-      shell.openExternal(url);
-      return { action: 'deny' };
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+        shell.openExternal(url);
+      }
+    } catch {
+      // Ignore malformed URLs
     }
-    return { action: 'allow' };
+    return { action: 'deny' };  // default-deny all schemes
   });
 
   // In dev mode, always load live Vite dev server; in production, load dist/index.html

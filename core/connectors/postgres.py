@@ -3,7 +3,8 @@ core/connectors/postgres.py — PostgreSQL Relational DBMS Connector
 """
 
 import time
-from typing import Any, Dict, List, Optional
+import logging
+from typing import Any, Dict, List, Optional, Union
 
 from core.connectors.base import (
     BaseDBConnector,
@@ -13,6 +14,8 @@ from core.connectors.base import (
     SchemaMetadata,
     TableSchema,
 )
+
+logger = logging.getLogger(__name__)
 
 # Optional imports for psycopg2 / psycopg / asyncpg
 psycopg_driver = None
@@ -71,8 +74,8 @@ class PostgresConnector(BaseDBConnector):
         if self._conn:
             try:
                 self._conn.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Suppressed non-fatal error in postgres.py: %s", exc, exc_info=True)
             finally:
                 self._conn = None
                 self._is_connected = False
@@ -214,7 +217,7 @@ class PostgresConnector(BaseDBConnector):
     def execute_query(
         self,
         query: str,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[Union[Dict[str, Any], List[Any]]] = None,
         is_mutating: bool = False,
         timeout_s: Optional[float] = None,
     ) -> QueryResult:
@@ -262,8 +265,8 @@ class PostgresConnector(BaseDBConnector):
             try:
                 self._conn.rollback()
                 cursor.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Suppressed non-fatal error in postgres.py: %s", exc, exc_info=True)
             return QueryResult(
                 columns=[],
                 rows=[],
@@ -288,8 +291,8 @@ class PostgresConnector(BaseDBConnector):
         except Exception as e:
             try:
                 cursor.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Suppressed non-fatal error in postgres.py: %s", exc, exc_info=True)
             return {"ok": False, "dialect": "postgres", "error": str(e)}
 
     # Aliases for Java-style camelCase naming convention

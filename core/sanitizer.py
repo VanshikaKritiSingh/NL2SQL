@@ -160,6 +160,7 @@ def verifyAbstractSyntaxTreeContainsNoRawLiterals(abstractSyntaxTree: exp.Expres
             isinstance(node, exp.Literal)
             and not isinstance(node, exp.Boolean)
             and not node.find_ancestor(exp.Parameter)
+            and not node.find_ancestor(exp.Interval)  # Static duration qualifiers (e.g. INTERVAL '1 month')
         ):
             raise SanitizationError(
                 "Literal value still present after transformation — unsafe input detected"
@@ -174,6 +175,9 @@ def sanitizeAndExtractParametersFromSqlAst(sql: str, dialect: str = "postgres") 
 
     def transformAstLiteralNode(node: exp.Expression) -> exp.Expression:
         nonlocal param_counter
+        # Static interval quantity/units cannot be bound as driver parameters in standard SQL
+        if node.find_ancestor(exp.Interval):
+            return node
         if isinstance(node, (exp.Literal, exp.Boolean)):
             if isinstance(node, exp.Literal) and node.this is None:
                 return node

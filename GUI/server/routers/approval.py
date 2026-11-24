@@ -1,13 +1,27 @@
 # routers/approval.py
 from fastapi import APIRouter, HTTPException
+import logging
 from models.approval import ApprovalRequest, ApprovalResponse
 from services.pipeline_stub import broadcast_event, STAGE_NAMES
 from models.pipeline import PipelineStageEvent
 from core.os_engine.audit_log import default_audit_log, AuditEvent
-import asyncio, time, uuid
+import asyncio, hashlib, json, time, uuid
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/approval", tags=["Human Approval Gate"])
 _audit_logger = default_audit_log
+
+
+def _schema_fingerprint(schema_meta) -> str:
+    """Deterministic hash of tables and column names for TOCTOU detection (DA-07)."""
+    if not schema_meta or not getattr(schema_meta, "tables", None):
+        return ""
+    payload = {
+        t: sorted(getattr(meta, "columns", {}).keys())
+        for t, meta in sorted(schema_meta.tables.items())
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
 
 
 @router.post("/{query_id}", response_model=ApprovalResponse)
@@ -53,6 +67,39 @@ async def processHumanApprovalDecisionGate(query_id: str, request: ApprovalReque
 
         stored = stored_responses.get(query_id)
         if stored and stored.generated_sql:
+            # DA-07: TOCTOU guard. Between review and this live commit, the live
+            # schema may have changed. Re-verify fingerprint before executing.
+            if default_registry.is_attached(request.user_id):
+                conn = default_registry.get(request.user_id)
+                if conn:
+                    try:
+                        live_schema = conn.introspect_schema(force_refresh=True)
+                        reviewed_fp = getattr(stored, "schema_fingerprint", None)
+                        live_fp = _schema_fingerprint(live_schema)
+                        if reviewed_fp and live_fp and reviewed_fp != live_fp:
+                            logger.warning(
+                                "TOCTOU: schema fingerprint changed for query %s (%s -> %s)",
+                                query_id, reviewed_fp, live_fp,
+                            )
+                            await broadcast_event(
+                                request.user_id,
+                                PipelineStageEvent(
+                                    query_id=query_id,
+                                    stage_number=16,
+                                    stage_name=STAGE_NAMES[16],
+                                    status="failed",
+                                    message="Schema changed since review — mutation aborted. Re-run query.",
+                                ),
+                            )
+                            raise HTTPException(
+                                status_code=409,
+                                detail="Schema changed since this query was reviewed. Please re-run query generation.",
+                            )
+                    except HTTPException:
+                        raise
+                    except Exception as exc:
+                        logger.warning("Pre-commit schema re-check failed for %s: %s", query_id, exc, exc_info=True)
+
             # Sync in-memory SQLite sandbox so subsequent preview queries work immediately
             sync_sandbox_ddl(request.user_id, stored.generated_sql)
 
@@ -74,8 +121,8 @@ async def processHumanApprovalDecisionGate(query_id: str, request: ApprovalReque
                                 if schema and schema.tables:
                                     tables_list = list(schema.tables.keys())
                                     sync_orchestrator_from_schema(schema)
-                            except Exception:
-                                pass
+                            except Exception as exc:
+                                logger.warning("Suppressed non-fatal error in approval.py: %s", exc, exc_info=True)
                             try:
                                 available_dbs = default_registry.list_databases(conn.config)
                             except Exception:

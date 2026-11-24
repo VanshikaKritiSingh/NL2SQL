@@ -55,6 +55,7 @@ class QueryResponse(BaseModel):
     selected_dialect: Optional[str] = None
     dialect_reason: Optional[str] = None
     command_blocks: Optional[List[Dict[str, Any]]] = None
+    schema_fingerprint: Optional[str] = None  # DA-07: fingerprint captured at review time
 
 
 class HistoryItem(BaseModel):

@@ -3,8 +3,9 @@ core/connectors/mysql.py — MySQL Relational DBMS Connector
 """
 
 import re
+import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from core.connectors.base import (
     BaseDBConnector,
@@ -14,6 +15,8 @@ from core.connectors.base import (
     SchemaMetadata,
     TableSchema,
 )
+
+logger = logging.getLogger(__name__)
 
 mysql_driver = None
 try:
@@ -75,8 +78,8 @@ class MySQLConnector(BaseDBConnector):
         if self._conn:
             try:
                 self._conn.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Suppressed non-fatal error in mysql.py: %s", exc, exc_info=True)
             finally:
                 self._conn = None
                 self._is_connected = False
@@ -154,8 +157,8 @@ class MySQLConnector(BaseDBConnector):
                 if current_db:
                     db_name = current_db
                     self.config.database = current_db
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Suppressed non-fatal error in mysql.py: %s", exc, exc_info=True)
 
         if not db_name or db_name in ("__none__", "none", "(none)", "scratch"):
             schema_meta = SchemaMetadata(
@@ -168,8 +171,12 @@ class MySQLConnector(BaseDBConnector):
             cursor.close()
             return schema_meta
 
-        # 1. Tables & Row counts
-        cursor.execute(f"SELECT TABLE_NAME, TABLE_TYPE, TABLE_ROWS FROM information_schema.TABLES WHERE TABLE_SCHEMA = '{db_name}';")
+        # 1. Tables & Row counts — parameterized to prevent injection on db_name
+        cursor.execute(
+            "SELECT TABLE_NAME, TABLE_TYPE, TABLE_ROWS "
+            "FROM information_schema.TABLES WHERE TABLE_SCHEMA = %s",
+            (db_name,)
+        )
         for r in cursor.fetchall():
             tbl_name = r["TABLE_NAME"] if isinstance(r, dict) else r[0]
             tbl_type = r["TABLE_TYPE"] if isinstance(r, dict) else r[1]
@@ -180,8 +187,12 @@ class MySQLConnector(BaseDBConnector):
                 row_count_estimate=int(row_cnt) if row_cnt is not None else None,
             )
 
-        # 2. Columns & PKs
-        cursor.execute(f"SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_KEY, COLUMN_DEFAULT FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '{db_name}';")
+        # 2. Columns & PKs — parameterized
+        cursor.execute(
+            "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_KEY, COLUMN_DEFAULT "
+            "FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = %s",
+            (db_name,)
+        )
         for r in cursor.fetchall():
             t_name = r["TABLE_NAME"] if isinstance(r, dict) else r[0]
             c_name = r["COLUMN_NAME"] if isinstance(r, dict) else r[1]
@@ -203,12 +214,13 @@ class MySQLConnector(BaseDBConnector):
                     default_value=str(dflt) if dflt is not None else None,
                 )
 
-        # 3. Foreign Keys
-        cursor.execute(f"""
-            SELECT TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME
-            FROM information_schema.KEY_COLUMN_USAGE
-            WHERE TABLE_SCHEMA = '{db_name}' AND REFERENCED_TABLE_NAME IS NOT NULL;
-        """)
+        # 3. Foreign Keys — parameterized
+        cursor.execute(
+            "SELECT TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME "
+            "FROM information_schema.KEY_COLUMN_USAGE "
+            "WHERE TABLE_SCHEMA = %s AND REFERENCED_TABLE_NAME IS NOT NULL",
+            (db_name,)
+        )
         for r in cursor.fetchall():
             from_t = r["TABLE_NAME"] if isinstance(r, dict) else r[0]
             from_c = r["COLUMN_NAME"] if isinstance(r, dict) else r[1]
@@ -229,8 +241,8 @@ class MySQLConnector(BaseDBConnector):
                     if any(t in c_meta.data_type for t in ["VARCHAR", "TEXT", "CHAR"]):
                         cursor.execute(f"SELECT DISTINCT `{c_name}` FROM `{tbl_name}` WHERE `{c_name}` IS NOT NULL LIMIT 5;")
                         c_meta.sample_values = [str(list(r.values())[0] if isinstance(r, dict) else r[0]) for r in cursor.fetchall()]
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Suppressed non-fatal error in mysql.py: %s", exc, exc_info=True)
 
         cursor.close()
 
@@ -246,7 +258,7 @@ class MySQLConnector(BaseDBConnector):
     def execute_query(
         self,
         query: str,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[Union[Dict[str, Any], List[Any]]] = None,
         is_mutating: bool = False,
         timeout_s: Optional[float] = None,
     ) -> QueryResult:
@@ -310,8 +322,8 @@ class MySQLConnector(BaseDBConnector):
             if not self.config.read_only:
                 try:
                     self._conn.commit()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("Suppressed non-fatal error in mysql.py: %s", exc, exc_info=True)
 
             # Update active database ONLY upon successful execution
             if target_db:
@@ -347,8 +359,8 @@ class MySQLConnector(BaseDBConnector):
             try:
                 self._conn.rollback()
                 cursor.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Suppressed non-fatal error in mysql.py: %s", exc, exc_info=True)
             err_str = str(e)
             if "1044" in err_str or "Access denied" in err_str:
                 target_hint = f" '{target_db}'" if target_db else ""
@@ -381,8 +393,8 @@ class MySQLConnector(BaseDBConnector):
         except Exception as e:
             try:
                 cursor.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Suppressed non-fatal error in mysql.py: %s", exc, exc_info=True)
             return {"ok": False, "dialect": "mysql", "error": str(e)}
 
     # Aliases for Java-style camelCase naming convention
