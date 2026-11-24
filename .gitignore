@@ -72,3 +72,6 @@ lightning_logs/
 # Large Offline Datasets (do not track 1GB+ generated corpora)
 offline/datasets/dialects/
 offline/training/convert_hf_to_gguf.py
+
+# Local scratch artifacts
+githistory.txt

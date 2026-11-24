@@ -57,7 +57,8 @@ class PostgresConnector(BaseDBConnector):
                 self._conn.autocommit = not self.config.read_only
             else:
                 self._conn = psycopg.connect(
-                    f"postgresql://{self.config.username}:{self.config.password}@{self.config.host}:{port}/{self.config.database}"
+                    f"postgresql://{self.config.username}:{self.config.password}@{self.config.host}:{port}/{self.config.database}",
+                    autocommit=not self.config.read_only
                 )
             self._is_connected = True
             return True

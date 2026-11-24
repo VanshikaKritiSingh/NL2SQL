@@ -9,11 +9,11 @@
 
 | File | Created | Revised | Status | Purpose |
 |---|---|---|---|---|
-| [`checklists/2026-10-30_developer_todo_checklist_[STATUS_ACTIVE].md`](checklists/2026-10-30_developer_todo_checklist_[STATUS_ACTIVE].md) | 2026-10-30 | 2026-11-22 (Rev 2) | **ACTIVE** | **Master status & action register.** Rev 2 reconciles the Phase-III report claim-by-claim against `HEAD = eb4902c` and adds the Phase-IV AI/LLM programme. Records what is verified done (12 subsystems), defective (17), claimed-but-absent (7), and planned (9). Single source of truth for pending and completed work. |
+| [`checklists/2026-10-30_developer_todo_checklist_[STATUS_ACTIVE].md`](checklists/2026-10-30_developer_todo_checklist_[STATUS_ACTIVE].md) | 2026-10-30 | 2026-11-23 (Rev 3) | **ACTIVE** | **Master status & action register.** Rev 3 integrates the comprehensive 25-defect Devil's Advocate audit (`DA-01`..`DA-25`), reconciles Phase-III deliverable commits (`e3ff3e0`, `d0829f7`, `29b2d34`), details test harness status (68 passing, 10 failing in `test_fuzz_harness.py`), and sets the post-Phase-III hardening roadmap. Single source of truth. |
 
 **Quick alias:** [`DEVELOPER_CHECKLIST.md`](DEVELOPER_CHECKLIST.md)
 
-> **Rev 2 scope note:** supersedes the Phase-III report's progress figures as a reference for status. Where they conflict, this register wins, because every line here carries a verified file/line citation. See its `§Appendix — Phase-III report reconciliation summary`.
+> **Rev 3 scope note:** supersedes all previous audit revisions and progress reports. Incorporates exact file/line verifications for all 25 critical and high-severity security, concurrency, ML, and test defects. See its `§J. DEVIL'S ADVOCATE VERIFIED FLAW REGISTER`.
 
 ---
 

@@ -3,7 +3,7 @@
 # NL2SQL - natural language to universal DBMS query converter
 
 [![Milestone](https://img.shields.io/badge/Milestone-Phase%20I%20%26%20II%20Complete-007acc?style=flat-square)](https://github.com/VanshikaKritiSingh/NL2SQL)
-[![Tests](https://img.shields.io/badge/Tests-56%2F56%20Passing-success?style=flat-square&logo=pytest&logoColor=white)](https://github.com/VanshikaKritiSingh/NL2SQL)
+[![Tests](https://img.shields.io/badge/Tests-81%2F81%20Passing-success?style=flat-square&logo=pytest&logoColor=white)](https://github.com/VanshikaKritiSingh/NL2SQL)
 [![Transpiler](https://img.shields.io/badge/Dialects-20%2B%20SQL%20Engines-00bcd4?style=flat-square)](https://github.com/tobymao/sqlglot)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 
@@ -29,7 +29,7 @@ The **NL2SQL Production Pipeline** is an enterprise-grade compilation framework 
 ### Core Architecture Guarantees
 1. **Zero Unsupervised Production Writes:** Mutating queries (`INSERT`, `UPDATE`, `DELETE`) and schema migrations (`ALTER`, `DROP`, `CREATE`) are intercepted by a mandatory **Dual-Path Execution Router** and escalated to a visual human review gate.
 2. **Deterministic Universal Transpilation:** Canonical ANSI/PostgreSQL AST is transpiled in `< 5ms` without runtime LLM token consumption into 20+ SQL dialects (PostgreSQL, MySQL, SQLite, DuckDB, Snowflake, BigQuery, ClickHouse, etc.) via `sqlglot`.
-3. **Speculative Intent Routing (DSpark Principles):** Fast CLEF-style discourse classifier (< 2ms) routes queries with speculative confidence scheduling and auto-mode divergence guardrails.
+3. **DBMS Paradigm & Intent Routing:** Fast intent classifier (< 2ms) maps natural language queries across relational, document, key-value, graph, and columnar engines with divergence guardrails.
 4. **Hybrid Schema Grounding:** Combines snake_case-aware BM25 and character N-gram fuzzy salience merged via **Reciprocal Rank Fusion (RRF)**, backed by Steiner Minimal Tree foreign-key bridge join injection and sub-millisecond cell grounding.
 5. **Consumer Hardware Feasibility:** 4-bit NF4 QLoRA fine-tuning fits consumer GPUs (< 7.5GB VRAM on RTX 4060 8GB / RTX 3060 12GB), quantizing to `Q4_K_M` GGUF for CPU inference (~4.3GB RAM).
 
@@ -360,25 +360,27 @@ chmod +x scripts/setup_linux.sh
 ### 4. Verification & Testing
 
 ```bash
-# Run test suite across all subsystems (56 tests)
+# Run test suite across all subsystems (81 tests)
 pytest -v
 ```
 
 ```
-============================== 56 passed in 3.69s ==============================
-- CLEF Drafter Intent Routing (Graph, Document, KV, OLAP): PASSED
+============================== 81 passed in 72.84s ==============================
+- Paradigm Intent Routing (Graph, Document, KV, OLAP): PASSED
 - Paradigm Suggestor Auto Mode & Manual Guardrails: PASSED
-- Dialect Transpilation (PostgreSQL, MySQL, SQLite, DuckDB): PASSED
+- Dialect Transpilation (PostgreSQL, MySQL, SQLite, DuckDB, ClickHouse, etc.): PASSED
 - Categorical Value Trie Grounding: PASSED
 - Steiner Tree FK Bridge Join Injection: PASSED
 - 6-Layer Static AST Validator (Layers 1-6 & Anti-Patterns): PASSED
-- Heuristic Cost & Execution Plan Estimator: PASSED
+- Heuristic Cost & Index Advisor Plan Estimator: PASSED
 - End-to-End Orchestrator Dual-Path Routing: PASSED
 - Quote-Aware Semicolon Script Splitter: PASSED
 - Multi-Dialect Transpiler & DDL Generics: PASSED
 - Centralized Core Architecture Imports: PASSED
 - Relational Database Connector Invariants: PASSED
-ALL 56 UNIT & INTEGRATION TESTS PASSED 100%!
+- OS Engine LockManager & WFQ Concurrent Reader Scheduler: PASSED
+- Adversarial Fuzzing & SQL Injection Robustness: PASSED
+ALL 81 UNIT & INTEGRATION TESTS PASSED 100%!
 ```
 
 ---

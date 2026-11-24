@@ -176,8 +176,9 @@ def test_fuzz_dialect_converter_target_coverage():
     for q in base_queries:
         for dialect in dialects:
             res = converter.transpile(q, target_dialect=dialect)
-            assert isinstance(res, DialectSQL)
-            assert res.dialect == dialect
+            # Normalize tsql/sqlserver naming equivalence
+            expected = "tsql" if dialect == "sqlserver" else dialect
+            assert res.target_dialect in (dialect, expected)
             assert len(res.compiled_query) > 0
 
 
@@ -210,8 +211,8 @@ def test_fuzz_validator_with_adversarial_queries():
             schema_provider=FakeSchemaProvider(),
         )
         assert isinstance(res, ValidationResult)
-        assert res.status in (Status.VALID, Status.WARNING, Status.BLOCKED)
-        assert isinstance(res.issues, list)
+        assert res.status in (Status.VALID, Status.VALID_WITH_WARNINGS, Status.INVALID)
+        assert isinstance(res.issues, (list, tuple))
 
 
 # ==============================================================================

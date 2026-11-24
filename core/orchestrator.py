@@ -283,7 +283,9 @@ class EndToEndNL2SQLOrchestrator:
     def __init__(self, schema_tables: Optional[Dict[str, TableMeta]] = None):
         self.paradigm_suggestor = SpeculativeParadigmSuggestor(confidence_threshold=0.85)
         self.dialect_converter = DeterministicDialectConverter()
-        self.synthesizer = SemanticSQLSynthesizer()
+        # NOTE: SemanticSQLSynthesizer is only used by core/pipeline_trace.py as an explicit
+        # offline fallback when no LLM daemon is reachable. The orchestrator never calls it,
+        # so it is not instantiated here (DA-22).
         self.cost_engine = HeuristicCostEngine()
         self.tables = schema_tables or {}
         self.schema_linker = SchemaLinker(tables=self.tables) if self.tables else None
@@ -538,11 +540,29 @@ class EndToEndNL2SQLOrchestrator:
         """
         import uuid
 
+        # Stage 0: Lock Acquisition & Scheduling
+        # Parse statement AST or detect intent from SQL keywords if SQL provided, else check intent
         q_lower = query.lower().strip()
-        if any(kw in q_lower for kw in ("drop ", "alter ", "create ", "truncate ")):
+        is_ddl = False
+        is_write = False
+        try:
+            # If query is direct SQL or contains SQL statements
+            parsed_expr = sqlglot.parse_one(query, read="postgres")
+            if isinstance(parsed_expr, (exp.Create, exp.Drop, exp.Alter, exp.Truncate)):
+                is_ddl = True
+            elif isinstance(parsed_expr, (exp.Insert, exp.Update, exp.Delete, exp.Merge)):
+                is_write = True
+        except Exception:
+            # Fall back to keyword inspection with word boundaries
+            if re.search(r"\b(drop|alter|create|truncate)\b", q_lower):
+                is_ddl = True
+            elif re.search(r"\b(insert\s+into|update\s+\w+\s+set|delete\s+from|merge\s+into)\b", q_lower):
+                is_write = True
+
+        if is_ddl:
             kind = QueryKind.DDL
             lock_mode = LockMode.X
-        elif any(kw in q_lower for kw in ("insert ", "update ", "delete ", "merge ")):
+        elif is_write:
             kind = QueryKind.WRITE
             lock_mode = LockMode.X
         else:

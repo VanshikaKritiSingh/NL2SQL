@@ -256,7 +256,7 @@ def executeSchemaLayerValidation(parsed: exp.Expression, schema: Optional[Schema
 
         if c_table:
             if c_table in all_known_cols:
-                if c_name not in all_known_cols[c_table]:
+                if len(all_known_cols[c_table]) > 0 and c_name not in all_known_cols[c_table]:
                     issues.append(issue(
                         IssueCode.SCHEMA_02, Layer.SCHEMA, Severity.ERROR,
                         f"Column '{c_name}' does not exist on table/alias '{c_table}'",
@@ -274,7 +274,7 @@ def executeSchemaLayerValidation(parsed: exp.Expression, schema: Optional[Schema
             # Unqualified column
             if len(tables_in_query) == 1:
                 single_t = list(tables_in_query.values())[0]
-                if single_t in all_known_cols and c_name not in all_known_cols[single_t]:
+                if single_t in all_known_cols and len(all_known_cols[single_t]) > 0 and c_name not in all_known_cols[single_t]:
                     issues.append(issue(
                         IssueCode.SCHEMA_02, Layer.SCHEMA, Severity.ERROR,
                         f"Column '{c_name}' does not exist on table '{single_t}'",
@@ -289,7 +289,9 @@ def executeSchemaLayerValidation(parsed: exp.Expression, schema: Optional[Schema
                 for t in matching_tables:
                     phys = alias_to_physical.get(t, t)
                     matching_physical.add(phys)
-                if len(matching_physical) == 0:
+                # Only flag missing column if at least one joined table has known columns
+                any_known_cols = any(len(cols) > 0 for cols in all_known_cols.values())
+                if any_known_cols and len(matching_physical) == 0:
                     issues.append(issue(
                         IssueCode.SCHEMA_02, Layer.SCHEMA, Severity.ERROR,
                         f"Column '{c_name}' does not exist in any joined tables ({', '.join(tables_in_query.values())})",
@@ -364,7 +366,10 @@ def executeSemanticLayerValidation(parsed: exp.Expression) -> List[Issue]:
 # Layer 5 — QUERY ANTI-PATTERNS (Warnings & Critical Performance Guards)
 # ------------------------------------------------------------------
 
-def executeQueryAntiPatternValidation(parsed: exp.Expression) -> List[Issue]:
+def executeQueryAntiPatternValidation(
+    parsed: exp.Expression,
+    schema_provider: Optional[Any] = None,
+) -> List[Issue]:
     """Detects query performance anti-patterns and Cartesian products."""
     issues: List[Issue] = []
 
@@ -507,7 +512,10 @@ def executeQueryAntiPatternValidation(parsed: exp.Expression) -> List[Issue]:
 # Layer 6 — SCHEMA ANTI-PATTERNS (DDL Checks)
 # ------------------------------------------------------------------
 
-def executeSchemaAntiPatternValidation(parsed: exp.Expression) -> List[Issue]:
+def executeSchemaAntiPatternValidation(
+    parsed: exp.Expression,
+    schema_provider: Optional[Any] = None,
+) -> List[Issue]:
     """Validates DDL statements for schema design best practices."""
     issues: List[Issue] = []
 
@@ -570,8 +578,13 @@ def executeSchemaAntiPatternValidation(parsed: exp.Expression) -> List[Issue]:
                     ))
 
             # SCHEMA_AP_03: EAV-style table (entity-attribute-value)
-            eav_markers = {"entity_type", "attribute_name", "attribute_value"}
-            if eav_markers.issubset(set(col_names_lower)):
+            cols_set = set(col_names_lower)
+            is_eav = (
+                {"entity_type", "attribute_name", "attribute_value"}.issubset(cols_set)
+                or ({"entity_id", "attribute", "value"}.issubset(cols_set))
+                or ({"entity_id", "key", "value"}.issubset(cols_set))
+            )
+            if is_eav:
                 issues.append(issue(
                     IssueCode.SCHEMA_AP_03, Layer.SCHEMA_AP, Severity.WARNING,
                     f"Table '{schema_def.name}' appears to use Entity-Attribute-Value (EAV) anti-pattern",
@@ -609,7 +622,7 @@ def executeSchemaAntiPatternValidation(parsed: exp.Expression) -> List[Issue]:
                 not_null_count = 0
                 for c in only_col_defs:
                     has_not_null = any(
-                        isinstance(con, exp.NotNullColumnConstraint)
+                        isinstance(con, exp.NotNullColumnConstraint) and not con.args.get("allow_null")
                         for con in c.find_all(exp.NotNullColumnConstraint)
                     )
                     has_pk_constraint = any(
@@ -672,21 +685,29 @@ def executeSchemaAntiPatternValidation(parsed: exp.Expression) -> List[Issue]:
 # ------------------------------------------------------------------
 
 def executeFullSixLayerValidationPipeline(
-    sql: str,
+    sql: Optional[str] = None,
     dialect: str = "postgres",
     schema: Optional[SchemaProvider] = None,
     rules: Optional[RuleRegistry] = None,
     audit_logger: Optional[AuditLogger] = None,
+    *,
+    sql_query: Optional[str] = None,
+    target_dialect: Optional[str] = None,
+    schema_provider: Optional[SchemaProvider] = None,
 ) -> ValidationResult:
     """
     Executes the full 6-layer validation pipeline:
     PARSE → POLICY → SCHEMA → SEMANTIC → QUERY_AP → SCHEMA_AP
     """
+    effective_sql = sql_query if sql_query is not None else (sql or "")
+    effective_dialect = target_dialect if target_dialect is not None else dialect
+    effective_schema = schema_provider if schema_provider is not None else schema
+
     registry = rules or RuleRegistry()
     all_issues: List[Issue] = []
 
     # Fast-path 0A: Pure Comment Refusals
-    stripped = sql.strip()
+    stripped = effective_sql.strip()
     if stripped.startswith("-- REFUSAL:") or stripped.startswith("-- CANNOT_GENERATE:"):
         result = ValidationResult(
             status=Status.VALID,
@@ -697,13 +718,13 @@ def executeFullSixLayerValidationPipeline(
             issues=(),
         )
         if audit_logger:
-            audit_logger.recordValidationAuditEntry(sql, result)
+            audit_logger.recordValidationAuditEntry(effective_sql, result)
         return result
 
     # Fast-path 0B: Multi-Statement Scripts (DDL migrations & initial seed data)
     try:
         from core.sanitizer import split_sql_script
-        read_d = dialect
+        read_d = effective_dialect
         if "`" in stripped or re.search(r"\bUSE\s+", stripped, re.IGNORECASE) or "AUTO_INCREMENT" in stripped.upper():
             read_d = "mysql"
 
@@ -826,7 +847,7 @@ def executeFullSixLayerValidationPipeline(
         pass
 
     # 1. PARSE
-    parse_issues, parsed = executeParseLayerValidation(sql, dialect=dialect)
+    parse_issues, parsed = executeParseLayerValidation(effective_sql, dialect=effective_dialect)
     all_issues.extend(parse_issues)
     if any(i.severity == Severity.ERROR for i in parse_issues) or parsed is None:
         result = ValidationResult(
@@ -836,35 +857,35 @@ def executeFullSixLayerValidationPipeline(
             issues=tuple(all_issues)
         )
         if audit_logger:
-            audit_logger.recordValidationAuditEntry(sql, result)
+            audit_logger.recordValidationAuditEntry(effective_sql, result)
         return result
 
     # 2. POLICY
-    policy_issues, stmt_type = executePolicyLayerValidation(sql, parsed)
+    policy_issues, stmt_type = executePolicyLayerValidation(effective_sql, parsed)
     all_issues.extend(policy_issues)
     if any(i.severity == Severity.ERROR for i in policy_issues):
         result = ValidationResult(
             status=Status.INVALID,
             statement_type=stmt_type,
-            normalized_sql=parsed.sql(dialect=dialect),
+            normalized_sql=parsed.sql(dialect=effective_dialect),
             issues=tuple(all_issues)
         )
         if audit_logger:
-            audit_logger.recordValidationAuditEntry(sql, result)
+            audit_logger.recordValidationAuditEntry(effective_sql, result)
         return result
 
     # 3. SCHEMA
-    schema_issues = executeSchemaLayerValidation(parsed, schema)
+    schema_issues = executeSchemaLayerValidation(parsed, effective_schema)
     all_issues.extend(schema_issues)
     if any(i.severity == Severity.ERROR for i in schema_issues):
         result = ValidationResult(
             status=Status.INVALID,
             statement_type=stmt_type,
-            normalized_sql=parsed.sql(dialect=dialect),
+            normalized_sql=parsed.sql(dialect=effective_dialect),
             issues=tuple(all_issues)
         )
         if audit_logger:
-            audit_logger.recordValidationAuditEntry(sql, result)
+            audit_logger.recordValidationAuditEntry(effective_sql, result)
         return result
 
     # 4. SEMANTIC
@@ -874,29 +895,29 @@ def executeFullSixLayerValidationPipeline(
         result = ValidationResult(
             status=Status.INVALID,
             statement_type=stmt_type,
-            normalized_sql=parsed.sql(dialect=dialect),
+            normalized_sql=parsed.sql(dialect=effective_dialect),
             issues=tuple(all_issues)
         )
         if audit_logger:
-            audit_logger.recordValidationAuditEntry(sql, result)
+            audit_logger.recordValidationAuditEntry(effective_sql, result)
         return result
 
     # 5. QUERY_AP
-    query_ap_issues = executeQueryAntiPatternValidation(parsed)
+    query_ap_issues = executeQueryAntiPatternValidation(parsed, schema_provider=effective_schema)
     all_issues.extend(query_ap_issues)
     if any(i.severity == Severity.ERROR for i in query_ap_issues):
         result = ValidationResult(
             status=Status.INVALID,
             statement_type=stmt_type,
-            normalized_sql=parsed.sql(dialect=dialect),
+            normalized_sql=parsed.sql(dialect=effective_dialect),
             issues=tuple(all_issues)
         )
         if audit_logger:
-            audit_logger.recordValidationAuditEntry(sql, result)
+            audit_logger.recordValidationAuditEntry(effective_sql, result)
         return result
 
     # 6. SCHEMA_AP
-    schema_ap_issues = executeSchemaAntiPatternValidation(parsed)
+    schema_ap_issues = executeSchemaAntiPatternValidation(parsed, schema_provider=effective_schema)
     all_issues.extend(schema_ap_issues)
 
     # Filter by enabled rules in registry
@@ -918,14 +939,14 @@ def executeFullSixLayerValidationPipeline(
     result = ValidationResult(
         status=status,
         statement_type=stmt_type,
-        normalized_sql=parsed.sql(dialect=dialect),
+        normalized_sql=parsed.sql(dialect=effective_dialect),
         tables_touched=tables_touched,
         columns_touched=columns_touched,
         issues=tuple(filtered_issues)
     )
 
     if audit_logger:
-        audit_logger.recordValidationAuditEntry(sql, result)
+        audit_logger.recordValidationAuditEntry(effective_sql, result)
 
     return result
 

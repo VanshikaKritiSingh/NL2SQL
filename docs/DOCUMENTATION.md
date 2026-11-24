@@ -47,7 +47,7 @@ architecture_docs:
   - docs/NL2SQL-Pipeline-Architecture.md
   - docs/DECIDED_MODULES.md
 core_modules:
-  - core/paradigm_suggestor.py (CLEF intent drafter, confidence scheduler, Auto Mode router, divergence guardrail)
+  - core/paradigm_suggestor.py (keyword & structural intent matcher, confidence-gated router, Auto Mode router, divergence guardrail)
   - core/dialect_converter.py (deterministic AST transpiler for 20+ SQL dialects, openCypher for Neo4j/Neptune, Mongo MQL)
   - core/schema_linker.py (hybrid BM25/Dense RRF, Steiner tree FK join injection, categorical Trie grounding)
   - core/semantic_decomposer.py (model-first semantic intent router, multi-statement DDL synthesis, schema mismatch detection)

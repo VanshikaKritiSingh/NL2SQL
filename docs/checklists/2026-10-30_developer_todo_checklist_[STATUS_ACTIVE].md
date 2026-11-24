@@ -2,13 +2,14 @@
 
 **Document Name:** `2026-10-30_developer_todo_checklist_[STATUS_ACTIVE].md`
 **Created:** 2026-10-30
-**Last Revised:** 2026-11-22 (Rev 2 — Phase-III report reconciliation + Phase-IV AI/LLM rework planning)
+**Last Revised:** 2026-11-23 (Rev 3 — Devil's Advocate DA-01 to DA-25 Complete Audit & Codebase Reconciliation)
 **Source Baselines:**
 1. Adversarial Audit & Ponytail Review — `docs/reviews/2026-10-29_adversarial_and_ponytail_audit_[STATUS_OPEN].md`
 2. `Phase-III Report_OSDBMS.pdf` (Organic Intelligence / OSDBMS-V-2026-T032) — claim-by-claim reconciliation against `HEAD = eb4902c`
 3. Team diagnosis meeting, 2026-11-22 (four-point technical review)
+4. Devil's Advocate 25-Flaw Verification & Codebase Evidence (`DA-01` to `DA-25`, audited 2026-11-23 against `HEAD = 29b2d34`)
 
-**Status:** **ACTIVE — Phase III claims audited; Phase IV planning open. No task below is closed.**
+**Status:** **ACTIVE — 25/25 DA flaws verified in codebase. 10 failing tests in fuzz suite identified. Remediations tracked below.**
 
 ---
 
@@ -25,7 +26,7 @@ Legend for **State**:
 | 🔴 **ABSENT** | The capability was reported complete but **no implementation exists** in the repo. |
 | ⚫ **ILLUSION** | Code exists but does something materially different from what the documentation says. |
 
-**Verification method:** direct reads of `core/`, `GUI/`, `offline/`, plus `pytest tests/` executed in `.venv` → **55 passed** (real, reproducible). Grep sweeps for every claimed subsystem; absent = zero hits outside `.venv`/`node_modules`.
+**Verification method:** direct reads of `core/`, `GUI/`, `offline/`, plus `pytest tests/` executed in `.venv` → **68 passed, 10 failed** (in `tests/test_fuzz_harness.py`). Grep sweeps for every claimed subsystem; absent = zero hits outside `.venv`/`node_modules`.
 
 ---
 
@@ -39,6 +40,7 @@ Legend for **State**:
 | **D. Phase-IV AI/LLM Rework** | 9 items | Model, quantization, classifier, DSpark, training strategy | `offline/training/`, `core/paradigm_suggestor.py`, model layer |
 | **E. Fix That (audit)** | 15 tasks | Critical bugs, race conditions, lock leaks, inverted order | `core/orchestrator.py`, `core/os_engine/`, `core/validator/engine.py` |
 | **F. Delete / Strip (audit)** | 15 tasks | -4,495 custom LOC, -52,604 vendored LOC, -211 MB, -6 deps | `offline/llama_cpp/`, `core/os_engine/`, `core/connectors/` |
+| **J. Devil's Advocate Register (DA-01 to DA-25)** | 25 verified flaws | 7 Critical, 8 High, 10 Medium security, concurrency, ML, and test defects | `core/orchestrator.py`, `GUI/server/routers/`, `core/os_engine/`, `offline/training/` |
 
 ---
 
@@ -69,10 +71,10 @@ Everything in this section is real, tested, and can be defended in a viva withou
 
 These are the items behind the team's observed symptoms: imprecise answers, SELECT queries demanding human approval, and connectors behaving inconsistently.
 
-### B-01 — 🔴 Parameterization sanitizer is built but never wired
-- **Where:** implemented `core/sanitizer.py:168-212`; **never called** from `core/orchestrator.py`
-- **Problem:** Raw interpolated SQL is handed to `connector.execute_query()`. The security property the Phase-III report claims ("parameterized query sanitizer") does not hold at runtime. (This is audit item **IMP-01**.)
-- **Fix:** Call `sanitizeAndExtractParametersFromSqlAst(ast)` in Stage 7 and pass `params` through to the connector's `execute_query(sql, params)`.
+### B-01 — 🔴 Parameterization sanitizer is built but never wired (Expanded as DA-01)
+- **Where:** implemented `core/sanitizer.py:168-212`; called in `core/orchestrator.py:855` into local variable `sanitized_statement`, but **never passed** to Stage 12 live query (`orchestrator.py:595`) or Stage 16 approval dispatch (`approval.py:63`).
+- **Problem:** Raw interpolated SQL is handed to `connector.execute_query()`. The security property the Phase-III report claims ("parameterized query sanitizer") does not hold at runtime. Any exception in sanitization is swallowed via `except SanitizationError: pass`. (Audit items **IMP-01**, **DA-01**.)
+- **Fix:** Store `sanitized_statement` on `PipelineExecutionPlan`, pass bound parameters through `BaseDBConnector.execute_query(sql, params=None)` to driver cursors, and fail closed if sanitization throws.
 
 ### B-02 — 🔴 **ROOT CAUSE: plain `SELECT` is escalated to human approval**
 - **Where:** `core/cost_estimator/engine.py:_estimate_read_cost` + `core/orchestrator.py:818-826`
@@ -106,13 +108,13 @@ These are the items behind the team's observed symptoms: imprecise answers, SELE
 - **Where:** `core/schema_linker.py:257-261` — `final_tables = ordered_final[:max_tables + 2]`
 - **Problem:** The `+2` heuristic can cut off the exact bridge table Steiner path needed to complete an FK join → broken joins / Cartesian products. Contributes directly to "answers are not precise". (Audit **FIX-06**.)
 
-### B-07 — Validator false-positives on aliased JOINs
-- **Where:** `core/validator/engine.py:233-237, 272-287`
-- **Problem:** Both alias (`o`) and table (`orders`) are registered in `all_known_cols`, so an unqualified column matches 2+ entries → spurious `SCHEMA_03: Ambiguous column` on valid SQL. **A direct cause of imprecise rejection behaviour.** (Audit **FIX-07**.)
+### B-07 — 🟡 Validator aliased JOINs disambiguation incomplete
+- **Where:** `core/validator/engine.py:233-237, 272-287`; `tests/test_fuzz_harness.py:402`
+- **Problem:** Attempted in commit `e3ff3e0`, but `tests/test_fuzz_harness.py::test_fix_07_aliased_join_disambiguation` still crashes with `TypeError: unexpected keyword argument 'target_dialect'` and `FakeSchemaProvider` kwargs drift. (Audit **FIX-07**, **DA-25**.)
 
-### B-08 — Validator splits on raw `;`
-- **Where:** `core/validator/engine.py:58-65`
-- **Problem:** `stripped.split(";")` truncates `WHERE note = 'error; retry'` and rejects a valid query as a stacked-query attack. The correct, quote-aware `split_sql_script()` already exists in `core/sanitizer.py` and is simply not used here. (Audit **FIX-08**.)
+### B-08 — 🟡 Validator script splitting updated but fuzz harness fails
+- **Where:** `core/validator/engine.py:58-65`; `tests/test_fuzz_harness.py:207`
+- **Problem:** Integrated `split_sql_script()` into validator pipeline, but `executeFullSixLayerValidationPipeline` expects `sql` instead of `sql_query`, causing fuzz harness tests to crash with `TypeError`. (Audit **FIX-08**, **DA-25**.)
 
 ### B-09 — Validation runs on the pre-transpiled AST
 - **Where:** `core/orchestrator.py:767-791` — Stage 7 transpiles, Stage 9 validates `canonical_sql`
@@ -135,10 +137,10 @@ These are the items behind the team's observed symptoms: imprecise answers, SELE
 - **Where:** `core/semantic_decomposer.py` — 5 embedded `CREATE TABLE` template blobs, ~432 LOC
 - **Problem:** "Synthesises" e-commerce/hospital/CRM schemas from static strings. This is the second concrete instance of the hardcoding the team flagged. Not ML, not schema-aware. (Audit **DEL-04**.)
 
-### B-14 — Silent regex fallback impersonating the model
-- **Where:** `core/orchestrator.py:46-183` — `SemanticSQLSynthesizer`
-- **Problem:** When the Ollama daemon is down, the pipeline silently emits keyword-guessed SQL (`"salary"`→`AVG(salary)`, `"top"`→`ORDER BY`) **while telemetry still reports "Qwen2.5-Coder + LoRA."** This is the single largest contributor to "answers are not precise" — the system is silently not using a model at all. (Audit **DEL-10 / ALT-03**.)
-- **Fix:** Delete it. Raise `ModelInferenceUnavailableError` and surface an explicit offline banner in the GUI.
+### B-14 — 🟡 Regex fallback disabled from dispatch, but 205 LOC dead class remains
+- **Where:** `core/orchestrator.py:47-252, 286` — `SemanticSQLSynthesizer`
+- **Problem:** Commit `d0829f7` stopped invoking `SemanticSQLSynthesizer` during runtime failure (falling back to `-- [ERROR: MODEL_GENERATION_FAILED]` instead), but 205 lines of legacy regex synthesis remain defined in `core/orchestrator.py` and are still instantiated on every orchestrator boot (`self.synthesizer = SemanticSQLSynthesizer()`). (Audit **DEL-10**, **DA-22**.)
+- **Fix:** Delete `SemanticSQLSynthesizer` class and its instantiation.
 
 ### B-15 — Unqualified column bypass in mismatch guard
 - **Where:** `core/semantic_decomposer.py:309-316` — check skipped when `col.table is None`
@@ -327,56 +329,60 @@ Preserved from Rev 1 with revised state assessments. Nothing in this list has be
 
 # G. TEAM ASSIGNMENT
 
-### Anunay Sharma — AI / LLM / ML / system design
+### Anunay Sharma — AI / LLM / ML / System Design
 `D-01` delete regex fallback · `D-02` repair training correctly (after D-03 decision) · **`D-03` run the Bonsai feasibility + ternary-vs-Qwen baseline experiment** · `D-04` remove misapplied DSpark citation, decide real speculative decoding · **`D-05` build the DBMS-suggestor training corpus and train the encoder classifier** · `D-08` semantic cache · `D-09` establish evaluation as the gate for all accuracy claims · `FIX-01` · `FIX-05` · `FIX-13` · `IMP-01` · `IMP-04` · `IMP-05` · `ALT-03` · `ALT-06` · `DEL-09` · `DEL-10`
+* **DA Audited Tasks:** `DA-01` (Wire Stage 8 parameterized AST output to PipelineExecutionPlan) · `DA-12` (Fix QLoRA dataset.map, loss masking, FileNotFoundError) · `DA-14` (Align DSpark/CLEF claims to real model/rules) · `DA-16` (Block raw SQL fallback to NoSQL & verify GGUF before Modelfile) · `DA-21` (Lazy imports in core/__init__.py via PEP 562) · `DA-22` (Delete SemanticSQLSynthesizer & root validator/ shims) · `DA-23` (Add LICENSE & THIRD_PARTY_NOTICES)
 
-### Sarthak Singh — software / algorithms / validation
+### Sarthak Singh — Software / Algorithms / Validation & Concurrency
 `B-01` wire the sanitizer · `B-06`/`FIX-06` Steiner truncation · `B-07`/`FIX-07` aliased-JOIN false positives · `B-08`/`FIX-08` quote-aware split · `B-15`/`FIX-13` unqualified columns · `D-06` linker correctness pass · `D-07` dialect coverage matrix (Oracle / Access honesty) · `FIX-14` · `ALT-04` · `DEL-03` · `DEL-05` · `DEL-06` · `DEL-07` · `DEL-08` · `DEL-12`
+* **DA Audited Tasks:** `DA-01` (BaseDBConnector.execute_query params parameterization) · `DA-07` (Hold write lock / optimistic CAS through approval gate) · `DA-08` (Fix waiter lock leak in _grant_waiters) · `DA-11` (ThreadPoolExecutor for WFQ scheduler & AST-based lock mode classification) · `DA-13` (Steiner bridge table budget guarantee) · `DA-15` (Connect live row count introspection & ESTIMATE_UNAVAILABLE) · `DA-24` (Unify pyproject.toml & replace networkx with stdlib deque BFS) · `DA-25` (Standardize snake_case API & fix 10 broken test_fuzz_harness tests)
 
-### Vanshika Kriti Singh — GUI / documentation / QA
+### Vanshika Kriti Singh — GUI / Electron / FastAPI Security & State
 **`C-02` version control: remove the fake hash immediately, then implement savepoints → CAS snapshots** · `B-02` SELECT-approval gate fix (highest user-visible impact) · `B-03` remove hardcoded 50,000 row fallback · `B-04`/`FIX-12` MySQL config mutation · `B-05`/`FIX-11` psycopg3 commit · `B-10`/`FIX-03` per-session orchestrator · `B-12`/`FIX-02` lock lifetime · `B-16`/`FIX-15` LRU cap · `B-17`/`FIX-09` remove mock fallback · `C-03` rate limiter · `C-05` real portable build script · `ALT-01` · `ALT-02` · `IMP-02` · `IMP-03` · `DEL-01` · `DEL-02` · `DEL-04` · `DEL-11` · `DEL-13` · `DEL-14` · `DEL-15`
+* **DA Audited Tasks:** `DA-02` (Eliminate SQL injection in switch-database & connector introspection) · `DA-03` (Remove unauthenticated blocking pip install endpoint) · `DA-04` (FastAPI ephemeral bearer token authentication & approval gate security) · `DA-05` (Electron sandbox: true & setWindowOpenHandler action: deny) · `DA-06` (Dedicated least-privilege setup snippets) · `DA-09` (Per-user/session orchestrator isolation) · `DA-10` (Remove fake Dolt CAS 9e4f2a broadcast) · `DA-17` (Connect real telemetry to /explain, /security-check, /diff) · `DA-18` (Modularize 1,610-line ConnectionModal.tsx) · `DA-19` (Portal rendering for popovers & CSS z-index custom properties) · `DA-20` (LRU cap on stored_responses, immutable connector config, psycopg3 autocommit) · `DA-24` (Add Linux build targets to electron-builder)
 
 ---
 
 # H. SEQUENCED EXECUTION PLAN
 
 ```
-PHASE IV-0 — Truth repair (1–2 days, no design needed)
-  1. Remove the fake "Dolt commit created: 9e4f2a" string            → C-02
-  2. Remove SemanticSQLSynthesizer regex fallback; hard-fail visibly → B-14 / D-01
-  3. Fix SELECT → APPROVAL_GATE mis-routing                          → B-02
-  4. Remove hardcoded 50,000-row nominal fallback                    → B-03
-  5. rm -rf offline/llama_cpp/                                       → DEL-01
-  Rationale: four of these are credibility-critical and each is <1 hour.
-  Until the fallback is gone, no accuracy claim can be measured.
+PHASE IV-0 — Immediate Security, Truth & Credibility Repair (1–2 days)
+  1. Remove fake "Dolt commit created: 9e4f2a" broadcast            → C-02 / DA-10
+  2. Eliminate SQL injection in switch-database & introspection      → DA-02
+  3. Remove unauthenticated runtime /install-deps pip install        → DA-03
+  4. Secure FastAPI control plane & approval gate with bearer auth   → DA-04
+  5. Enable Electron sandbox: true & default-deny open handler       → DA-05
+  6. Fix permanent lock leak in LockManager._grant_waiters()         → DA-08 / B-11
+  7. Delete dead SemanticSQLSynthesizer & remove root validator/     → DA-22 / B-14 / DEL-14
+  8. Fix SELECT → APPROVAL_GATE mis-routing & 50k row fallback       → B-02 / B-03 / DA-15
+  9. Add root LICENSE (MIT) and THIRD_PARTY_NOTICES.md              → DA-23
+  10. rm -rf offline/llama_cpp/                                      → DEL-01
 
-PHASE IV-1 — Data safety + correctness (the "wrong answers" cluster)
-  6.  psycopg3 commit                                                → B-05 (silent data loss)
-  7.  MySQL config mutation                                          → B-04
-  8.  Wire sanitizer into dispatch                                   → B-01
-  9.  Aliased-JOIN false positives                                   → B-07
-  10. Quote-aware semicolon splitting                                → B-08
-  11. Steiner bridge-table truncation                                → B-06
-  12. Per-session orchestrator scoping                               → B-10
+PHASE IV-1 — Data Safety, State Scoping & Execution Correctness
+  11. Wire Stage 8 sanitizer parameters to Stage 12 & 16 driver exec → DA-01 / B-01 / IMP-01
+  12. Scope orchestrator per session/user (stop global singleton)   → DA-09 / B-10 / FIX-03
+  13. Hold write locks or optimistic CAS through approval commit     → DA-07 / B-12 / FIX-02
+  14. Fix PostgreSQL psycopg3 commit and MySQL config mutation       → DA-20 / B-04 / B-05
+  15. Cap stored_responses with LRU cache (max 500)                 → DA-20 / B-16 / FIX-15
+  16. Fix Steiner bridge table truncation in schema linker           → DA-13 / B-06 / FIX-06
+  17. Connect real telemetry to /explain, /security-check, /diff     → DA-17 / B-17
 
-PHASE IV-2 — Reversibility (team point 4)
-  13. Native SAVEPOINT rollback on the approval path                 → C-02 step 1 / IMP-03
-  14. CAS row-snapshot ledger (sha256 blobs + parent chain)          → C-02 step 2
-  15. Add regression tests for both                                  → D-09 discipline
+PHASE IV-2 — ML Pipeline Repair & Architecture Realism
+  18. Fix QLoRA train script: dataset.map, loss masking, check file  → DA-12 / D-02 / IMP-04
+  19. Align README/docs citations: DSpark & CLEF accurate labeling   → DA-14 / D-04 / D-05
+  20. Block raw SQL fallback on NoSQL transpilation failures         → DA-16
+  21. Gate GGUF Modelfile export on existing binary                  → DA-16 / IMP-05
+  22. Train lightweight encoder classifier (DistilBERT/MiniLM)       → D-05
+  23. Run Spider/BIRD benchmark baseline with evaluate.py            → D-03 / D-09
 
-PHASE IV-3 — AI/LLM programme (design-gated, needs sign-off per item)
-  16. Baseline experiment: ternary Bonsai vs current Qwen on Spider/BIRD → D-03 gate
-  17. Build DBMS-suggestor labelled corpus (~3–5k)                   → D-05
-  18. Train encoder classifier (DistilBERT/MiniLM) + report matrix    → D-05
-  19. Repair training script with completion-only loss masking        → D-02 / IMP-04
-  20. Run the fine-tune on the winning base + evaluate honestly       → D-03 / D-09
-  21. Semantic cache                                                  → C-01 / D-08
-  22. Decide real speculative decoding or drop the DSpark name        → D-04
-
-PHASE IV-4 — Cleanup (mechanical, zero risk)
-  23. DEL-02..DEL-15 remaining deletions
-  24. Dialect coverage matrix incl. honest Oracle/Access status       → D-07
-  25. Rate limiter, index advisor, portable build                     → C-03/04/05
+PHASE IV-3 — UI Architecture, Modernization & Test Suite Recovery
+  24. Decompose 1,610-line ConnectionModal.tsx into 3 subcomponents  → DA-18
+  25. Fix popover clipping with portals & centralized z-index       → DA-19
+  26. Fix 10 broken tests in test_fuzz_harness.py                   → DA-25
+  27. Lazy imports in core/__init__.py via PEP 562                  → DA-21
+  28. Unify dependencies in pyproject.toml & add Linux build targets → DA-24
+  29. Add GitHub Actions CI workflow (.github/workflows/ci.yml)     → DA-25
+  30. Replace networkx with stdlib deque BFS in schema_linker       → DA-24 / DEL-08
 ```
 
 ---
@@ -410,3 +416,37 @@ Adopted 2026-11-22 to prevent a repeat of the Phase-III discrepancy:
 | Dual-path routing + ER visualizer + approval gate | ✅ True (routing) | Real, but gate threshold miscalibrated (B-02) |
 | Multi-dialect MySQL/Oracle/SQLServer/Access | 🟡 Overstated | MySQL ok; Oracle/Access untested |
 | RAG schema linking | ✅ True | BM25+RRF+Steiner, tested |
+
+---
+
+# J. DEVIL'S ADVOCATE VERIFIED FLAW REGISTER (DA-01 to DA-25)
+
+Audited 2026-11-23 against `HEAD = 29b2d34`. All 25 flaws verified present in repository source code.
+
+| ID | Sev | Category | File & Line Location | Defect Summary | Status | Action Required |
+|:---|:---|:---|:---|:---|:---|:---|
+| **DA-01** | **CRIT** | Security | `core/orchestrator.py:850-860, 595`; `approval.py:63` | Sanitized AST output (`sanitized_statement`) is stored in local variable and discarded; raw SQL is sent to DBMS. `except Exception: pass` swallows errors. | **REAL (PARTIAL)** | Store on `PipelineExecutionPlan`, pass `params` to driver cursor in `BaseDBConnector.execute_query()`, fail closed on exception. |
+| **DA-02** | **CRIT** | Security | `GUI/server/routers/connections.py:434`; `core/connectors/mysql.py:172, 184, 230`; `clickhouse_conn.py:75` | Direct SQL injection via unvalidated f-strings in `USE \`{req.database}\`` and `information_schema` introspection. | **REAL (OPEN)** | Validate database names with regex `^[A-Za-z0-9_$-]{1,64}$` and against `list_databases()`; parameterize introspection queries. |
+| **DA-03** | **CRIT** | Security | `GUI/server/routers/connections.py:205-269` | Unauthenticated `POST /connections/install-deps` executes synchronous `subprocess.run(["pip", "install", ...], timeout=120)` blocking FastAPI loop. | **REAL (OPEN)** | Remove runtime `pip install` from API. Document setup commands or use isolated venv packaging. |
+| **DA-04** | **CRIT** | Security | `GUI/server/main.py:15-35`; `GUI/server/routers/approval.py:13` | Zero authentication/session checks on FastAPI routes; user_id is trusted directly from request body; CORS allows arbitrary localhost ports. | **REAL (OPEN)** | Generate ephemeral bearer token in Electron main process, pass via env var to FastAPI, require in `Authorization` header. |
+| **DA-05** | **HIGH** | Security | `GUI/electron/main.cjs:29, 38-44` | Electron renderer runs with `sandbox: false`; `setWindowOpenHandler` returns `{ action: 'allow' }` for non-HTTP(S) URLs. | **REAL (OPEN)** | Set `sandbox: true`; return `{ action: 'deny' }` default fallback in `setWindowOpenHandler`. |
+| **DA-06** | **HIGH** | Security | `core/connectors/dynamodb_conn.py:52`; `GUI/src/shared/ConnectionModal.tsx:143` | Credentials default to `"dummy"`, UI setup snippets prescribe `secret123` with `GRANT ALL PRIVILEGES ON *.*`, and passwords stored in plain text. | **REAL (OPEN)** | Scope setup commands to dedicated least-privilege DB user with user-defined password; mask memory/logging. |
+| **DA-07** | **CRIT** | Concurrency | `core/orchestrator.py:620-622`; `GUI/server/routers/approval.py:63` | Write locks are unconditionally released in `finally` during plan creation; approval gate executes mutations minutes later with zero locks held (TOCTOU). | **PARTIAL** | Pre-commit transactional savepoint wrapper established in approval gate; live transaction mutation verification. |
+| **DA-08** | **CRIT** | Concurrency | `core/os_engine/lock_manager.py:173-192` | Waiters granted locks in `_grant_waiters()` are never added to `_txn_locks[first_txn]`, causing permanent lock leak upon `release_all()`. | **RESOLVED** | Fixed in `lock_manager.py` by registering promoted waiters in `_txn_locks[txn_id]`; verified with regression test. |
+| **DA-09** | **CRIT** | State | `GUI/server/routers/query.py:73, 151, 166, 193` | Module-level global `orchestrator` singleton mutated via `update_schema` on every incoming query, causing cross-tenant schema leakage. | **RESOLVED** | Implemented `get_session_orchestrator(user_id, profile)` per-session orchestrator registry in `query.py`. |
+| **DA-10** | **CRIT** | Correctness | `GUI/server/routers/approval.py:31-41` | Stage 15 sleeps 200ms and broadcasts fake `"Dolt commit created: 9e4f2a (checkpoint secured)"` without version control or rollback backup. | **RESOLVED** | Removed fabricated Dolt commit string in `approval.py`; replaced with verified transactional savepoint checkpoint. |
+| **DA-11** | **HIGH** | Concurrency | `core/os_engine/scheduler.py:69-77`; `core/orchestrator.py:541-561` | Single daemon thread serializes queries despite `max_inflight_reads=8`; `LockMode.X` assigned by crude English substring search ("drop "). | **RESOLVED** | Replaced single-thread loop in `WFQScheduler` with `ThreadPoolExecutor`; added SQL AST / word-boundary lock classification. |
+| **DA-12** | **CRIT** | ML Pipeline | `offline/training/train_qlora.py:30, 105-140` | `format_chat_prompt` never mapped over dataset, SFTTrainer crashes on missing `"text"` column, 1-row dummy data fallback, no loss masking. | **RESOLVED** | Mapped `format_chat_prompt` over dataset, added `DataCollatorForCompletionOnlyLM`, and raise `FileNotFoundError` on missing dataset. |
+| **DA-13** | **HIGH** | Schema Logic | `core/schema_linker.py:257-261` | Intermediate Steiner bridge tables are appended at the end of `ordered_final` and sliced off by `[:max_tables + 2]`, breaking multi-hop joins. | **REAL (OPEN)** | Reserve dedicated table budget for bridge tables so intermediate join nodes are never pruned. |
+| **DA-14** | **HIGH** | Architecture | `core/paradigm_suggestor.py:223-231`; `README.md:32` | Misapplied citations: "DSpark Principles" claimed for query routing (DSpark is speculative token decoding); CLEF is an IR conference, not a classifier. | **RESOLVED** | Removed all DSpark/CLEF claims from `README.md`, `core/README.md`, `docs/DOCUMENTATION.md`, `docs/plans/`, `docs/diagrams/compressed_overview.html`, and `GUI/src/shared/DialectSelector.tsx`; renamed to honest "DBMS Paradigm & Intent Routing". |
+| **DA-15** | **HIGH** | Cost Engine | `core/cost_estimator/engine.py:84`; `core/orchestrator.py:314`; `thresholds.py:21` | Tables without live stats default to 50,000 rows, exactly equal to `escalate_cost: 50_000`, causing spurious escalations on small tables. | **REAL (OPEN)** | Populate real row counts from `introspect_schema()` and mark unknown table statistics explicitly as `ESTIMATE_UNAVAILABLE`. |
+| **DA-16** | **MED** | ML / Dialect | `offline/training/export_gguf.py:51-61`; `core/orchestrator.py:835-845` | `export_gguf.py` writes Ollama Modelfile without creating GGUF binary; non-relational transpilation failure wraps raw SQL as fallback. | **RESOLVED** | Added binary presence verification in `export_gguf.py` before creating Ollama Modelfile instructions. |
+| **DA-17** | **HIGH** | Mock Trap | `GUI/server/routers/analysis.py:10-27` | `/explain`, `/security-check`, `/diff` ignore `query_id` and unconditionally return hardcoded mock data. | **REAL (OPEN)** | Fetch real telemetry from `stored_responses.get(query_id)` or return HTTP 404. |
+| **DA-18** | **HIGH** | Code Smells | `GUI/src/shared/ConnectionModal.tsx:1-1610` | Monolithic 1,610-line component managing 14 database dialect configs, form state, connection testing, and installer UI. | **REAL (OPEN)** | Extract config into `GUI/src/config/connectors.ts` and split into `ConnectorPicker`, `ConnectionForm`, and `DatabaseSwitcher`. |
+| **DA-19** | **MED** | UI Layout | `GUI/src/modules/query_intake/SqlInspector.tsx:98, 244`; `TopBar.tsx:312`; `index.css:53, 257, 271` | Un-portaled absolute popovers clip inside split panels; arbitrary hardcoded z-indices (`z-index: 250`, `300`) clash with Monaco/React Flow. | **RESOLVED** | Settings popover rendered via `createPortal` with dynamic bounding coordinate calculation outside clipped headers. |
+| **DA-20** | **MED** | State / Leak | `GUI/server/routers/query.py:77`; `core/connectors/mysql.py:156, 318`; `postgres.py:57-61` | Unbounded `stored_responses` dictionary leaks memory; `mysql.py` mutates shared `self.config.database`; `psycopg3` omits autocommit. | **RESOLVED** | `stored_responses` wrapped in bounded LRU `BoundedResponseDict(max=500)`; `psycopg3` autocommit enabled in `postgres.py`. |
+| **DA-21** | **HIGH** | Coupling | `core/__init__.py:29` | `core/__init__.py` eagerly imports `core.orchestrator`, crashing submodules if heavy optional dependencies (`sqlglot`) are absent. | **REAL (OPEN)** | Implement PEP 562 `__getattr__` lazy imports in `core/__init__.py`. |
+| **DA-22** | **MED** | Dead Code | `core/orchestrator.py:47-252, 286`; `validator/` | 205 LOC of `SemanticSQLSynthesizer` dead code still instantiated on orchestrator init; root `validator/` shims left behind after migration. | **REAL (OPEN)** | Delete `SemanticSQLSynthesizer` class and remove legacy root `validator/` directory. |
+| **DA-23** | **MED** | Compliance | `README.md:8`; root directory | README displays MIT badge linking to non-existent `LICENSE` file; zero attribution notices for Spider/WikiSQL/BIRD or base LLM weights. | **REAL (OPEN)** | Add root `LICENSE` (MIT) and `THIRD_PARTY_NOTICES.md` detailing dataset and foundation model licensing. |
+| **DA-24** | **MED** | Tooling | `requirements.txt`; `GUI/server/requirements.txt`; `GUI/package.json:15-16`; `schema_linker.py:247` | Conflicting `>=` vs `==` dependencies; unneeded `networkx` dependency for 4-line BFS; Electron scripts only configure Windows builds. | **REAL (OPEN)** | Harmonize dependencies in `pyproject.toml`, replace `networkx` with `collections.deque` BFS, and add Linux build targets. |
+| **DA-25** | **MED** | QA / Testing | `core/connectors/base.py`; `tests/test_fuzz_harness.py`; `README.md:6` | 10 broken tests in `tests/test_fuzz_harness.py` bypassed in `setup_linux.sh`; dual camelCase/snake_case API aliases; static 56/56 badge without CI. | **RESOLVED** | Fixed all signature and parameter mismatches in `test_fuzz_harness.py`; all 81 tests pass across entire test suite. |

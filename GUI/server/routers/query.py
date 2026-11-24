@@ -72,9 +72,27 @@ DEFAULT_SCHEMA = {
 
 orchestrator = EndToEndNL2SQLOrchestrator(schema_tables={})
 
+# Per-session orchestrator registry to prevent cross-tenant schema contamination (DA-09)
+_session_orchestrators: Dict[str, EndToEndNL2SQLOrchestrator] = {}
+
+def get_session_orchestrator(user_id: str, profile: Optional[str] = None) -> EndToEndNL2SQLOrchestrator:
+    key = f"{user_id}::{profile or 'default'}"
+    if key not in _session_orchestrators:
+        _session_orchestrators[key] = EndToEndNL2SQLOrchestrator(schema_tables={})
+    return _session_orchestrators[key]
+
 # In-memory history store: user_id -> List[HistoryItem]
 query_history: Dict[str, List[HistoryItem]] = {}
-stored_responses: Dict[str, QueryResponse] = {}
+from collections import OrderedDict
+# Bounded LRU cache for stored responses to prevent memory leak (DA-20, max 500 entries)
+class BoundedResponseDict(OrderedDict):
+    MAX_SIZE = 500
+    def __setitem__(self, key, value):
+        super().__setitem__(key, value)
+        if len(self) > self.MAX_SIZE:
+            self.popitem(last=False)
+
+stored_responses: Dict[str, QueryResponse] = BoundedResponseDict()
 deleted_query_ids: set[str] = set()
 user_clear_timestamps: Dict[str, float] = {}
 
@@ -161,8 +179,12 @@ async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, backgro
     is_attached = default_registry.is_attached(request.user_id)
     conn = default_registry.get(request.user_id) if is_attached else None
 
+    # Use session-scoped orchestrator to avoid cross-tenant contamination (DA-09)
+    current_orch = get_session_orchestrator(request.user_id, request.database_profile)
+
     if is_none_db:
         # User selected clean scratch / new database context: no prior tables attached
+        current_orch.update_schema({})
         orchestrator.update_schema({})
     elif is_attached and conn and conn.is_connected:
         try:
@@ -190,19 +212,51 @@ async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, backgro
                         columns=col_metas,
                     )
                 if live_tables:
+                    current_orch.update_schema(live_tables)
                     orchestrator.update_schema(live_tables)
             elif schema_meta and not schema_meta.tables:
                 # Active database has no tables — clear orchestrator schema
+                current_orch.update_schema({})
                 orchestrator.update_schema({})
         except Exception:
             pass
     else:
         # Not connected to live DBMS
         if request.database_profile == "master_enterprise":
+            if current_orch.tables != DEFAULT_SCHEMA:
+                current_orch.update_schema(DEFAULT_SCHEMA)
             if orchestrator.tables != DEFAULT_SCHEMA:
                 orchestrator.update_schema(DEFAULT_SCHEMA)
         else:
-            if orchestrator.tables != {}:
+            # Sync orchestrator schema from the session's in-memory SQLite sandbox
+            sandbox_db = get_session_sandbox(request.user_id, request.database_profile)
+            try:
+                cur = sandbox_db.cursor()
+                cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
+                s_tables = [r[0] for r in cur.fetchall()]
+                if s_tables:
+                    sandbox_schema = {}
+                    for t in s_tables:
+                        col_metas = {}
+                        cur.execute(f"PRAGMA table_info({t});")
+                        for _, col_name, dtype, _, _, pk in cur.fetchall():
+                            col_metas[col_name.lower()] = ColumnMeta(
+                                name=col_name.lower(),
+                                dtype=dtype or "TEXT",
+                                is_pk=bool(pk),
+                                is_fk=False
+                            )
+                        sandbox_schema[t.lower()] = TableMeta(
+                            name=t.lower(),
+                            columns=col_metas
+                        )
+                    current_orch.update_schema(sandbox_schema)
+                    orchestrator.update_schema(sandbox_schema)
+                else:
+                    current_orch.update_schema({})
+                    orchestrator.update_schema({})
+            except Exception:
+                current_orch.update_schema({})
                 orchestrator.update_schema({})
 
     # 1. Run full 16-stage orchestrator pipeline with direct Ollama LLM grounding
@@ -217,7 +271,7 @@ async def submitNaturalLanguageQueryForProcessing(request: QueryRequest, backgro
             target_engine = c_str.lower()
             is_auto = False
     
-    plan = orchestrator.process_query(
+    plan = current_orch.process_query(
         query=request.query_text,
         target_engine=target_engine,
         auto_mode=is_auto,

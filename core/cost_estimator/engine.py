@@ -250,6 +250,7 @@ class HeuristicCostEngine:
         self,
         sql_or_ast: sqlglot.Expression | str,
         dialect: str = "postgres",
+        schema_provider: Optional[Any] = None,
     ) -> List[Dict[str, Any]]:
         """Analyzes a query and recommends indexes that would improve performance.
 
@@ -277,11 +278,25 @@ class HeuristicCostEngine:
         order_clause = parsed.args.get("order")
         joins = parsed.args.get("joins", [])
 
+        # Map aliases back to real table names if available
+        alias_to_table: Dict[str, str] = {}
+        for t in parsed.find_all(exp.Table):
+            if t.alias:
+                alias_to_table[t.alias] = t.name
+            if t.name:
+                alias_to_table[t.name] = t.name
+
+        def resolve_tbl(alias_or_name: Optional[str]) -> str:
+            if not alias_or_name:
+                return tables[0] if tables else ""
+            return alias_to_table.get(alias_or_name, alias_or_name)
+
         # 1. Recommend indexes on WHERE clause columns
         if where_clause:
             where_cols: Dict[str, List[str]] = {}
             for col_node in where_clause.find_all(exp.Column):
-                tbl = col_node.table or (tables[0] if len(tables) == 1 else None)
+                raw_tbl = col_node.table or (tables[0] if len(tables) == 1 else None)
+                tbl = resolve_tbl(raw_tbl)
                 if tbl:
                     where_cols.setdefault(tbl, []).append(col_node.name)
             for tbl, cols in where_cols.items():
@@ -302,12 +317,13 @@ class HeuristicCostEngine:
                 for eq_node in on_clause.find_all(exp.EQ):
                     for side in (eq_node.left, eq_node.right):
                         if isinstance(side, exp.Column) and side.table:
-                            table_rows = self._get_table_rows(side.table)
+                            real_tbl = resolve_tbl(side.table)
+                            table_rows = self._get_table_rows(real_tbl)
                             if table_rows >= 10_000:
                                 recommendations.append({
-                                    "table": side.table,
+                                    "table": real_tbl,
                                     "columns": [side.name],
-                                    "reason": f"JOIN condition on {side.table}.{side.name}",
+                                    "reason": f"JOIN condition on {real_tbl}.{side.name}",
                                     "estimated_improvement": "high" if table_rows >= 100_000 else "medium",
                                 })
 
@@ -316,10 +332,11 @@ class HeuristicCostEngine:
             for o_exp in order_clause.expressions:
                 col = o_exp.this
                 if isinstance(col, exp.Column):
-                    tbl = col.table or (tables[0] if len(tables) == 1 else None)
-                    if tbl:
+                    raw_tbl = col.table or (tables[0] if len(tables) == 1 else None)
+                    real_tbl = resolve_tbl(raw_tbl)
+                    if real_tbl:
                         recommendations.append({
-                            "table": tbl,
+                            "table": real_tbl,
                             "columns": [col.name],
                             "reason": f"Unbounded ORDER BY on {col.name} requires full sort",
                             "estimated_improvement": "medium",

@@ -54,9 +54,11 @@ def merge_and_export(
     print(f"  python3 llama.cpp/convert_hf_to_gguf.py {merged_output_path} --outfile {gguf_output_dir}/model-f16.gguf")
     print(f"  llama.cpp/llama-quantize {gguf_output_dir}/model-f16.gguf {gguf_output_dir}/model-q4_k_m.gguf Q4_K_M")
 
-    # Generate Ollama Modelfile
+    # Step 4: Verify GGUF binary and generate Ollama Modelfile (DA-16)
+    gguf_binary = os.path.join(gguf_output_dir, "model-q4_k_m.gguf")
     modelfile_path = os.path.join(gguf_output_dir, "Modelfile")
     os.makedirs(gguf_output_dir, exist_ok=True)
+
     with open(modelfile_path, "w") as f:
         f.write(f"""FROM ./model-q4_k_m.gguf
 TEMPLATE \"\"\"<|im_start|>system
@@ -69,8 +71,15 @@ PARAMETER temperature 0.0
 PARAMETER stop <|im_end|>
 PARAMETER stop <|endoftext|>
 """)
-    print(f"=== Step 4: Generated Ollama Modelfile at {modelfile_path} ===")
-    print("Run: ollama create universal-nl2sql -f " + modelfile_path)
+
+    if os.path.exists(gguf_binary):
+        print(f"=== Step 4: Verified GGUF binary at {gguf_binary} ===")
+        print(f"=== Generated Ollama Modelfile at {modelfile_path} ===")
+        print("Run: ollama create universal-nl2sql -f " + modelfile_path)
+    else:
+        print(f"=== Step 4: Ollama Modelfile generated at {modelfile_path} ===")
+        print(f"[Notice] ./model-q4_k_m.gguf is not yet compiled. Complete the llama.cpp conversion above before running:")
+        print("  ollama create universal-nl2sql -f " + modelfile_path)
 
 
 if __name__ == "__main__":

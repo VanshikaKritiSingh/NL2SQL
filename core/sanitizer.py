@@ -16,8 +16,9 @@ from sqlglot import exp
 @dataclass(frozen=True, slots=True)
 class ParameterizedStatement:
     sql: str
-    params: Tuple[Any, ...]
+    params: List[Any]
     dialect: str
+    statement_type: str = "SELECT"
 
 
 class SanitizationError(ValueError):
@@ -205,10 +206,13 @@ def sanitizeAndExtractParametersFromSqlAst(sql: str, dialect: str = "postgres") 
     check = sqlglot.parse_one(result_sql, dialect=dialect)
     verifyAbstractSyntaxTreeContainsNoRawLiterals(check, dialect=dialect)
 
+    stmt_type = (parsed.key if hasattr(parsed, "key") else parsed.__class__.__name__).upper()
+
     return ParameterizedStatement(
         sql=result_sql,
-        params=tuple(params),
+        params=list(params),
         dialect=dialect,
+        statement_type=stmt_type,
     )
 
 

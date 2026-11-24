@@ -1,13 +1,45 @@
-# Core Runtime & Development Dependencies
-# Lightweight packages for SQL AST transpilation, static validation, FastAPI server, and testing.
-# Offline ML fine-tuning dependencies are isolated in offline/training/requirements-train.txt.
+# ==============================================================================
+# NL2SQL Production Pipeline — Core & Multi-Database Dependencies
+# ==============================================================================
 
+# --- Core Transpiler, Static Validation & AST Engine ---
 sqlglot>=25.0.0
 networkx>=3.0
 pydantic>=2.11.0
+
+# --- API Server & WebSockets ---
 fastapi>=0.115.0
 uvicorn[standard]>=0.34.0
 websockets>=15.0.0
 python-multipart>=0.0.20
 httpx>=0.27.0
+
+# --- Hugging Face Hub (Model & Adapter Download / Upload) ---
+huggingface_hub>=0.23.0
+
+# --- Database Management System Connectors ---
+# PostgreSQL Wire (CockroachDB, Redshift, Timescale, Supabase)
+psycopg2-binary>=2.9.9
+
+# MySQL / MariaDB / TiDB Wire
+pymysql>=1.1.0
+cryptography>=42.0.0
+
+# Embedded In-Process Columnar
+duckdb>=1.0.0
+
+# ClickHouse Analytical DBMS
+clickhouse-connect>=0.7.0
+
+# Document Store (MongoDB)
+pymongo>=4.6.0
+
+# Key-Value & In-Memory (Redis)
+redis>=5.0.0
+
+# Cloud & Wide-Column NoSQL
+boto3>=1.34.0
+cassandra-driver>=3.29.0
+
+# --- Testing & Quality Assurance ---
 pytest>=8.0.0

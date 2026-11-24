@@ -52,10 +52,10 @@ Last Updated: Phase 1 & 2 Implementation (Core & Offline Suites Complete)
 
 ## 4. Paradigm Suggestor & Intent Router (`core/paradigm_suggestor.py`)
 - **Status:** Implemented & Verified (Stage 0: Auto Mode & Guardrails).
-- **Pipeline Role:** Speculatively classifies user intent into database paradigms (Relational SQL, Graph openCypher, Document NoSQL, Key-Value, Column-Family OLAP, Time-Series) and routes Auto Mode.
+- **Pipeline Role:** Classifies user intent into database paradigms (Relational SQL, Graph openCypher, Document NoSQL, Key-Value, Column-Family OLAP, Time-Series) and routes Auto Mode.
 - **Architecture:**
-  - **CLEF Discourse & Structural Drafter:** CPU-efficient regex pattern mining (< 2ms latency).
-  - **Confidence-Scheduled Speculative Verification:** High confidence drafts (>0.85) route immediately; ambiguous queries trigger lightweight LLM verification.
+  - **Keyword & Structural Intent Matcher:** CPU-efficient pattern matching (< 2ms latency).
+  - **Confidence-Gated Verification:** High confidence drafts (>0.85) route immediately; ambiguous queries consult an LLM verifier when one is supplied.
   - **Auto Mode Routing:** Recommends optimal storage engines with educational trade-off explanations.
   - **Manual Divergence Guardrail:** When a user manually selects an engine that differs from the optimal paradigm (e.g. asking for multi-hop graph traversals on PostgreSQL), generates a structured `Paradigm Divergence Warning` while strictly executing the user's explicit choice.
 

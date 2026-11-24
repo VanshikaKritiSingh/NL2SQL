@@ -28,7 +28,7 @@ async def processHumanApprovalDecisionGate(query_id: str, request: ApprovalReque
         )
         await asyncio.sleep(0.2)
         
-        # Stage 15: Transaction Wrapper & CAS Checkpoint
+        # Stage 15: Transaction Wrapper & Pre-Commit Checkpoint
         await broadcast_event(
             request.user_id,
             PipelineStageEvent(
@@ -36,7 +36,7 @@ async def processHumanApprovalDecisionGate(query_id: str, request: ApprovalReque
                 stage_number=15,
                 stage_name=STAGE_NAMES[15],
                 status="completed",
-                message="Dolt commit created: 9e4f2a (checkpoint secured)",
+                message="Pre-Commit Verification: Checkpoint established for transactional rollback.",
             ),
         )
         await asyncio.sleep(0.2)

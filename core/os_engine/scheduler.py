@@ -12,6 +12,7 @@ Algorithm:
 import threading
 import time
 from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import Any, Callable, Dict, Optional
@@ -71,12 +72,13 @@ class WFQScheduler:
         self._lock = threading.Lock()
         self._work_event = threading.Event()
         self._inflight_reads = 0
+        self._inflight_writes = 0
         self._ddl_pending = False          # DDL barrier flag
         self._max_inflight_reads = max_inflight_reads
         self._arrival_counter = 0
+        self._executor = ThreadPoolExecutor(max_workers=max(max_inflight_reads + 4, 8), thread_name_prefix="WFQWorker")
         self._worker = threading.Thread(target=self._run, daemon=True, name="WFQScheduler")
         self._running = False
-        # ponytail: global lock on inflight counter; per-table locking when throughput is proven bottleneck
 
     def startSchedulerWorkerThread(self):
         self._running = True
@@ -85,6 +87,10 @@ class WFQScheduler:
     def stopSchedulerWorkerThread(self):
         self._running = False
         self._work_event.set()
+        try:
+            self._executor.shutdown(wait=False)
+        except Exception:
+            pass
 
     def submitQueryTaskToScheduler(self, query_id: str, kind: QueryKind, user_role: str, fn: Callable[[], Any]) -> "ScheduledQuery":
         with self._lock:
@@ -124,7 +130,7 @@ class WFQScheduler:
             )
 
             # DDL fires only when: no pre-DDL work is still queued AND nothing is in-flight
-            if not pre_ddl_queued and self._inflight_reads == 0:
+            if not pre_ddl_queued and self._inflight_reads == 0 and self._inflight_writes == 0:
                 self._queues[2].popleft()
                 return ddl_candidate
 
@@ -167,6 +173,20 @@ class WFQScheduler:
         self._queues[best_queue_idx].remove(best)
         return best
 
+    def _execute_task(self, candidate: ScheduledQuery):
+        try:
+            candidate.result = candidate.fn()
+        except Exception as e:
+            candidate.error = e
+        finally:
+            candidate.done_event.set()
+            with self._lock:
+                if candidate.kind == QueryKind.READ:
+                    self._inflight_reads -= 1
+                elif candidate.kind == QueryKind.WRITE:
+                    self._inflight_writes -= 1
+            self._work_event.set()
+
     def _run(self):
         while self._running:
             self._work_event.wait(timeout=0.05)
@@ -178,24 +198,18 @@ class WFQScheduler:
 
             while True:
                 with self._lock:
+                    if self._inflight_reads >= self._max_inflight_reads:
+                        break
                     candidate = self._next_candidate()
                     if candidate is None:
                         break
                     if candidate.kind == QueryKind.READ:
                         self._inflight_reads += 1
+                    elif candidate.kind == QueryKind.WRITE:
+                        self._inflight_writes += 1
 
-                # Execute outside the lock so other threads can submit
-                try:
-                    candidate.result = candidate.fn()
-                except Exception as e:
-                    candidate.error = e
-                finally:
-                    candidate.done_event.set()
-                    if candidate.kind == QueryKind.READ:
-                        with self._lock:
-                            self._inflight_reads -= 1
-                            # nudge event so DDL can check inflight==0
-                        self._work_event.set()
+                # Execute asynchronously via ThreadPoolExecutor so multiple reads run in parallel
+                self._executor.submit(self._execute_task, candidate)
 
 
 

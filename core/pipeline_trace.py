@@ -116,22 +116,33 @@ def execute_pipeline_trace(query: str, schema_dict: Optional[Dict[str, TableMeta
         }
     }
 
-    # Step 3: Qwen2.5-Coder + LoRA Generation (Canonical AST Synthesis)
+    # Step 3: Canonical AST Synthesis / Model Generation
     t0 = time.perf_counter()
     from core.orchestrator import SemanticSQLSynthesizer
-    synthesizer = SemanticSQLSynthesizer()
-    canonical_sql = synthesizer.synthesize(query, linked_ctx)
+    from core.llm import LLMClient
+    
+    llm = LLMClient()
+    llm_available = llm.is_available()
+    if llm_available:
+        engine_label = "Qwen2.5-Coder LLM Generation"
+        adapter_label = "qwen2.5-coder-7b-instruct (live Ollama daemon)"
+        canonical_sql = llm.generate_sql(query, context_ddl=linked_ctx.prompt_ddl)
+    else:
+        engine_label = "AST Semantic SQL Synthesizer (Offline Mode)"
+        adapter_label = "none (offline heuristic fallback)"
+        synthesizer = SemanticSQLSynthesizer()
+        canonical_sql = synthesizer.synthesize(query, linked_ctx)
     t1 = time.perf_counter()
 
     step3_data = {
         "step_number": 3,
-        "step_name": "Qwen2.5-Coder + LoRA Fine-Tuned Generation",
+        "step_name": engine_label,
         "duration_ms": round((t1 - t0) * 1000, 2),
         "input": {
             "system_prompt": "Expert Text-to-Universal-SQL Compiler (ChatML format)",
             "context_ddl": linked_ctx.prompt_ddl,
             "user_question": query,
-            "lora_adapter": "qwen2.5-coder-7b-qlora (r=16, alpha=32)",
+            "engine_backend": adapter_label,
         },
         "output": {
             "canonical_sql": canonical_sql,

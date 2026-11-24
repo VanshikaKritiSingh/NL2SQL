@@ -83,7 +83,19 @@ class FakeSchemaProvider(SchemaProvider):
     would read from a DB or config store.
     """
 
-    def __init__(self, schema: Dict):
+    def __init__(self, schema: Optional[Dict] = None, **kwargs):
+        if schema is None:
+            schema = {"tables": []}
+            if "tables" in kwargs:
+                for t in kwargs["tables"]:
+                    cols = kwargs.get("columns", {}).get(t, [])
+                    cols_dict = {c: "VARCHAR(255)" for c in cols} if isinstance(cols, list) else (cols or {})
+                    t_entry = {
+                        "name": t,
+                        "columns": cols_dict,
+                        "indexes": {f"idx_{t}": kwargs.get("indexed_columns", {}).get(t, [])} if kwargs.get("indexed_columns") else {}
+                    }
+                    schema["tables"].append(t_entry)
         self._schema = schema
         self._tables: Dict[str, TableSpec] = {}
         self._build()
@@ -113,30 +125,44 @@ class FakeSchemaProvider(SchemaProvider):
                 nullable=nullable,
             )
 
+    def _lookup_table(self, name: str) -> Optional[TableSpec]:
+        if not name:
+            return None
+        if name in self._tables:
+            return self._tables[name]
+        lower = name.lower()
+        for k, v in self._tables.items():
+            if k.lower() == lower:
+                return v
+        return None
+
     # SchemaProvider API -------------------------------------------------
     def retrieveAllCatalogTableNames(self) -> Tuple[str, ...]:
         return tuple(self._tables.keys())
 
     def retrieveTableMetadataSpecificationByName(self, name: str) -> Optional[Dict]:
-        if name not in self._tables:
+        tbl = self._lookup_table(name)
+        if tbl is None:
             return None
         return {
-            "columns": self._tables[name].columns,
-            "pk": list(self._tables[name].pk),
-            "fks": dict(self._tables[name].fks),
-            "indexes": {idx: list(cols) for idx, cols in self._tables[name].indexes.items()},
-            "row_count": self._tables[name].row_count,
+            "columns": tbl.columns,
+            "pk": list(tbl.pk),
+            "fks": dict(tbl.fks),
+            "indexes": {idx: list(cols) for idx, cols in tbl.indexes.items()},
+            "row_count": tbl.row_count,
         }
 
     def retrieveColumnSpecificationsForTable(self, table_name: str) -> Tuple[Tuple[str, str], ...]:
-        if table_name not in self._tables:
+        tbl = self._lookup_table(table_name)
+        if tbl is None:
             return ()
-        return tuple((col, typ) for col, typ in self._tables[table_name].columns.items())
+        return tuple((col, typ) for col, typ in tbl.columns.items())
 
     def retrieveEstimatedTableRowCount(self, table_name: str) -> int:
-        if table_name not in self._tables:
+        tbl = self._lookup_table(table_name)
+        if tbl is None:
             return 0
-        return self._tables[table_name].row_count
+        return tbl.row_count
 
     get_tables = retrieveAllCatalogTableNames
     get_table = retrieveTableMetadataSpecificationByName

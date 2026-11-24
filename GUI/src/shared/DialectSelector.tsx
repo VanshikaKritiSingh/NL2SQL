@@ -11,9 +11,9 @@ interface DialectCategory {
 
 const DIALECT_CATEGORIES: DialectCategory[] = [
   {
-    category: 'Speculative Auto Mode',
+    category: 'Auto Mode',
     options: [
-      { id: 'auto', label: 'Auto-Detect (CLEF / DSpark Speculative)', badge: 'Recommended' },
+      { id: 'auto', label: 'Auto-Detect (Connected DBMS / Intent Routing)', badge: 'Recommended' },
     ],
   },
   {

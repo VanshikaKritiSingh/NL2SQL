@@ -88,3 +88,82 @@ def testPipelineAuditLogAppendsAndFiltersEventRecords(tmp_path):
     items = log.listAuditTrailEventRecords(user_id="test-user")
     assert len(items) == 1
     assert items[0].query_id == "q-100"
+
+
+def testLockManagerWaiterPromotionReleasesProperly():
+    """Verify that waiter-promoted locks are recorded in _txn_locks and released without leaking (DA-08)."""
+    import threading
+    lm = LockManager()
+
+    # txn-1 takes exclusive lock
+    assert lm.acquire("txn-1", "accounts", LockMode.X) is True
+
+    promoted_event = threading.Event()
+    def waiter_thread():
+        # txn-2 will block until txn-1 releases
+        assert lm.acquire("txn-2", "accounts", LockMode.X, timeout_s=3.0) is True
+        promoted_event.set()
+
+    t = threading.Thread(target=waiter_thread)
+    t.start()
+
+    # Wait briefly to ensure txn-2 is enqueued as waiter
+    time.sleep(0.05)
+    assert len(lm._table["accounts"].waiters) == 1
+
+    # txn-1 releases, promoting txn-2
+    lm.release_all("txn-1")
+    assert promoted_event.wait(timeout=1.0) is True
+    t.join()
+
+    # Verify txn-2 is registered in _txn_locks
+    assert "accounts" in lm._txn_locks["txn-2"]
+    assert "txn-2" in lm._table["accounts"].holders
+
+    # txn-2 releases all locks
+    lm.release_all("txn-2")
+
+    # Table entry must be cleanly removed or empty
+    assert "accounts" not in lm._table or not lm._table["accounts"].holders
+
+
+def testWFQSchedulerConcurrentReaders():
+    """Verify WFQScheduler runs concurrent READ tasks using worker thread pool (DA-11)."""
+    import threading
+    scheduler = WFQScheduler(max_inflight_reads=4)
+    scheduler.start()
+
+    active_reads = 0
+    max_concurrent = 0
+    lock = threading.Lock()
+    barrier = threading.Barrier(3)
+
+    def slow_read():
+        nonlocal active_reads, max_concurrent
+        with lock:
+            active_reads += 1
+            if active_reads > max_concurrent:
+                max_concurrent = active_reads
+        try:
+            barrier.wait(timeout=2.0)
+            time.sleep(0.05)
+        finally:
+            with lock:
+                active_reads -= 1
+        return "ok"
+
+    try:
+        t1 = scheduler.submit("q-1", QueryKind.READ, "analyst", slow_read)
+        t2 = scheduler.submit("q-2", QueryKind.READ, "analyst", slow_read)
+        t3 = scheduler.submit("q-3", QueryKind.READ, "analyst", slow_read)
+
+        t1.done_event.wait(timeout=3.0)
+        t2.done_event.wait(timeout=3.0)
+        t3.done_event.wait(timeout=3.0)
+
+        assert t1.result == "ok"
+        assert t2.result == "ok"
+        assert t3.result == "ok"
+        assert max_concurrent >= 2  # Proves concurrent execution occurred!
+    finally:
+        scheduler.stop()

@@ -20,14 +20,14 @@ try:
         TrainingArguments,
     )
     from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
-    from trl import SFTTrainer
+    from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
     from datasets import load_dataset
     DEPENDENCIES_AVAILABLE = True
 except ImportError:
     DEPENDENCIES_AVAILABLE = False
 
 
-def format_chat_prompt(sample: dict) -> dict:
+def format_chat_prompt(sample: dict, tokenizer=None) -> dict:
     """
     Formats the sample into Qwen2.5-Coder ChatML instruction template.
     """
@@ -43,7 +43,15 @@ def format_chat_prompt(sample: dict) -> dict:
         {"role": "user", "content": user_prompt},
         {"role": "assistant", "content": assistant_response},
     ]
-    return {"text": messages}
+    if tokenizer is not None and hasattr(tokenizer, "apply_chat_template"):
+        formatted_text = tokenizer.apply_chat_template(messages, tokenize=False)
+    else:
+        formatted_text = (
+            f"<|im_start|>system\n{system_prompt}<|im_end|>\n"
+            f"<|im_start|>user\n{user_prompt}<|im_end|>\n"
+            f"<|im_start|>assistant\n{assistant_response}<|im_end|>"
+        )
+    return {"text": formatted_text}
 
 
 def train(
@@ -99,18 +107,19 @@ def train(
     model.print_trainable_parameters()
 
     # 4. Load Dataset
-    if os.path.exists(dataset_path):
-        dataset = load_dataset("json", data_files=dataset_path, split="train")
-    else:
-        print(f"[Warning] Dataset path {dataset_path} not found. Creating dummy dataset.")
-        from datasets import Dataset
-        dataset = Dataset.from_dict({
-            "schema": ["CREATE TABLE users (id INT PRIMARY KEY, name TEXT);"],
-            "question": ["Find all user names."],
-            "sql": ["SELECT name FROM users;"]
-        })
+    if not os.path.exists(dataset_path):
+        raise FileNotFoundError(
+            f"Training dataset '{dataset_path}' not found! Please run offline/datasets/prepare_dataset.py "
+            f"or provide a valid JSON dataset path before training."
+        )
+    dataset = load_dataset("json", data_files=dataset_path, split="train")
+    dataset = dataset.map(lambda s: format_chat_prompt(s, tokenizer=tokenizer))
 
-    # 5. Training Arguments
+    # 5. Data Collator for Completion-Only LM (loss computed strictly on SQL tokens)
+    response_template = "<|im_start|>assistant\n"
+    collator = DataCollatorForCompletionOnlyLM(response_template=response_template, tokenizer=tokenizer)
+
+    # 6. Training Arguments
     training_args = TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=epochs,
@@ -128,10 +137,11 @@ def train(
         report_to="none",
     )
 
-    # 6. SFT Trainer
+    # 7. SFT Trainer
     trainer = SFTTrainer(
         model=model,
         train_dataset=dataset,
+        data_collator=collator,
         peft_config=peft_config,
         dataset_text_field="text",
         max_seq_length=2048,

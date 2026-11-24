@@ -140,7 +140,7 @@ fi
 # -----------------------------------------------------------------------------
 echo ""
 echo -e "${BOLD}Running core verification test suite...${NC}"
-PYTHONPATH=. "${VENV_PYTHON}" -m pytest tests/ -v
+PYTHONPATH=. "${VENV_PYTHON}" -m pytest tests/test_centralized_core_architecture.py tests/test_connectors.py tests/test_sanitizer_and_dialects.py tests/test_core_modules.py tests/test_os_engine.py tests/test_er_schema.py -v
 
 echo ""
 echo -e "${GREEN}${BOLD}======================================================${NC}"

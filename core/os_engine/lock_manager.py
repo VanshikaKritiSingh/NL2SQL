@@ -151,7 +151,7 @@ class LockManager:
 
                 # Grant to next compatible waiter(s)
                 if not entry.holders and entry.waiters:
-                    self._grant_waiters(entry)
+                    self._grant_waiters(entry, resource)
 
                 if not entry.holders and not entry.waiters:
                     del self._table[resource]
@@ -170,7 +170,7 @@ class LockManager:
     acquire = acquireResourceLockWithTimeout
     release_all = releaseAllHeldResourceLocks
 
-    def _grant_waiters(self, entry: LockEntry):
+    def _grant_waiters(self, entry: LockEntry, resource: str = ""):
         """Grant next waiter(s) in FIFO order (S-locks can batch-grant; X-lock grants one)."""
         if not entry.waiters:
             return
@@ -181,6 +181,8 @@ class LockManager:
             entry.waiters.pop(0)
             entry.holders.add(first_txn)
             entry.mode = LockMode.X
+            if resource:
+                self._txn_locks[first_txn].add(resource)
             first_event.set()
         else:
             # batch-grant all leading S-lock waiters
@@ -188,6 +190,8 @@ class LockManager:
             while entry.waiters and entry.waiters[0][1] == LockMode.S:
                 txn_id, _, ev = entry.waiters.pop(0)
                 entry.holders.add(txn_id)
+                if resource:
+                    self._txn_locks[txn_id].add(resource)
                 ev.set()
 
 

@@ -38,12 +38,12 @@ flowchart TD
     classDef target fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#f8fafc;
     classDef dispatch fill:#831843,stroke:#fb7185,stroke-width:2px,color:#f8fafc;
 
-    NL["User Natural Language Query"]:::intake --> PS["paradigm_suggestor.py<br/>Stage 0: CLEF Intent Drafter"]:::intake
+    NL["User Natural Language Query"]:::intake --> PS["paradigm_suggestor.py<br/>Stage 0: Intent & Paradigm Router"]:::intake
     
-    subgraph Speculative_Routing ["Speculative Intent Routing (DSpark Principles)"]
+    subgraph Intent_Routing ["DBMS Paradigm & Intent Routing"]
         PS --> CONF{"Confidence Check<br/>(threshold = 0.85)"}:::intake
         CONF -->|"Confidence ≥ 0.85"| FAST["Fast-Path Execution Route"]:::intake
-        CONF -->|"Confidence < 0.85"| VERIFY["Base Model Verification Gate"]:::intake
+        CONF -->|"Confidence < 0.85"| VERIFY["LLM Verification Gate (when configured)"]:::intake
         FAST --> PARADIGM["Selected Paradigm & Recommended Engines"]:::intake
         VERIFY --> PARADIGM
     end
@@ -76,16 +76,16 @@ flowchart TD
 
 ---
 
-## Speculative Intent Routing State Machine
+## Intent & Paradigm Routing State Machine
 
-Inspired by **DSpark** (Cheng et al., 2026), intent classification uses confidence-scheduled speculative drafting to maintain low inference latencies:
+Intent classification is deterministic: pattern/rules matching resolves the DBMS paradigm in under 2ms, and an optional LLM verifier is consulted only for low-confidence drafts when one is configured:
 
 ```mermaid
 stateDiagram-v2
     [*] --> Intake: Query Received
     
     state Intake {
-        [*] --> DiscourseMining: CLEF Regex Pattern Matcher
+        [*] --> DiscourseMining: Keyword & Pattern Matcher
         DiscourseMining --> ScoreConfidence: Extract Structural Features
     }
     
@@ -93,7 +93,7 @@ stateDiagram-v2
     ScoreConfidence --> SpeculativeFallback: Confidence < 0.85
     
     state SpeculativeFallback {
-        [*] --> LLMVerification: Lightweight Verification Call
+        [*] --> LLMVerification: LLM Verifier (if configured)
         LLMVerification --> ResolvedIntent: Verified Paradigm
     }
     
@@ -117,8 +117,8 @@ stateDiagram-v2
 ## Core Components Catalog
 
 ### 1. `core/paradigm_suggestor.py`
-- **CLEF Discourse & Structural Drafter:** CPU-efficient regex pattern mining running in under 2ms to detect graph traversal paths, time-series windows, nested JSON structures, or point lookups.
-- **Speculative Confidence Scheduler:** Drafts with confidence $\ge 0.85$ route immediately; ambiguous queries trigger lightweight model verification.
+- **Keyword & Structural Intent Matcher:** CPU-efficient pattern matching running in under 2ms to detect graph traversal paths, time-series windows, nested JSON structures, or point lookups.
+- **Confidence-Gated Routing:** Drafts with confidence $\ge 0.85$ route immediately; ambiguous queries consult an LLM verifier when one is supplied.
 - **Auto Mode Routing:** Recommends optimal storage engines with educational trade-off explanations.
 - **Manual Divergence Guardrail:** When a user selects a sub-optimal engine (e.g., executing multi-hop recursive queries on standard MySQL), generates a structured `Paradigm Divergence Warning` while strictly honoring user intent.
 
@@ -242,8 +242,8 @@ PYTHONPATH=. ./.venv/bin/pytest tests/ -v
 ```
 
 ```
-============================== 30 passed in 1.87s ==============================
-- CLEF Drafter Intent Routing (Graph, Document, KV, OLAP): PASSED
+============================== 81 passed in 72.84s ==============================
+- Paradigm Intent Routing (Graph, Document, KV, OLAP): PASSED
 - Paradigm Suggestor Auto Mode & Manual Guardrails: PASSED
 - Dialect Transpilation (PostgreSQL, MySQL, SQLite, Cypher, MQL): PASSED
 - Categorical Value Trie Grounding: PASSED

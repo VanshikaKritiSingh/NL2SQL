@@ -1,5 +1,6 @@
 // src/shared/TopBar.tsx
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Database,
   Table,
@@ -51,6 +52,8 @@ export const TopBar: React.FC = () => {
   const [isAuditOpen, setIsAuditOpen] = useState(false);
   const [dbStatus, setDbStatus] = useState<{ connected: boolean; database?: string; connector_type?: string } | null>(null);
 
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
+  const [settingsPos, setSettingsPos] = useState({ top: 48, right: 16 });
   const settingsRef = useRef<HTMLDivElement>(null);
   const schema = useSchemaStore((s) => s.schema);
   const schemaVersion = useSchemaStore((s) => s.schemaVersion);
@@ -77,7 +80,12 @@ export const TopBar: React.FC = () => {
   // Close settings on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+      if (
+        settingsRef.current &&
+        !settingsRef.current.contains(e.target as Node) &&
+        settingsButtonRef.current &&
+        !settingsButtonRef.current.contains(e.target as Node)
+      ) {
         setIsSettingsOpen(false);
       }
     };
@@ -93,6 +101,28 @@ export const TopBar: React.FC = () => {
     const dialect = dbStatus?.connector_type || (targetDialect === 'auto' ? 'mysql' : targetDialect);
     getLiveSchema(userId, dialect).then(updateSchema).catch(() => {});
   }, [userId, schemaVersion, dbStatus?.connected, dbStatus?.connector_type, targetDialect]);
+
+  // Update settings popover coordinates when opening or window resizing (DA-19)
+  useEffect(() => {
+    const updatePosition = () => {
+      if (settingsButtonRef.current) {
+        const rect = settingsButtonRef.current.getBoundingClientRect();
+        setSettingsPos({
+          top: rect.bottom + 6,
+          right: Math.max(16, window.innerWidth - rect.right),
+        });
+      }
+    };
+    if (isSettingsOpen) {
+      updatePosition();
+      window.addEventListener('resize', updatePosition);
+      window.addEventListener('scroll', updatePosition, true);
+    }
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [isSettingsOpen]);
 
   const checkDbStatus = async () => {
     try {
@@ -289,6 +319,7 @@ export const TopBar: React.FC = () => {
 
           {/* Unified Settings Option Button */}
           <button
+            ref={settingsButtonRef}
             onClick={() => setIsSettingsOpen((prev) => !prev)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-pill)] text-xs font-medium cursor-pointer transition-colors duration-200 shrink-0 whitespace-nowrap border ${
               isSettingsOpen
@@ -303,13 +334,18 @@ export const TopBar: React.FC = () => {
             <span>Settings</span>
           </button>
 
-          {/* Unified Settings Popover / Dropdown Menu */}
-          {isSettingsOpen && (
+          {/* Unified Settings Popover / Dropdown Menu rendered via Portal to prevent clipping (DA-19) */}
+          {isSettingsOpen && typeof document !== 'undefined' && createPortal(
             <div
               ref={settingsRef}
               role="dialog"
               aria-label="Settings and System Options"
-              className="absolute right-0 top-11 w-[340px] sm:w-[400px] rounded-[var(--radius-panel)] border border-[var(--border-hairline)] bg-[var(--bg-card)] shadow-2xl z-50 overflow-hidden flex flex-col text-xs transition-colors duration-200"
+              style={{
+                position: 'fixed',
+                top: `${settingsPos.top}px`,
+                right: `${settingsPos.right}px`,
+              }}
+              className="w-[340px] sm:w-[400px] rounded-[var(--radius-panel)] border border-[var(--border-hairline)] bg-[var(--bg-card)] shadow-2xl z-[200] overflow-hidden flex flex-col text-xs transition-colors duration-200 animate-in fade-in zoom-in-95"
             >
               {/* Settings Header */}
               <div className="px-4 py-3 border-b border-[var(--border-hairline)] flex items-center justify-between bg-[var(--bg-panel-alt)]/50">
@@ -486,7 +522,8 @@ export const TopBar: React.FC = () => {
                   </div>
                 </div>
               </div>
-            </div>
+            </div>,
+            document.body
           )}
         </div>
       </header>
