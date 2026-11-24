@@ -167,3 +167,76 @@ def testWFQSchedulerConcurrentReaders():
         assert max_concurrent >= 2  # Proves concurrent execution occurred!
     finally:
         scheduler.stop()
+
+
+def testWFQSchedulerSerializesBackToBackDDL():
+    """Two DDLs submitted back-to-back must never overlap (_inflight_ddl guard)."""
+    import threading
+    scheduler = WFQScheduler(max_inflight_reads=4)
+    scheduler.start()
+
+    state = {"active": 0, "peak": 0, "events": []}
+    lock = threading.Lock()
+
+    def ddl(tag):
+        def fn():
+            with lock:
+                state["active"] += 1
+                state["peak"] = max(state["peak"], state["active"])
+                state["events"].append(f"{tag}-start")
+            time.sleep(0.15)
+            with lock:
+                state["active"] -= 1
+                state["events"].append(f"{tag}-end")
+            return tag
+        return fn
+
+    try:
+        a = scheduler.submit("ddl-a", QueryKind.DDL, "admin", ddl("A"))
+        b = scheduler.submit("ddl-b", QueryKind.DDL, "admin", ddl("B"))
+
+        for q in (a, b):
+            q.done_event.wait(timeout=5.0)
+
+        assert state["peak"] == 1, f"DDL statements overlapped (peak {state['peak']})"
+        assert state["events"].index("B-start") > state["events"].index("A-end")
+        assert a.result == "A" and b.result == "B"
+    finally:
+        scheduler.stop()
+
+
+def testWFQSchedulerBlocksReadsWhileDDLInFlight():
+    """A READ submitted after a DDL starts must wait for that DDL to finish."""
+    import threading
+    scheduler = WFQScheduler(max_inflight_reads=4)
+    scheduler.start()
+
+    state = {"active": 0, "peak": 0, "events": []}
+    lock = threading.Lock()
+
+    def job(tag, duration):
+        def fn():
+            with lock:
+                state["active"] += 1
+                state["peak"] = max(state["peak"], state["active"])
+                state["events"].append(f"{tag}-start")
+            time.sleep(duration)
+            with lock:
+                state["active"] -= 1
+                state["events"].append(f"{tag}-end")
+            return tag
+        return fn
+
+    try:
+        ddl_q = scheduler.submit("ddl", QueryKind.DDL, "admin", job("DDL", 0.20))
+        time.sleep(0.05)  # let the DDL actually start executing
+        read_q = scheduler.submit("read", QueryKind.READ, "analyst", job("READ", 0.02))
+
+        for q in (ddl_q, read_q):
+            q.done_event.wait(timeout=5.0)
+
+        assert state["peak"] == 1, f"READ overlapped in-flight DDL (peak {state['peak']})"
+        assert state["events"].index("READ-start") > state["events"].index("DDL-end")
+        assert ddl_q.result == "DDL" and read_q.result == "READ"
+    finally:
+        scheduler.stop()

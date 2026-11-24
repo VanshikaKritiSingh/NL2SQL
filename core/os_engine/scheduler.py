@@ -4,9 +4,10 @@ core/os_engine/scheduler.py — WFQ Query Scheduler with Skip-Count Aging & DDL 
 Algorithm:
   - Three priority queues (0=READ, 1=WRITE, 2=DDL) weighted by user role.
   - Skip-count aging: a query skipped 5 times gets promoted one level.
-  - DDL Barrier: when a DDL enters the queue, all in-flight READ queries are
-    allowed to finish; new READ/WRITE queries queue *behind* the DDL preserving
-    arrival order. DDL executes only once the in-flight count hits zero.
+  - DDL Barrier: DDL is fully serialized. It starts only when no READ, WRITE or
+    other DDL is in flight, and while a DDL is executing nothing else is
+    dispatched. New READ/WRITE queries that arrive behind the DDL preserve
+    arrival order and wait for it to finish.
 """
 
 import threading
@@ -73,6 +74,7 @@ class WFQScheduler:
         self._work_event = threading.Event()
         self._inflight_reads = 0
         self._inflight_writes = 0
+        self._inflight_ddl = 0             # a DDL is executing; nothing else may dispatch
         self._ddl_pending = False          # DDL barrier flag
         self._max_inflight_reads = max_inflight_reads
         self._arrival_counter = 0
@@ -129,8 +131,14 @@ class WFQScheduler:
                 for tier in self._queues[:2] for c in tier
             )
 
-            # DDL fires only when: no pre-DDL work is still queued AND nothing is in-flight
-            if not pre_ddl_queued and self._inflight_reads == 0 and self._inflight_writes == 0:
+            # DDL fires only when: no pre-DDL work is still queued AND nothing at
+            # all is in-flight — reads, writes, or another DDL already executing.
+            if (
+                not pre_ddl_queued
+                and self._inflight_reads == 0
+                and self._inflight_writes == 0
+                and self._inflight_ddl == 0
+            ):
                 self._queues[2].popleft()
                 return ddl_candidate
 
@@ -185,6 +193,8 @@ class WFQScheduler:
                     self._inflight_reads -= 1
                 elif candidate.kind == QueryKind.WRITE:
                     self._inflight_writes -= 1
+                else:
+                    self._inflight_ddl -= 1
             self._work_event.set()
 
     def _run(self):
@@ -198,6 +208,10 @@ class WFQScheduler:
 
             while True:
                 with self._lock:
+                    # A DDL is executing — dispatch nothing until it completes.
+                    # Its completion sets _work_event, which re-enters this loop.
+                    if self._inflight_ddl > 0:
+                        break
                     if self._inflight_reads >= self._max_inflight_reads:
                         break
                     candidate = self._next_candidate()
@@ -207,6 +221,8 @@ class WFQScheduler:
                         self._inflight_reads += 1
                     elif candidate.kind == QueryKind.WRITE:
                         self._inflight_writes += 1
+                    else:
+                        self._inflight_ddl += 1
 
                 # Execute asynchronously via ThreadPoolExecutor so multiple reads run in parallel
                 self._executor.submit(self._execute_task, candidate)
