@@ -52,117 +52,46 @@ export const SqlInspector: React.FC = () => {
     setTimeout(() => setCopiedCellId(null), 2000);
   };
 
+  const tabCls = (active: boolean) =>
+    `relative h-full px-[10px] text-[12.5px] font-medium cursor-pointer bg-transparent border-0 border-b-2 transition-colors flex items-center gap-1.5 ${
+      active
+        ? 'text-[var(--text-heading)] font-semibold border-b-[var(--accent-primary)]'
+        : 'text-[var(--text-recessive)] border-b-transparent hover:text-[var(--text-heading)]'
+    }`;
+
   return (
-    <div className="flex flex-col h-full overflow-hidden shadow-lg transition-colors duration-200 bento-card rounded-[var(--radius-panel)] border border-[var(--border-subtle)] bg-[var(--bg-canvas)]">
-      {/* Header Toolbar */}
-      <div
-        className={`min-h-11 h-auto py-2 px-3.5 border-b flex flex-wrap gap-2 items-center justify-between shrink-0 transition-colors duration-200 ${
-          isDark
-            ? 'border-[var(--border-main)] bg-[var(--bg-panel-alt)]'
-            : 'border-[var(--border-subtle)] bg-[var(--bg-panel-alt)]'
-        }`}
-      >
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0 min-w-0">
-          <div className="flex items-center gap-1.5 font-bold text-xs text-[var(--text-heading)]">
-            <BookOpen className="w-4 h-4 text-[var(--accent-primary)]" aria-hidden="true" />
-            <span>Sequential SQL Cells</span>
-          </div>
-
-          {/* Cell Counter Pill */}
-          {blocks.length > 0 && (
-            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[var(--accent-primary)]/15 text-[var(--accent-primary)] border border-[var(--accent-primary)]/30">
-              {blocks.length} {blocks.length === 1 ? 'Command' : 'Commands'}
-            </span>
-          )}
-
-          {/* Auto Dialect Indicator with Hover Reason */}
-          {isAuto ? (
-            <div className="relative group/dialect inline-flex items-center">
-              <span
-                className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-[var(--radius-pill)] whitespace-nowrap shrink-0 cursor-help flex items-center gap-1 border transition-all ${
-                  isDark
-                    ? 'bg-[var(--accent-primary)]/15 border-[var(--accent-primary)]/40 text-[var(--accent-primary)] font-bold'
-                    : 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] border-[var(--btn-primary-bg)] font-bold'
-                }`}
-              >
-                <Zap className="w-3 h-3" />
-                <span>
-                  {hasResult
-                    ? `Auto -> ${resolvedDialect.toUpperCase()}`
-                    : 'Auto (Awaiting Prompt)'}
-                </span>
-                <Info className="w-2.5 h-2.5 opacity-80" />
+    <div className="flex flex-col h-full overflow-hidden bg-[var(--bg-canvas)]">
+      {/* 36px Primer Toolbar */}
+      <div className="h-9 shrink-0 px-3 border-b border-[var(--border-hairline)] bg-[var(--bg-panel)] flex items-stretch justify-between gap-2">
+        <div className="flex items-stretch">
+          <button onClick={() => setViewMode('notebook')} className={tabCls(viewMode === 'notebook')} title="Sequential command cells">
+            <span>SQL Cells</span>
+            {blocks.length > 0 && (
+              <span className="font-mono text-[10px] px-1.5 py-[1px] rounded-[10px] bg-[var(--bg-inset)] border border-[var(--border-hairline)] text-[var(--text-body)]">
+                {blocks.length}
               </span>
-
-              {/* Hover Tooltip with selection reason */}
-              <div className="absolute top-full left-0 mt-1.5 hidden group-hover/dialect:flex flex-col z-50 w-72 p-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-heading)] shadow-xl text-[11px] leading-relaxed pointer-events-none animate-in fade-in zoom-in-95 duration-150">
-                <div className="font-bold text-[10px] uppercase tracking-wider text-[var(--accent-primary)] mb-0.5 flex items-center gap-1">
-                  <span>💡 Target Dialect Selection</span>
-                </div>
-                <p className="font-normal text-[11px] text-[var(--text-body)]">
-                  {dialectReason}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <span className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded-[var(--radius-pill)] whitespace-nowrap shrink-0 ${
-              isDark
-                ? 'bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border-main)]'
-                : 'bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border-subtle)]'
-            }`}>
-              {targetDialect} Dialect
-            </span>
-          )}
+            )}
+          </button>
+          <button onClick={() => setViewMode('raw')} className={tabCls(viewMode === 'raw')} title="Raw compiled SQL">
+            <span>Raw SQL</span>
+          </button>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          {/* View Mode Toggle: Cells vs Raw Editor */}
-          <div className="flex items-center rounded-lg p-0.5 border border-[var(--border-subtle)] bg-[var(--bg-card)]">
-            <button
-              onClick={() => setViewMode('notebook')}
-              className={`flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md transition-all cursor-pointer ${
-                viewMode === 'notebook'
-                  ? 'bg-[var(--accent-primary)] text-white shadow-xs'
-                  : 'text-[var(--text-recessive)] hover:text-[var(--text-heading)]'
-              }`}
-              title="Sequential Cells: One command per block with purpose hover pop-up"
-            >
-              <BookOpen className="w-3 h-3" />
-              <span>Cells</span>
-            </button>
-            <button
-              onClick={() => setViewMode('raw')}
-              className={`flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md transition-all cursor-pointer ${
-                viewMode === 'raw'
-                  ? 'bg-[var(--accent-primary)] text-white shadow-xs'
-                  : 'text-[var(--text-recessive)] hover:text-[var(--text-heading)]'
-              }`}
-              title="Raw Editor: Unified SQL script view"
-            >
-              <FileCode className="w-3 h-3" />
-              <span>Raw</span>
-            </button>
-          </div>
+        <div className="flex items-center gap-2 pr-1">
+          <span className="font-mono text-[11px] text-[var(--text-recessive)] truncate max-w-[180px]">
+            {isAuto
+              ? hasResult ? `AUTO -> ${resolvedDialect.toUpperCase()}` : 'AUTO'
+              : targetDialect.toUpperCase()}
+          </span>
 
-          {/* Copy Entire Script Button */}
           {sql && (
             <button
               onClick={handleCopyAll}
-              className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-[var(--radius-control)] transition-colors duration-200 cursor-pointer shrink-0 whitespace-nowrap bg-[var(--bg-card)] border border-[var(--border-subtle)] text-[var(--text-body)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-heading)] shadow-xs"
-              title="Copy entire script to clipboard"
+              className="h-6 px-2 rounded-[6px] border border-[var(--border-hairline)] bg-[var(--bg-canvas)] text-[11px] font-medium text-[var(--text-body)] hover:bg-[var(--bg-hover)] cursor-pointer inline-flex items-center gap-1"
+              title="Copy entire SQL script"
             >
-              {copiedAll ? (
-                <>
-                  <Check aria-hidden="true" className="w-3.5 h-3.5 text-[var(--success)]" />
-                  <span className="text-[var(--success)] font-medium">Copied Script</span>
-                </>
-              ) : (
-                <>
-                  <Copy aria-hidden="true" className="w-3.5 h-3.5" />
-                  <span>Copy Script</span>
-                </>
-              )}
+              {copiedAll ? <Check className="w-3 h-3 text-[var(--success)]" /> : <Copy className="w-3 h-3" />}
+              <span>{copiedAll ? 'Copied' : 'Copy'}</span>
             </button>
           )}
         </div>
@@ -188,7 +117,7 @@ export const SqlInspector: React.FC = () => {
                 readOnly: true,
                 minimap: { enabled: false },
                 fontSize: 13,
-                fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                fontFamily: "'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
                 lineNumbers: 'on',
                 scrollBeyondLastLine: false,
                 wordWrap: 'on',

@@ -1,10 +1,9 @@
-// src/modules/query_intake/HistorySidebar.tsx
+// src/modules/query_intake/HistorySidebar.tsx — Primer IDE history rail
 import React from 'react';
 import { History, ChevronLeft, ChevronRight, CheckCircle, AlertCircle, ShieldAlert, Trash2, Database } from 'lucide-react';
 import { useQueryStore } from '../../store/useQueryStore';
 import { useAppStore } from '../../store/useAppStore';
 import { deleteHistoryItemApi, clearHistoryApi } from '../../api/queryApi';
-import { MOCK_UPDATE_APPROVAL } from '../../mock/mockData';
 import type { HistoryItem } from '../../types/query';
 
 export const HistorySidebar: React.FC = () => {
@@ -18,8 +17,6 @@ export const HistorySidebar: React.FC = () => {
   const setApprovalPayload = useQueryStore((s) => s.setApprovalPayload);
   const setCurrentView = useAppStore((s) => s.setCurrentView);
   const userId = useAppStore((s) => s.userId);
-  const theme = useAppStore((s) => s.theme);
-  const isDark = theme === 'dark';
 
   const handleSelectHistoryItem = (item: HistoryItem) => {
     if (item.is_mutating && item.status === 'approval_required') {
@@ -35,12 +32,7 @@ export const HistorySidebar: React.FC = () => {
           scan_type: 'INDEX_SCAN',
           warnings: ['Mutating query requires explicit confirmation before DBMS execution.'],
         },
-        security_check: {
-          deadlock_risk: 'none',
-          lock_level: 'TABLE',
-          privilege_ok: true,
-          flags: [],
-        },
+        security_check: { deadlock_risk: 'none', lock_level: 'TABLE', privilege_ok: true, flags: [] },
         diff_data: {
           diff_type: 'none',
           ddl_before: null,
@@ -80,21 +72,15 @@ export const HistorySidebar: React.FC = () => {
 
   if (!historySidebarOpen) {
     return (
-      <div
-        className={`w-10 border-r flex flex-col items-center py-3 shrink-0 transition-colors duration-300 ${
-          isDark
-            ? 'border-[var(--border-main)] bg-[var(--bg-header)]'
-            : 'border-[var(--border-subtle)] bg-[var(--bg-card)]'
-        }`}
-      >
+      <div className="w-9 shrink-0 border-r border-[var(--border-hairline)] bg-[var(--bg-panel)] flex flex-col items-center py-2.5">
         <button
           onClick={toggleHistorySidebar}
-          className="p-1.5 rounded-[var(--radius-control)] transition-colors duration-200 cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)]"
-          title="Expand Query History"
+          className="p-1.5 rounded-[6px] text-[var(--text-recessive)] hover:text-[var(--text-heading)] hover:bg-[var(--bg-hover)] cursor-pointer transition-colors"
+          title="Expand query history"
         >
-          <ChevronRight aria-hidden="true" className="w-4 h-4" />
+          <ChevronRight className="w-4 h-4" aria-hidden="true" />
         </button>
-        <div className="mt-4 [writing-mode:vertical-rl] rotate-180 text-[11px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
+        <div className="mt-4 [writing-mode:vertical-rl] rotate-180 text-[11px] font-mono uppercase tracking-[0.08em] text-[var(--text-recessive)]">
           History ({history.length})
         </div>
       </div>
@@ -102,53 +88,45 @@ export const HistorySidebar: React.FC = () => {
   }
 
   return (
-    <aside
-      className={`w-64 border-r flex flex-col shrink-0 transition-colors duration-300 ${
-        isDark
-          ? 'border-[var(--border-main)] bg-[var(--bg-header)]'
-          : 'border-[var(--border-subtle)] bg-[var(--bg-card)]'
-      }`}
-    >
-      {/* Header */}
-      <div
-        className={`h-11 px-3 border-b flex items-center justify-between transition-colors ${
-          isDark
-            ? 'border-[var(--border-main)] bg-[var(--bg-card-header)]'
-            : 'border-[var(--border-subtle)] bg-[var(--bg-card-header)]'
-        }`}
-      >
-        <div className="flex items-center gap-2 text-xs font-semibold">
-          <History aria-hidden="true" className={`w-3.5 h-3.5 ${isDark ? 'text-[var(--accent-primary)]' : 'text-[var(--accent-primary)]'}`} />
-          <span className="text-[var(--text-main)]">Query History</span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded-[var(--radius-pill)] font-mono bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border-subtle)]">
+    <aside className="w-[232px] shrink-0 border-r border-[var(--border-hairline)] bg-[var(--bg-panel)] flex flex-col min-h-0">
+      {/* Header — 36px Primer pane header */}
+      <div className="h-9 shrink-0 px-3 border-b border-[var(--border-hairline)] bg-[var(--bg-panel)] flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <History className="w-3.5 h-3.5 text-[var(--text-recessive)] shrink-0" aria-hidden="true" />
+          <span className="text-[11.5px] font-semibold uppercase tracking-[0.04em] text-[var(--text-recessive)] truncate">
+            Query History
+          </span>
+          <span className="font-mono text-[11px] px-1.5 py-[1px] rounded-[10px] bg-[var(--bg-inset)] border border-[var(--border-hairline)] text-[var(--text-body)]">
             {history.length}
           </span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 shrink-0">
           {history.length > 0 && (
             <button
               onClick={handleClearAll}
-              className="p-1 rounded-[var(--radius-control)] transition-colors duration-200 cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--danger)]"
+              className="p-1 rounded-[6px] text-[var(--text-recessive)] hover:text-[var(--danger)] hover:bg-[var(--bg-hover)] cursor-pointer transition-colors"
               title="Clear all history"
             >
-              <Trash2 aria-hidden="true" className="w-3.5 h-3.5" />
+              <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
           )}
           <button
             onClick={toggleHistorySidebar}
-            className="p-1 rounded-[var(--radius-control)] transition-colors duration-200 cursor-pointer hover:bg-[var(--bg-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)]"
-            title="Collapse Sidebar"
+            className="p-1 rounded-[6px] text-[var(--text-recessive)] hover:text-[var(--text-heading)] hover:bg-[var(--bg-hover)] cursor-pointer transition-colors"
+            title="Collapse sidebar"
           >
-            <ChevronLeft aria-hidden="true" className="w-4 h-4" />
+            <ChevronLeft className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
       </div>
 
-      {/* History Items List */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+      {/* Items */}
+      <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-1">
         {history.length === 0 ? (
-          <div className="p-4 text-center text-xs text-[var(--text-muted)]">
-            No queries in current session. Type a natural language question to start.
+          <div className="p-4 text-center text-[11.5px] text-[var(--text-recessive)] leading-relaxed">
+            No queries yet in this session.
+            <br />
+            Type a question below to begin.
           </div>
         ) : (
           history.map((item) => {
@@ -157,86 +135,67 @@ export const HistorySidebar: React.FC = () => {
               <div
                 key={item.query_id}
                 onClick={() => handleSelectHistoryItem(item)}
-                className={`p-2.5 rounded-[var(--radius-panel)] border transition-colors duration-200 cursor-pointer group relative ${
+                className={`group relative px-2.5 py-2 rounded-[6px] border cursor-pointer transition-colors ${
                   isSelected
-                    ? isDark
-                      ? 'bg-[var(--accent-primary)] border-[var(--accent-primary)] text-white shadow-md'
-                      : 'bg-[var(--accent-primary)] border-[var(--accent-primary)] text-white shadow-md'
-                    : isDark
-                    ? 'bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] border-[var(--border-panel)] hover:border-[var(--accent-primary)]/30'
-                    : 'bg-[var(--bg-panel)] hover:bg-[var(--bg-hover)] border-[var(--border-subtle)] hover:border-[var(--border-main)]'
+                    ? 'bg-[var(--bg-canvas)] border-[var(--border-hairline)] text-[var(--text-heading)]'
+                    : 'bg-transparent border-transparent text-[var(--text-body)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-heading)]'
                 }`}
               >
-                {/* Delete button on hover */}
                 <button
                   onClick={(e) => handleDeleteItem(e, item.query_id)}
-                  className={`absolute top-2 right-2 p-1 rounded-[var(--radius-control)] opacity-0 group-hover:opacity-100 transition-colors duration-200 cursor-pointer ${
-                    isSelected
-                      ? 'hover:bg-white/20 text-white/70 hover:text-white'
-                      : isDark
-                      ? 'hover:bg-[var(--danger-bg)] text-[var(--text-muted)] hover:text-[var(--danger)]'
-                      : 'hover:bg-[var(--danger-bg)] text-[var(--text-muted)] hover:text-[var(--danger)]'
-                  }`}
+                  className="absolute top-1.5 right-1.5 p-1 rounded-[4px] opacity-0 group-hover:opacity-100 text-[var(--text-recessive)] hover:text-[var(--danger)] hover:bg-[var(--bg-hover)] cursor-pointer transition-all"
                   title="Delete this query"
                 >
-                  <Trash2 aria-hidden="true" className="w-3 h-3" />
+                  <Trash2 className="w-3 h-3" aria-hidden="true" />
                 </button>
 
-                <div className="flex items-center justify-between mb-1 pr-4">
+                <div className="flex items-center justify-between mb-1 pr-5 gap-1">
                   <span
                     title={item.dialect_reason || undefined}
-                    className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded-[var(--radius-pill)] cursor-help ${
+                    className={`text-[10px] font-mono uppercase px-1.5 py-[1px] rounded-[4px] cursor-help truncate ${
                       isSelected
-                        ? 'bg-white/20 text-white border border-white/20'
-                        : item.target_dialect === 'auto'
-                        ? isDark
-                          ? 'bg-[var(--accent-primary)]/15 text-[var(--accent-primary)] border border-[var(--accent-primary)]/30 font-semibold'
-                          : 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] border border-[var(--btn-primary-bg)] font-semibold'
-                        : isDark
-                        ? 'bg-[var(--bg-subtle)] text-[var(--text-muted)]'
-                        : 'bg-[var(--bg-card-header)] text-[var(--text-muted)]'
+                        ? 'bg-[var(--accent-soft)] text-[var(--accent-primary)]'
+                        : 'bg-[var(--bg-inset)] text-[var(--text-recessive)]'
                     }`}
                   >
                     {item.target_dialect === 'auto' && item.selected_dialect
-                      ? `AUTO: ${item.selected_dialect}`
+                      ? `AUTO:${item.selected_dialect}`
                       : item.target_dialect}
                   </span>
-                  <span className={`text-[10px] font-mono ${isSelected ? 'text-white/70' : 'text-[var(--text-muted)]'}`}>
-                    {item.timestamp}
-                  </span>
+                  <span className="text-[10px] font-mono text-[var(--text-recessive)] shrink-0">{item.timestamp}</span>
                 </div>
 
-                <p className={`text-xs line-clamp-2 font-bold mb-1.5 ${
-                  isSelected ? 'text-white' : 'text-[var(--text-main)]'
-                }`}>
+                <p
+                  className={`text-[12px] leading-snug line-clamp-2 mb-1.5 ${
+                    isSelected ? 'font-semibold text-[var(--text-heading)]' : 'font-medium'
+                  }`}
+                >
                   {item.query_text}
                 </p>
 
-                <div className="flex items-center justify-between text-[10px]">
-                  <div className="flex items-center gap-1">
+                <div className="flex items-center justify-between gap-1 text-[10px]">
+                  <div className="flex items-center gap-1 min-w-0">
                     {item.status === 'completed' && (
-                      <span className={`flex items-center gap-1 font-medium ${isSelected ? 'text-[var(--success)]/80' : 'text-[var(--success)]'}`}>
-                        <CheckCircle aria-hidden="true" className="w-3 h-3" /> Preview
+                      <span className="flex items-center gap-1 font-medium text-[var(--success)]">
+                        <CheckCircle className="w-2.5 h-2.5 shrink-0" aria-hidden="true" /> Preview
                       </span>
                     )}
                     {item.status === 'approval_required' && (
-                      <span className={`flex items-center gap-1 font-medium ${isSelected ? 'text-[var(--warning)]/80' : 'text-[var(--warning)]'}`}>
-                        <ShieldAlert aria-hidden="true" className="w-3 h-3" /> Gate Review
+                      <span className="flex items-center gap-1 font-medium text-[var(--warning)]">
+                        <ShieldAlert className="w-2.5 h-2.5 shrink-0" aria-hidden="true" /> Gate
                       </span>
                     )}
                     {item.status === 'error' && (
-                      <span className={`flex items-center gap-1 font-medium ${isSelected ? 'text-[var(--danger)]/80' : 'text-[var(--danger)]'}`}>
-                        <AlertCircle aria-hidden="true" className="w-3 h-3" /> Blocked
+                      <span className="flex items-center gap-1 font-medium text-[var(--danger)]">
+                        <AlertCircle className="w-2.5 h-2.5 shrink-0" aria-hidden="true" /> Blocked
                       </span>
                     )}
                   </div>
 
                   {item.database_profile && (
-                    <span className={`flex items-center gap-0.5 text-[9px] font-mono truncate max-w-[90px] ${
-                      isSelected ? 'text-white/70' : isDark ? 'text-[var(--accent-primary)]/80' : 'text-[var(--text-muted)]'
-                    }`}>
-                      <Database aria-hidden="true" className="w-2.5 h-2.5 shrink-0" />
-                      <span className="truncate">{item.database_profile.replace('_', ' ')}</span>
+                    <span className="flex items-center gap-0.5 font-mono text-[9px] text-[var(--text-recessive)] truncate max-w-[80px]">
+                      <Database className="w-2.5 h-2.5 shrink-0" aria-hidden="true" />
+                      <span className="truncate">{item.database_profile}</span>
                     </span>
                   )}
                 </div>

@@ -209,228 +209,165 @@ export const NLQueryInput: React.FC = () => {
   const charCount = inputText.length;
 
   return (
-    <div className={`bento-card p-4 shadow-lg relative flex flex-col gap-2.5 transition-colors duration-200 rounded-[var(--radius-panel)] ${
-      isDark
-        ? 'bg-[var(--bg-card)] border-[var(--border-main)]'
-        : 'bg-[var(--bg-card)] border-[var(--border-subtle)]'
-    }`}>
-      {/* Top Header Row with DB Context Selector */}
-      <div className={`flex items-center justify-between text-xs pb-2 border-b border-dashed ${
-        isDark ? 'border-[var(--border-main)]' : 'border-[var(--border-subtle)]'
-      }`}>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Database aria-hidden="true" className={`w-3.5 h-3.5 ${isDark ? 'text-[var(--accent-primary)]' : 'text-[var(--accent-primary)]'}`} />
-          <div className="flex items-center gap-1.5">
-            <span className="font-semibold text-[var(--text-secondary)]">Connected DB Context:</span>
-            <select
-              value={databaseProfile || '__none__'}
-              onChange={(e) => handleDatabaseChange(e.target.value)}
-              className={`text-xs rounded-[var(--radius-control)] px-2 py-0.5 font-medium border cursor-pointer focus:outline-none focus:ring-1 focus:ring-[var(--border-focus)] transition-colors ${
-                isDark
-                  ? 'bg-[var(--bg-input)] border-[var(--border-main)] text-[var(--text-main)] hover:border-white/25'
-                  : 'bg-white border-[var(--border-subtle)] text-[var(--text-main)] hover:border-slate-400'
-              }`}
-              title={
-                databaseProfile === '__none__'
-                  ? 'No database context attached. Scratchpad mode for creating new databases or tables.'
-                  : isDbConnected
-                  ? `Active database context: '${databaseProfile}' (${connectedEngine?.toUpperCase() || 'DBMS'} socket active)`
-                  : `Active schema context profile: '${databaseProfile}' (Offline/Sample schema — click 'Connect DB' to attach live engine)`
-              }
-            >
-              <option
-                value="__none__"
-                className={isDark ? 'bg-[var(--bg-panel)] text-[var(--warning)] font-semibold' : 'bg-white text-[var(--warning)] font-semibold'}
-              >
-                No Context (Create New DB / Scratch)
-              </option>
-              {databases.length > 0 && (
-                <optgroup label="Available Databases">
-                  {databases.map((db) => (
-                    <option
-                      key={db}
-                      value={db}
-                      className={isDark ? 'bg-[var(--bg-panel)] text-white' : 'bg-white text-slate-900'}
-                    >
-                      {db} {isDbConnected && db === databaseProfile ? `(active ${connectedEngine?.toUpperCase() || 'DB'})` : ''}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
+    <form
+      onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
+      className="shrink-0 border-t border-[var(--border-hairline)] bg-[var(--bg-panel)] px-3.5 py-2.5"
+    >
+      {/* Context strip */}
+      <div className="flex items-center gap-2 mb-2 flex-wrap">
+        <Database className="w-3.5 h-3.5 text-[var(--text-recessive)] shrink-0" aria-hidden="true" />
 
-            {/* Live vs Scratch vs Offline Status Badge */}
-            <span
-              className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-mono tracking-tight border rounded-[var(--radius-pill)] select-none ${
-                databaseProfile === '__none__'
-                  ? isDark
-                    ? 'bg-[var(--warning-bg)] border-[var(--warning)]/40 text-[var(--warning)]'
-                    : 'bg-[var(--warning-bg)] border-[var(--warning)]/30 text-[var(--warning)]'
-                  : isDbConnected
-                  ? isDark
-                    ? 'bg-[var(--success-bg)] border-[var(--success)]/30 text-[var(--success)]'
-                    : 'bg-[var(--success-bg)] border-[var(--success)]/30 text-[var(--success)]'
-                  : isDark
-                  ? 'bg-[var(--warning-bg)] border-[var(--warning)]/25 text-[var(--warning)]'
-                  : 'bg-[var(--warning-bg)] border-[var(--warning)]/25 text-[var(--warning)]'
-              }`}
-              title={
-                databaseProfile === '__none__'
-                  ? 'No schema context attached. Perfect for creating new databases, tables, or architecture design.'
-                  : isDbConnected
-                  ? `Live socket attached to ${connectedEngine?.toUpperCase() || 'DBMS'} database '${databaseProfile}'`
-                  : 'No live database attached. Using offline schema context. Click "Connect DB" in top bar to connect.'
-              }
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${
-                databaseProfile === '__none__'
-                  ? 'bg-[var(--warning)]'
-                  : isDbConnected
-                  ? 'bg-[var(--success)]'
-                  : 'bg-[var(--warning)]'
-              }`} />
-              <span>
-                {databaseProfile === '__none__'
-                  ? (isDbConnected ? `${connectedEngine ? connectedEngine.toUpperCase() + ' · ' : ''}NEW DB / SCRATCH` : 'NEW DB / SCRATCH')
-                  : isDbConnected
-                  ? (connectedEngine ? connectedEngine.toUpperCase() : 'LIVE')
-                  : 'OFFLINE'}
-              </span>
-            </span>
-          </div>
-          <span className="text-[10px] text-[var(--text-muted)]">model:</span>
-          <select
-            value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value)}
-            className={`text-xs rounded-[var(--radius-control)] px-2 py-0.5 font-medium border cursor-pointer focus:outline-none focus:ring-1 focus:ring-[var(--border-focus)] ${
-              isDark
-                ? 'bg-[var(--bg-input)] border-[var(--border-main)] text-[var(--text-main)]'
-                : 'bg-white border-[var(--border-subtle)] text-[var(--text-main)]'
+        <select
+          value={databaseProfile || '__none__'}
+          onChange={(e) => handleDatabaseChange(e.target.value)}
+          className="h-[26px] px-2 rounded-[6px] border border-[var(--border-hairline)] bg-[var(--bg-canvas)] text-[var(--text-main)] font-mono text-[11.5px] cursor-pointer focus:outline-2 focus:outline-[var(--accent-primary)] focus:outline-offset-[-1px] max-w-[280px]"
+          title={
+            databaseProfile === '__none__'
+              ? 'No database context — scratchpad mode for creating new databases or tables.'
+              : isDbConnected
+              ? `Active database context: '${databaseProfile}' (${connectedEngine?.toUpperCase() || 'DBMS'} socket active)`
+              : `Schema context: '${databaseProfile}' (offline / sample schema — connect a live engine to introspect)`
+          }
+        >
+          <option value="__none__">(no context) new db / scratch</option>
+          {databases.map((db) => (
+            <option key={db} value={db}>
+              {db}{isDbConnected && db === databaseProfile ? ` (active ${connectedEngine?.toUpperCase() || 'DB'})` : ''}
+            </option>
+          ))}
+        </select>
+
+        <span
+          className={`inline-flex items-center gap-1 px-1.5 py-[1px] rounded-[4px] font-mono text-[10px] border ${
+            databaseProfile === '__none__'
+              ? 'border-[var(--warning)]/40 bg-[var(--warning-soft)] text-[var(--warning)]'
+              : isDbConnected
+              ? 'border-[var(--success)]/40 bg-[var(--success-soft)] text-[var(--success)]'
+              : 'border-[var(--warning)]/30 bg-[var(--warning-soft)] text-[var(--warning)]'
+          }`}
+          title={
+            databaseProfile === '__none__'
+              ? 'No schema context attached — ideal for architecture/DDL authoring.'
+              : isDbConnected
+              ? `Live socket attached to ${connectedEngine?.toUpperCase() || 'DBMS'}: '${databaseProfile}'`
+              : 'No live database attached — using offline schema context.'
+          }
+        >
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${
+              databaseProfile !== '__none__' && isDbConnected ? 'bg-[var(--success)]' : 'bg-[var(--warning)]'
             }`}
-            title={isOllamaOnline ? `Ollama local models active (${availableModels.length} scanned)` : 'Ollama not detected; using deterministic offline synthesizer'}
-          >
-            {availableModels.length > 0 ? (
-              availableModels.map((m) => {
-                let label = m;
-                if (m === 'A2.5C0.5') label = 'A2.5C0.5 (AdaLoRA 0.5B)';
-                else if (m === 'Q2.5C0.5') label = 'Q2.5C0.5 (QLoRA 0.5B)';
-                else if (m === 'A2.5C1.5') label = 'A2.5C1.5 (AdaLoRA 1.5B Consumer CPU)';
-                else if (m === 'Q2.5C1.5') label = 'Q2.5C1.5 (QLoRA 1.5B Consumer CPU)';
-                return (
-                  <option key={m} value={m} className="bg-[var(--bg-card)] text-[var(--text-main)]">
-                    {label}
-                  </option>
-                );
-              })
-            ) : (
-              <option value="offline_synthesizer" className="bg-[var(--bg-card)] text-[var(--text-main)]">
-                Offline Synthesizer
-              </option>
-            )}
-          </select>
-          {/* Think / NoThink Toggle Button */}
-          {modelSupportsThinking && (
-            <button
-              type="button"
-              onClick={() => setThinkingEnabled(thinkingEnabled ? false : true)}
-              className={`flex items-center gap-1 px-2 py-0.5 rounded-[var(--radius-pill)] text-[10px] font-semibold border transition-colors duration-200 cursor-pointer select-none ${
-                thinkingEnabled
-                  ? isDark
-                    ? 'bg-purple-500/15 border-purple-500/40 text-purple-400 hover:bg-purple-500/25'
-                    : 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100'
-                  : isDark
-                  ? 'bg-orange-500/15 border-orange-500/40 text-orange-400 hover:bg-orange-500/25'
-                  : 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100'
-              }`}
-              title={
-                thinkingEnabled
-                  ? `Thinking ON — ${selectedModel} will reason before answering (slower, uses more tokens). Click to disable.`
-                  : `Thinking OFF (NoThink) — ${selectedModel} will answer directly without reasoning (faster, less tokens). Click to enable.`
-              }
-            >
-              {thinkingEnabled ? (
-                <>
-                  <BrainCircuit aria-hidden="true" className="w-3 h-3" />
-                  <span>Think</span>
-                </>
-              ) : (
-                <>
-                  <Brain aria-hidden="true" className="w-3 h-3" />
-                  <span>NoThink</span>
-                </>
-              )}
-            </button>
+          />
+          {databaseProfile === '__none__'
+            ? 'SCRATCH'
+            : isDbConnected
+            ? (connectedEngine ? connectedEngine.toUpperCase() : 'LIVE')
+            : 'OFFLINE'}
+        </span>
+
+        <select
+          value={selectedModel}
+          onChange={(e) => setSelectedModel(e.target.value)}
+          className="h-[26px] px-2 rounded-[6px] border border-[var(--border-hairline)] bg-[var(--bg-canvas)] text-[var(--text-main)] font-mono text-[11.5px] cursor-pointer max-w-[260px] focus:outline-2 focus:outline-[var(--accent-primary)] focus:outline-offset-[-1px]"
+          title={isOllamaOnline ? `Local models active (${availableModels.length} discovered)` : 'Model backend not detected — deterministic synthesizer fallback'}
+        >
+          {availableModels.length > 0 ? (
+            availableModels.map((m) => {
+              let label = m;
+              if (m === 'A2.5C0.5') label = 'A2.5C0.5 (AdaLoRA 0.5B)';
+              else if (m === 'Q2.5C0.5') label = 'Q2.5C0.5 (QLoRA 0.5B)';
+              else if (m === 'A2.5C1.5') label = 'A2.5C1.5 (AdaLoRA 1.5B)';
+              else if (m === 'Q2.5C1.5') label = 'Q2.5C1.5 (QLoRA 1.5B)';
+              return <option key={m} value={m}>{label}</option>;
+            })
+          ) : (
+            <option value="offline_synthesizer">Offline Synthesizer</option>
           )}
-        </div>
-        <div className="flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
-          <span className="flex items-center gap-1">
-            <Eye aria-hidden="true" className="w-3 h-3 text-[var(--success)]" />
-            <span>Dry-Run / Preview Mode</span>
-          </span>
-        </div>
+        </select>
+
+        {modelSupportsThinking && (
+          <button
+            type="button"
+            onClick={() => setThinkingEnabled(thinkingEnabled ? false : true)}
+            className={`h-[26px] px-2 rounded-[6px] border font-mono text-[10.5px] font-semibold cursor-pointer transition-colors ${
+              thinkingEnabled
+                ? 'border-[var(--accent-primary)] bg-[var(--accent-soft)] text-[var(--accent-primary)]'
+                : 'border-[var(--border-hairline)] bg-[var(--bg-canvas)] text-[var(--text-recessive)] hover:text-[var(--text-heading)]'
+            }`}
+            title={
+              thinkingEnabled
+                ? `Thinking ON — ${selectedModel} reasons before answering. Click to disable.`
+                : `Thinking OFF (NoThink) — direct answers, fewer tokens. Click to enable.`
+            }
+          >
+            {thinkingEnabled ? 'THINK' : 'NOTHINK'}
+          </button>
+        )}
+
+        <div className="flex-1" />
+
+        <span className="hidden md:inline-flex items-center gap-1 font-mono text-[10.5px] text-[var(--text-recessive)]">
+          <Eye className="w-3 h-3 text-[var(--success)]" aria-hidden="true" />
+          dry-run preview
+        </span>
       </div>
 
-      <div className="relative">
+      {/* Composer box */}
+      <div className="flex items-end gap-2 bg-[var(--bg-canvas)] border border-[var(--border-hairline)] rounded-[6px] px-3 py-1.5 focus-within:border-[var(--accent-primary)] focus-within:outline focus-within:outline-1 focus-within:outline-[var(--accent-primary)] transition-colors">
         <textarea
           ref={textareaRef}
-          rows={3}
+          rows={1}
           value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
+          onChange={(e) => {
+            setInputText(e.target.value);
+            const el = e.target as HTMLTextAreaElement;
+            el.style.height = 'auto';
+            el.style.height = Math.min(el.scrollHeight, 180) + 'px';
+          }}
           onKeyDown={handleKeyDown}
-          placeholder="Ask a question in natural language... (e.g. 'Show me all active users and their total order amounts from last quarter')"
-          className={`w-full rounded-[var(--radius-control)] p-3.5 text-sm focus:outline-none focus:ring-2 border font-sans select-text transition-colors duration-200 resize-y min-h-[96px] max-h-[360px] leading-relaxed ${
-            isDark
-              ? 'bg-[var(--bg-input)] text-[var(--text-main)] placeholder-[var(--text-muted)] border-[var(--border-main)] focus:border-[var(--accent-primary)] focus:ring-[var(--accent-primary)]/20'
-              : 'bg-[var(--bg-input)] text-[var(--text-main)] placeholder-[var(--text-muted)] border-[var(--border-subtle)] focus:border-[var(--border-focus)] focus:ring-[var(--border-focus)]/10 shadow-xs'
-          }`}
+          placeholder="Ask a question in natural language...  (Shift+Enter for newline)"
+          className="flex-1 bg-transparent border-0 outline-none resize-none min-h-[26px] max-h-[180px] py-1 text-[13.5px] leading-[1.5] text-[var(--text-main)] placeholder-[var(--text-recessive)] font-sans select-text"
         />
-      </div>
 
-      <div className="flex items-center justify-between flex-wrap gap-2 pt-0.5">
-        <div className="flex items-center gap-2.5 text-[11px] text-[var(--text-muted)]">
-          {charCount > 0 && <span className="font-mono">{charCount} chars · {lineCount} line{lineCount > 1 ? 's' : ''}</span>}
-          <span className="hidden sm:inline font-mono text-[var(--text-muted)]">
-            <kbd className={`px-1.5 py-0.5 rounded-[var(--radius-control)] text-[10px] ${
-              isDark
-                ? 'bg-[var(--bg-card-header)] text-[var(--text-main)] border border-[var(--border-main)]'
-                : 'bg-[var(--bg-card-header)] text-[var(--text-main)] border border-[var(--border-subtle)]'
-            }`}>Enter</kbd> to execute, <kbd className={`px-1.5 py-0.5 rounded-[var(--radius-control)] text-[10px] ${
-              isDark
-                ? 'bg-[var(--bg-card-header)] text-[var(--text-main)] border border-[var(--border-main)]'
-                : 'bg-[var(--bg-card-header)] text-[var(--text-main)] border border-[var(--border-subtle)]'
-            }`}>Shift+Enter</kbd> for newline
+        <div className="flex items-center gap-2 shrink-0 pb-[1px]">
+          <span className="hidden lg:inline font-mono text-[10.5px] text-[var(--text-recessive)] whitespace-nowrap">
+            Enter ↵
           </span>
-        </div>
-        <div className="flex items-center gap-2 ml-auto">
           {inputText && (
-            <button onClick={() => setInputText('')} className="p-1.5 rounded-[var(--radius-control)] transition-colors duration-200 cursor-pointer flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--danger)] hover:bg-[var(--bg-hover)]" title="Clear input prompt">
-              <X aria-hidden="true" className="w-3.5 h-3.5" />
-              <span>Clear</span>
+            <button
+              type="button"
+              onClick={() => setInputText('')}
+              className="p-1 rounded-[4px] text-[var(--text-recessive)] hover:text-[var(--danger)] hover:bg-[var(--bg-hover)] cursor-pointer transition-colors"
+              title="Clear prompt"
+            >
+              <X className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
           )}
           <button
-            onClick={() => handleSubmit()}
+            type="submit"
             disabled={!inputText.trim() || isSubmitting}
-            className={`flex items-center gap-1.5 px-5 py-2.5 rounded-[var(--radius-pill)] text-xs font-semibold shadow-lg transition-colors duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
-              isDark
-                ? 'bg-[var(--btn-primary-bg)] hover:bg-[var(--btn-primary-hover)] text-[var(--btn-primary-text)]'
-                : 'bg-[var(--btn-primary-bg)] hover:bg-[var(--btn-primary-hover)] text-[var(--btn-primary-text)] shadow-black/10'
-            }`}
+            className="h-8 px-3.5 rounded-[6px] border border-[var(--accent-primary)] bg-[var(--accent-primary)] text-white text-[12.5px] font-semibold cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 inline-flex items-center gap-1.5 hover:brightness-110 transition-all whitespace-nowrap"
           >
             {isSubmitting ? (
               <>
                 <LoadingSpinner size="sm" aria-hidden="true" />
-                <span>Running Pipeline...</span>
+                <span>Running...</span>
               </>
             ) : (
               <>
-                <Send aria-hidden="true" className="w-3.5 h-3.5" />
-                <span>Generate & Execute</span>
+                <Send className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>Generate &amp; Execute</span>
               </>
             )}
           </button>
         </div>
       </div>
-    </div>
+
+      {charCount > 0 && (
+        <div className="mt-1 font-mono text-[10.5px] text-[var(--text-recessive)]">
+          {charCount} chars · {lineCount} line{lineCount !== 1 ? 's' : ''}
+        </div>
+      )}
+    </form>
   );
 };
