@@ -13,15 +13,14 @@ logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Ephemeral bearer-token auth (DA-04)
-# In production/Electron: set NL2SQL_API_TOKEN in the server process env.
-# In development: a fresh token is generated each run and logged to stdout.
+# In production/Electron/secured setups: set NL2SQL_API_TOKEN in the server environment.
+# In open local-development mode (default when unset): requests pass through without 401.
 # ---------------------------------------------------------------------------
-API_AUTH_TOKEN: str = os.environ.get("NL2SQL_API_TOKEN") or secrets.token_urlsafe(32)
-if not os.environ.get("NL2SQL_API_TOKEN"):
-    logger.warning(
-        "NL2SQL_API_TOKEN not set — ephemeral token generated. "
-        "Electron should inject this via env before spawning the server."
-    )
+API_AUTH_TOKEN: str | None = os.environ.get("NL2SQL_API_TOKEN") or None
+if API_AUTH_TOKEN:
+    logger.info("NL2SQL_API_TOKEN is active. Enforcing Bearer token authentication.")
+else:
+    logger.info("NL2SQL_API_TOKEN not set — running in open local-development mode.")
 
 # Paths that do not require auth (health probe, OpenAPI schema, WebSocket handshake)
 _AUTH_EXEMPT_PREFIXES = ("/", "/docs", "/openapi.json", "/redoc", "/ws")
@@ -50,7 +49,11 @@ async def enforce_local_bearer_token(request: Request, call_next):
     Prevents any local process or browser tab from hitting mutation endpoints without auth.
     """
     path = request.url.path
-    if request.method == "OPTIONS" or any(path == p or path.startswith(p + "/") for p in _AUTH_EXEMPT_PREFIXES):
+    if (
+        not API_AUTH_TOKEN
+        or request.method == "OPTIONS"
+        or any(path == p or path.startswith(p + "/") for p in _AUTH_EXEMPT_PREFIXES)
+    ):
         return await call_next(request)
 
     auth_header = request.headers.get("Authorization", "")

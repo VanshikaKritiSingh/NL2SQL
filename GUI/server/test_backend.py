@@ -3,7 +3,8 @@ import sys
 from fastapi.testclient import TestClient
 from main import app, API_AUTH_TOKEN
 
-client = TestClient(app, headers={"Authorization": f"Bearer {API_AUTH_TOKEN}"})
+headers = {"Authorization": f"Bearer {API_AUTH_TOKEN}"} if API_AUTH_TOKEN else {}
+client = TestClient(app, headers=headers)
 
 def testBackendApiEndpointsAndIntegrationLifecycle():
     print("Running NL2SQL Backend API test suite...")

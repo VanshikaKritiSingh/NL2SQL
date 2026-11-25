@@ -91,17 +91,21 @@ async def test_da03_install_deps_is_diagnostic_only():
     assert "missing_packages" in res2
 
 
-# DA-04: bearer token auth middleware rejects unauthorized requests
-def test_da04_auth_middleware_blocks_missing_token():
+# DA-04: bearer token auth middleware rejects unauthorized requests when token is configured
+def test_da04_auth_middleware_blocks_missing_token(monkeypatch):
     from fastapi.testclient import TestClient
-    from main import app, API_AUTH_TOKEN
+    import main
 
-    client = TestClient(app)
+    # Simulate active token in environment
+    token = "test-secret-token-12345"
+    monkeypatch.setattr(main, "API_AUTH_TOKEN", token)
+
+    client = TestClient(main.app)
 
     # Health and docs are exempt
     assert client.get("/").status_code == 200
 
-    # Protected endpoint without token returns 401
+    # Protected endpoint without token returns 401 when token is configured
     r = client.get("/api/schema/postgres")
     assert r.status_code == 401
 
@@ -110,8 +114,13 @@ def test_da04_auth_middleware_blocks_missing_token():
     assert r.status_code == 401
 
     # Protected endpoint with valid token does NOT return 401
-    r = client.get("/api/schema/postgres", headers={"Authorization": f"Bearer {API_AUTH_TOKEN}"})
+    r = client.get("/api/schema/postgres", headers={"Authorization": f"Bearer {token}"})
     assert r.status_code != 401
+
+    # When token is unset (open dev mode), requests pass through without 401
+    monkeypatch.setattr(main, "API_AUTH_TOKEN", None)
+    r_open = client.get("/api/schema/postgres")
+    assert r_open.status_code != 401
 
 
 # DA-07: approval router schema fingerprint detects changes
