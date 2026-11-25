@@ -16,86 +16,100 @@ export interface AccentColor {
   lightSecondary: string;
   lightHover: string;
   lightGlow: string;
+  softL?: string;
+  softD?: string;
 }
 
 export const ACCENT_PALETTES: AccentColor[] = [
   {
-    id: 'violet',
-    name: 'Violet',
-    hex: '#8b5cf6',
-    darkPrimary: '#c4b5fd',
-    darkSecondary: '#a78bfa',
-    darkHover: '#ddd6fe',
-    darkGlow: 'rgba(124, 58, 237, 0.35)',
-    lightPrimary: '#6d28d9',
-    lightSecondary: '#7c3aed',
-    lightHover: '#5b21b6',
-    lightGlow: 'rgba(109, 40, 217, 0.15)',
+    id: 'blue',
+    name: 'Blue',
+    hex: '#2F81F7',
+    darkPrimary: '#2F81F7',
+    darkSecondary: '#2F81F7',
+    darkHover: '#388BFD',
+    darkGlow: 'rgba(47, 129, 247, 0.25)',
+    lightPrimary: '#0969DA',
+    lightSecondary: '#0969DA',
+    lightHover: '#0860CA',
+    lightGlow: 'rgba(9, 105, 218, 0.15)',
+    softL: '#DDF4FF',
+    softD: 'rgba(47, 129, 247, 0.14)',
   },
   {
-    id: 'cyan',
-    name: 'Cyan',
-    hex: '#06b6d4',
-    darkPrimary: '#67e8f9',
-    darkSecondary: '#22d3ee',
-    darkHover: '#a5f3fc',
-    darkGlow: 'rgba(6, 182, 212, 0.35)',
-    lightPrimary: '#0e7490',
-    lightSecondary: '#0891b2',
-    lightHover: '#155e75',
-    lightGlow: 'rgba(14, 116, 144, 0.15)',
+    id: 'green',
+    name: 'Green',
+    hex: '#3FB950',
+    darkPrimary: '#3FB950',
+    darkSecondary: '#3FB950',
+    darkHover: '#56D364',
+    darkGlow: 'rgba(63, 185, 80, 0.25)',
+    lightPrimary: '#1A7F37',
+    lightSecondary: '#1A7F37',
+    lightHover: '#116329',
+    lightGlow: 'rgba(26, 127, 55, 0.15)',
+    softL: '#DAFBE1',
+    softD: 'rgba(63, 185, 80, 0.14)',
   },
   {
-    id: 'emerald',
-    name: 'Emerald',
-    hex: '#10b981',
-    darkPrimary: '#6ee7b7',
-    darkSecondary: '#34d399',
-    darkHover: '#a7f3d0',
-    darkGlow: 'rgba(16, 185, 129, 0.35)',
-    lightPrimary: '#047857',
-    lightSecondary: '#059669',
-    lightHover: '#065f46',
-    lightGlow: 'rgba(4, 120, 87, 0.15)',
+    id: 'terracotta',
+    name: 'Terracotta',
+    hex: '#E07A5F',
+    darkPrimary: '#E07A5F',
+    darkSecondary: '#E07A5F',
+    darkHover: '#F48C71',
+    darkGlow: 'rgba(224, 122, 95, 0.25)',
+    lightPrimary: '#B84D2B',
+    lightSecondary: '#B84D2B',
+    lightHover: '#983E20',
+    lightGlow: 'rgba(184, 77, 43, 0.15)',
+    softL: '#FDECE6',
+    softD: 'rgba(224, 122, 95, 0.14)',
+  },
+  {
+    id: 'indigo',
+    name: 'Indigo',
+    hex: '#818CF8',
+    darkPrimary: '#818CF8',
+    darkSecondary: '#818CF8',
+    darkHover: '#9FA8FF',
+    darkGlow: 'rgba(129, 140, 248, 0.25)',
+    lightPrimary: '#4F46E5',
+    lightSecondary: '#4F46E5',
+    lightHover: '#4338CA',
+    lightGlow: 'rgba(79, 70, 229, 0.15)',
+    softL: '#EEF2FF',
+    softD: 'rgba(129, 140, 248, 0.14)',
   },
   {
     id: 'amber',
     name: 'Amber',
-    hex: '#f59e0b',
-    darkPrimary: '#fcd34d',
-    darkSecondary: '#fbbf24',
-    darkHover: '#fde68a',
-    darkGlow: 'rgba(245, 158, 11, 0.35)',
-    lightPrimary: '#b45309',
-    lightSecondary: '#d97706',
-    lightHover: '#92400e',
-    lightGlow: 'rgba(180, 83, 9, 0.15)',
+    hex: '#D29922',
+    darkPrimary: '#D29922',
+    darkSecondary: '#D29922',
+    darkHover: '#E3B341',
+    darkGlow: 'rgba(210, 153, 34, 0.25)',
+    lightPrimary: '#9A6700',
+    lightSecondary: '#9A6700',
+    lightHover: '#7D5300',
+    lightGlow: 'rgba(154, 103, 0, 0.15)',
+    softL: '#FFF8C5',
+    softD: 'rgba(210, 153, 34, 0.14)',
   },
   {
-    id: 'rose',
-    name: 'Rose',
-    hex: '#f43f5e',
-    darkPrimary: '#fda4af',
-    darkSecondary: '#fb7185',
-    darkHover: '#fecdd3',
-    darkGlow: 'rgba(244, 63, 94, 0.35)',
-    lightPrimary: '#be123c',
-    lightSecondary: '#e11d48',
-    lightHover: '#9f1239',
-    lightGlow: 'rgba(190, 18, 60, 0.15)',
-  },
-  {
-    id: 'silver',
-    name: 'Silver',
-    hex: '#94a3b8',
-    darkPrimary: '#f1f5f9',
-    darkSecondary: '#cbd5e1',
-    darkHover: '#ffffff',
-    darkGlow: 'rgba(148, 163, 184, 0.35)',
-    lightPrimary: '#1e293b',
-    lightSecondary: '#334155',
-    lightHover: '#0f172a',
-    lightGlow: 'rgba(30, 41, 59, 0.15)',
+    id: 'slate',
+    name: 'Slate',
+    hex: '#8B949E',
+    darkPrimary: '#8B949E',
+    darkSecondary: '#8B949E',
+    darkHover: '#A1AAB4',
+    darkGlow: 'rgba(139, 148, 158, 0.25)',
+    lightPrimary: '#24292F',
+    lightSecondary: '#24292F',
+    lightHover: '#1B1F24',
+    lightGlow: 'rgba(36, 41, 47, 0.15)',
+    softL: '#EAEEF2',
+    softD: 'rgba(139, 148, 158, 0.16)',
   },
 ];
 
@@ -149,26 +163,25 @@ const getStoredAccent = (): string => {
     const saved = localStorage.getItem('nl2sql_accent');
     if (saved && ACCENT_PALETTES.some((p) => p.id === saved)) return saved;
   }
-  return 'violet';
+  return 'blue';
 };
 
 export const applyAccentTokensToDocument = (accentId: string, currentTheme: AppTheme) => {
   if (typeof document === 'undefined') return;
   const palette = ACCENT_PALETTES.find((p) => p.id === accentId) || ACCENT_PALETTES[0];
   const root = document.documentElement;
-  if (currentTheme === 'dark') {
-    root.style.setProperty('--accent-primary', palette.darkPrimary);
-    root.style.setProperty('--accent-secondary', palette.darkSecondary);
-    root.style.setProperty('--accent-hover', palette.darkHover);
-    root.style.setProperty('--accent-violet-glow', palette.darkGlow);
-    root.style.setProperty('--border-focus', palette.darkPrimary);
-  } else {
-    root.style.setProperty('--accent-primary', palette.lightPrimary);
-    root.style.setProperty('--accent-secondary', palette.lightSecondary);
-    root.style.setProperty('--accent-hover', palette.lightHover);
-    root.style.setProperty('--accent-violet-glow', palette.lightGlow);
-    root.style.setProperty('--border-focus', palette.lightPrimary);
-  }
+  const isDark = currentTheme === 'dark';
+  const primary = isDark ? palette.darkPrimary : palette.lightPrimary;
+  const soft = isDark ? (palette.softD || 'rgba(47, 129, 247, 0.14)') : (palette.softL || '#DDF4FF');
+
+  root.style.setProperty('--accent', primary);
+  root.style.setProperty('--accent-primary', primary);
+  root.style.setProperty('--accent-secondary', primary);
+  root.style.setProperty('--accent-soft', soft);
+  root.style.setProperty('--accent-hover', isDark ? palette.darkHover : palette.lightHover);
+  root.style.setProperty('--accent-violet-glow', palette.darkGlow);
+  root.style.setProperty('--border-focus', primary);
+  root.style.setProperty('--btn-primary-bg', primary);
 };
 
 export const useAppStore = create<AppState>((set, get) => ({

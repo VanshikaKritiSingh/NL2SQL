@@ -45,6 +45,15 @@ export default function App() {
     }
   }, [theme, accentColor]);
 
+  const approvalPayload = useQueryStore((s) => s.approvalPayload);
+
+  // If there is no approval payload pending, auto-switch to Query Studio
+  useEffect(() => {
+    if (!approvalPayload && currentView === 'approval') {
+      setCurrentView('query');
+    }
+  }, [approvalPayload, currentView, setCurrentView]);
+
   // Bind desktop native application menu actions (File / View / Help)
   useEffect(() => {
     if (typeof window !== 'undefined' && window.electronAPI?.onMenuAction) {

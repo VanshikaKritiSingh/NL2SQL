@@ -265,45 +265,6 @@ export const NLQueryInput: React.FC = () => {
             : 'OFFLINE'}
         </span>
 
-        <select
-          value={selectedModel}
-          onChange={(e) => setSelectedModel(e.target.value)}
-          className="h-[26px] px-2 rounded-[6px] border border-[var(--border-hairline)] bg-[var(--bg-canvas)] text-[var(--text-main)] font-mono text-[11.5px] cursor-pointer max-w-[260px] focus:outline-2 focus:outline-[var(--accent-primary)] focus:outline-offset-[-1px]"
-          title={isOllamaOnline ? `Local models active (${availableModels.length} discovered)` : 'Model backend not detected — deterministic synthesizer fallback'}
-        >
-          {availableModels.length > 0 ? (
-            availableModels.map((m) => {
-              let label = m;
-              if (m === 'A2.5C0.5') label = 'A2.5C0.5 (AdaLoRA 0.5B)';
-              else if (m === 'Q2.5C0.5') label = 'Q2.5C0.5 (QLoRA 0.5B)';
-              else if (m === 'A2.5C1.5') label = 'A2.5C1.5 (AdaLoRA 1.5B)';
-              else if (m === 'Q2.5C1.5') label = 'Q2.5C1.5 (QLoRA 1.5B)';
-              return <option key={m} value={m}>{label}</option>;
-            })
-          ) : (
-            <option value="offline_synthesizer">Offline Synthesizer</option>
-          )}
-        </select>
-
-        {modelSupportsThinking && (
-          <button
-            type="button"
-            onClick={() => setThinkingEnabled(thinkingEnabled ? false : true)}
-            className={`h-[26px] px-2 rounded-[6px] border font-mono text-[10.5px] font-semibold cursor-pointer transition-colors ${
-              thinkingEnabled
-                ? 'border-[var(--accent-primary)] bg-[var(--accent-soft)] text-[var(--accent-primary)]'
-                : 'border-[var(--border-hairline)] bg-[var(--bg-canvas)] text-[var(--text-recessive)] hover:text-[var(--text-heading)]'
-            }`}
-            title={
-              thinkingEnabled
-                ? `Thinking ON — ${selectedModel} reasons before answering. Click to disable.`
-                : `Thinking OFF (NoThink) — direct answers, fewer tokens. Click to enable.`
-            }
-          >
-            {thinkingEnabled ? 'THINK' : 'NOTHINK'}
-          </button>
-        )}
-
         <div className="flex-1" />
 
         <span className="hidden md:inline-flex items-center gap-1 font-mono text-[10.5px] text-[var(--text-recessive)]">

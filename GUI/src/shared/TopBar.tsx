@@ -184,38 +184,34 @@ export const TopBar: React.FC = () => {
   return (
     <>
       <header className="h-12 shrink-0 flex items-stretch border-b border-[var(--border-hairline)] bg-[var(--bg-panel)] relative z-20">
-        {/* ---- Left: brand + workspace tabs ---- */}
+        {/* ---- Left: brand (no logo icon) + conditional approval tab ---- */}
         <div className="flex items-stretch min-w-0">
-          <div className="flex items-center gap-2 px-3.5 pr-3 border-r border-[var(--border-hairline)] shrink-0">
-            <div
-              className="w-6 h-6 rounded-[6px] shrink-0 flex items-center justify-center bg-[var(--accent-primary)] text-white"
-              title="NL2SQL Studio"
-            >
-              <Database className="w-3.5 h-3.5" aria-hidden="true" />
-            </div>
-            <span className="font-bold text-[14px] tracking-[-0.015em] text-[var(--text-heading)] whitespace-nowrap">
-              NL2SQL
-            </span>
+          <div className="flex items-center px-3.5 pr-3.5 border-r border-[var(--border-hairline)] shrink-0 font-bold text-[14.5px] tracking-[-0.015em] text-[var(--text-heading)] select-none">
+            NL2SQL
           </div>
 
-          <nav aria-label="Workspace Views" className="flex items-stretch">
-            <button onClick={() => setCurrentView('query')} className={tabCls(currentView === 'query')} title="Query Intake Studio">
-              <Terminal className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Query Studio</span>
-            </button>
+          {Boolean(approvalPayload) && (
+            <nav aria-label="Workspace Views" className="flex items-stretch pl-1">
+              <button
+                onClick={() => setCurrentView('query')}
+                className={tabCls(currentView === 'query')}
+                title="Query Intake Studio"
+              >
+                <Terminal className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>Query Studio</span>
+              </button>
 
-            <button
-              onClick={() => setCurrentView('approval')}
-              className={tabCls(currentView === 'approval')}
-              title="Review and approve pending database mutations"
-            >
-              <ShieldAlert className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Approval Gate</span>
-              {Boolean(approvalPayload) && (
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--danger)] shrink-0" aria-hidden="true" />
-              )}
-            </button>
-          </nav>
+              <button
+                onClick={() => setCurrentView('approval')}
+                className={tabCls(currentView === 'approval')}
+                title="Review and approve pending database mutations"
+              >
+                <ShieldAlert className="w-3.5 h-3.5 text-[var(--danger)]" aria-hidden="true" />
+                <span className="text-[var(--danger)]">Approval Gate</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--danger)] shrink-0 animate-pulse" aria-hidden="true" />
+              </button>
+            </nav>
+          )}
         </div>
 
         {/* ---- Middle: DB status pill + model selector ---- */}
@@ -406,7 +402,7 @@ export const TopBar: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <span className="text-[11.5px] font-medium text-[var(--text-body)]">Accent Color</span>
                       <span className="text-[10px] font-mono font-bold text-[var(--accent-primary)] uppercase">
-                        {ACCENT_PALETTES.find((p) => p.id === accentColor)?.name || 'Violet'}
+                        {ACCENT_PALETTES.find((p) => p.id === accentColor)?.name || 'Blue'}
                       </span>
                     </div>
                     <div className="grid grid-cols-6 gap-1.5">

@@ -10,7 +10,6 @@ import { useQueryStore } from '../../store/useQueryStore';
 import { useAppStore } from '../../store/useAppStore';
 import { getLiveSchema } from '../../api/schemaApi';
 import { RiskBadge } from '../../shared/RiskBadge';
-import { MOCK_UPDATE_APPROVAL } from '../../mock/mockData';
 import type { SchemaInfo } from '../../types/schema';
 
 export const ApprovalGatePage: React.FC = () => {
@@ -27,15 +26,19 @@ export const ApprovalGatePage: React.FC = () => {
 
   useEffect(() => {
     if (!approvalPayload) {
-      setApprovalPayload(MOCK_UPDATE_APPROVAL);
+      setCurrentView('query');
     }
-  }, [approvalPayload, setApprovalPayload]);
+  }, [approvalPayload, setCurrentView]);
 
   useEffect(() => {
     getLiveSchema(userId, targetDialect).then(setSchema).catch(() => {});
   }, [userId, targetDialect]);
 
-  const activePayload = approvalPayload || MOCK_UPDATE_APPROVAL;
+  if (!approvalPayload) {
+    return null;
+  }
+
+  const activePayload = approvalPayload;
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden transition-colors duration-300 bg-[var(--bg-app)] text-[var(--text-body)]">
